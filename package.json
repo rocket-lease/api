@@ -19,9 +19,12 @@
         "start:prod": "node dist/main",
         "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
         "test": "jest",
+        "test:unit": "jest --config ./test/jest-unit.json",
         "test:watch": "jest --watch",
         "test:cov": "jest --coverage",
         "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
+        "test:unit": "jest --config ./test/jest-unit.json",
+        "test:integration": "jest test/infrastructure",
         "test:e2e": "jest --config ./test/jest-e2e.json",
         "test:cucumber": "cucumber-js"
     },
@@ -65,7 +68,7 @@
             "json",
             "ts"
         ],
-        "rootDir": "src",
+        "rootDir": ".",
         "testRegex": ".*\\.spec\\.ts$",
         "transform": {
             "^.+\\.(t|j)s$": "ts-jest"
