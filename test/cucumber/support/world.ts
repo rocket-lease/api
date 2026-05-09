@@ -3,18 +3,26 @@ import { INestApplication } from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
 import { AppModule } from "@/app.module";
 
+interface GlobalContext {
+    create_vehicle_dto?: any;
+    create_vehicle_response?: any;
+    last_user_id?: string;
+    response?: any;
+}
+
 export interface MyWorld extends World {
     app: INestApplication;
-    response: any;
+    world: GlobalContext;
     initNest(): Promise<void>;
 };
 
 class CustomWorld extends World implements MyWorld {
     app: INestApplication;
-    response: any;
+    world: any;
     
     constructor(options: IWorldOptions) {
-        super(options)
+        super(options);
+        this.world = {};
     }
 
     async initNest() {
