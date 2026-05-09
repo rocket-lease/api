@@ -50,7 +50,7 @@ Sprint allocation per module: `<org>/infra/playbook/DECISIONS.md` → "Sprint al
 
 ## Auth
 
-- Supabase issues the JWT (mobile signs in via Supabase Auth). NestJS verifies it with the Supabase JWT secret using the `jose` library.
+- Supabase issues the JWT (web signs in via Supabase Auth). NestJS verifies it with the Supabase JWT secret using the `jose` library.
 - `AuthGuard` extracts the user from JWT claims. `@CurrentUser()` decorator exposes it to controllers.
 - RLS policies in migrations are defense-in-depth. The api is the only client, but RLS catches bugs that would otherwise leak data across users.
 
