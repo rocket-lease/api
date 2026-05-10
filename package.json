@@ -23,7 +23,6 @@
         "test:watch": "jest --watch",
         "test:cov": "jest --coverage",
         "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-        "test:unit": "jest --config ./test/jest-unit.json",
         "test:integration": "jest test/infrastructure",
         "test:e2e": "jest --config ./test/jest-e2e.json",
         "test:cucumber": "cucumber-js"
@@ -33,7 +32,8 @@
         "@nestjs/core": "^11.0.1",
         "@nestjs/platform-express": "^11.0.1",
         "reflect-metadata": "^0.2.2",
-        "rxjs": "^7.8.1"
+        "rxjs": "^7.8.1",
+        "zod": "^4.4.3"
     },
     "devDependencies": {
         "@cucumber/cucumber": "^12.8.2",
