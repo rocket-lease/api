@@ -1,4 +1,4 @@
-import { Vehicle } from '@/domain/vehicle.entity';
+import { Vehicle } from '@/domain/entities/vehicle.entity';
 
 describe('Vehicle Entity', () => {
   it('should throw an error if plate is empty', () => {

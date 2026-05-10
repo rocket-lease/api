@@ -1,6 +1,6 @@
 // TODO: deberia chequear que sea un response DTO
-import { Vehicle } from "@/domain/vehicle.entity";
-import { VehicleRepository } from "@/domain/vehicle.repository";
+import { Vehicle } from "@/domain/entities/vehicle.entity";
+import { VehicleRepository } from "@/domain/repositories/vehicle.repository";
 import { VehicleService } from "@/application/vehicle.service";
 
 describe('VehicleService', () => {
@@ -10,6 +10,7 @@ describe('VehicleService', () => {
   beforeEach(() => {
     repositoryMock = {
       save: jest.fn(),
+      fetchAll: jest.fn(),
       findByPlate: jest.fn(),
     };
 
@@ -27,7 +28,7 @@ describe('VehicleService', () => {
         basePrice: 10,
         description: null,
     }
-    await service.publish_vehicle(dto);
+    await service.createVehicle(dto);
     expect(repositoryMock.save).toHaveBeenCalledWith(expect.any(Vehicle));
   })
 });

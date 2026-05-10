@@ -17,6 +17,9 @@ importers:
       '@nestjs/platform-express':
         specifier: ^11.0.1
         version: 11.1.19(@nestjs/common@11.1.19(class-transformer@0.5.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.19)
+      '@rocket-lease/contracts':
+        specifier: ^0.1.0
+        version: 0.1.0
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -24,8 +27,13 @@ importers:
         specifier: ^7.8.1
         version: 7.8.2
       zod:
+<<<<<<< HEAD
         specifier: ^4.4.3
         version: 4.4.3
+=======
+        specifier: ^3.25.76
+        version: 3.25.76
+>>>>>>> 21368be2632f82fec5a1b7784fa7e17d6b58617d
     devDependencies:
       '@cucumber/cucumber':
         specifier: ^12.8.2
@@ -793,6 +801,9 @@ packages:
   '@pkgr/core@0.2.9':
     resolution: {integrity: sha512-QNqXyfVS2wm9hweSYD2O7F0G06uurj9kZ96TRQE5Y9hU7+tgdZwIkbAKc5Ocy1HxEY2kuDQa6cQ1WRs/O5LFKA==}
     engines: {node: ^12.20.0 || ^14.18.0 || >=16.0.0}
+
+  '@rocket-lease/contracts@0.1.0':
+    resolution: {integrity: sha512-jyPC/xg9thY2rfx7OIice1bPZlx+FKnxdW8v1OlxfY0X9m7iCMrbs4QQpMCNDPap2Yfj3N7wI8kbPQ4TM9cbzA==}
 
   '@sinclair/typebox@0.34.49':
     resolution: {integrity: sha512-brySQQs7Jtn0joV8Xh9ZV/hZb9Ozb0pmazDIASBkYKCjXrXU3mpcFahmK/z4YDhGkQvP9mWJbVyahdtU5wQA+A==}
@@ -3286,8 +3297,13 @@ packages:
   yup@1.7.1:
     resolution: {integrity: sha512-GKHFX2nXul2/4Dtfxhozv701jLQHdf6J34YDh2cEkpqoo8le5Mg6/LrdseVLrFarmFygZTlfIhHx/QKfb/QWXw==}
 
+<<<<<<< HEAD
   zod@4.4.3:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+=======
+  zod@3.25.76:
+    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+>>>>>>> 21368be2632f82fec5a1b7784fa7e17d6b58617d
 
 snapshots:
 
@@ -4201,6 +4217,10 @@ snapshots:
     optional: true
 
   '@pkgr/core@0.2.9': {}
+
+  '@rocket-lease/contracts@0.1.0':
+    dependencies:
+      zod: 3.25.76
 
   '@sinclair/typebox@0.34.49': {}
 
@@ -6927,4 +6947,8 @@ snapshots:
       toposort: 2.0.2
       type-fest: 2.19.0
 
+<<<<<<< HEAD
   zod@4.4.3: {}
+=======
+  zod@3.25.76: {}
+>>>>>>> 21368be2632f82fec5a1b7784fa7e17d6b58617d

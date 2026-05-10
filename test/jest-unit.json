@@ -2,11 +2,20 @@
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": "..",
   "testEnvironment": "node",
+<<<<<<< HEAD
   "testRegex": "test/unit/(domain|application)/.*\\.test\\.ts$",
+=======
+  "testRegex": "test/unit/.*\\.test\\.ts$",
+>>>>>>> 21368be2632f82fec5a1b7784fa7e17d6b58617d
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
   "moduleNameMapper": {
+<<<<<<< HEAD
     "^@/(.*)$": "<rootDir>/src/$1"
+=======
+    "^@/(.*)$": "<rootDir>/src/$1",
+    "^@test/(.*)$": "<rootDir>/test/$1"
+>>>>>>> 21368be2632f82fec5a1b7784fa7e17d6b58617d
   }
 }
