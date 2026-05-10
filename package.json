@@ -34,11 +34,7 @@
         "@rocket-lease/contracts": "^0.1.0",
         "reflect-metadata": "^0.2.2",
         "rxjs": "^7.8.1",
-<<<<<<< HEAD
-        "zod": "^4.4.3"
-=======
         "zod": "^3.25.76"
->>>>>>> 21368be2632f82fec5a1b7784fa7e17d6b58617d
     },
     "devDependencies": {
         "@cucumber/cucumber": "^12.8.2",
