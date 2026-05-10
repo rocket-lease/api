@@ -18,8 +18,8 @@ describe('VehicleService', () => {
   });
 
   it('should create a vehicle', async () => {
-    //TODO: Usar dto
     const dto = {
+        id: 'id',
         plate: 'plate',
         brand: 'brand',
         model: 'model',
@@ -28,7 +28,8 @@ describe('VehicleService', () => {
         basePrice: 10,
         description: null,
     }
-    await service.createVehicle(dto);
+    repositoryMock.save.mockReturnValue(dto);
+    const createVehicleResponse = await service.createVehicle(dto);
     expect(repositoryMock.save).toHaveBeenCalledWith(expect.any(Vehicle));
   })
 });
