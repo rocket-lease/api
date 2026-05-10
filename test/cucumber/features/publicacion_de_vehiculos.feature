@@ -27,7 +27,7 @@ Característica: Publicacion de vehículos
 
     Escenario: Publicacion de un vehiculo con precio negativo
         Dado un vehículo con los siguientes datos:
-            | patente    | marca      | modelo  | color   | kilometraje | tipo de transmisión | precio base |  descripción                   |
+            | patente    | marca      | modelo  | color   | kilometraje | tipo de transmisión | precio base  |  descripción                   |
             | AE987CC    | Ford       | Ranger  | Gris    | 45000       | Manual              | -38000000    | Pick-up lista para trabajar    |
         Cuando envio el formulario de creacion de vehiculo
         Entonces el sistema muestra un error de validación
