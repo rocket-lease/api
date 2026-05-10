@@ -1,16 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { Vehicle } from '../../domain/entities/vehicle.entity';
-import { VehicleRepository } from '../../domain/repositories/vehicle.repository';
+import { Vehicle } from '@/domain/entities/vehicle.entity';
+import { VehicleRepository } from '@/domain/repositories/vehicle.repository';
 
 @Injectable()
 export class InMemoryVehicleRepository implements VehicleRepository {
-    // La clave del Map ahora es directamente la patente (string)
     private readonly storage: Map<string, any> = new Map();
 
     async save(vehicle: Vehicle): Promise<void> {
         const { ...data } = vehicle as any;
 
-        this.storage.set(data.plate, {
+        this.storage.set(data.id, {
+            id: data.id,
             plate: data.plate,
             brand: data.brand,
             model: data.model,
@@ -22,33 +22,28 @@ export class InMemoryVehicleRepository implements VehicleRepository {
     }
 
     async findByPlate(plate: string): Promise<Vehicle | null> {
-        const data = this.storage.get(plate);
-
+        const data = Array.from(this.storage.values()).find(
+            (v) => v.plate === plate
+        );
         if (!data) return null;
+        return this.reconstitute(data);
+    }
 
+    async fetchAll(): Promise<Array<Vehicle>> {
+        return Array.from(this.storage.values()).map(this.reconstitute);
+    }
+
+    private reconstitute(data: any): Vehicle {
         return new Vehicle(
+            data.id,
             data.plate,
             data.brand,
             data.model,
             data.color,
             data.mileage,
             data.basePrice,
-            data.description,
+            data.description
         );
-    }
-
-    async fetchAll(): Promise<Array<Vehicle>> {
-        return Array.from(this.storage.values()).map((data) => (
-            new Vehicle(
-                data.plate,
-                data.brand,
-                data.model,
-                data.color,
-                data.mileage,
-                data.basePrice,
-                data.description,
-            )
-        ));
     }
 
     public async clean(): Promise<void> {

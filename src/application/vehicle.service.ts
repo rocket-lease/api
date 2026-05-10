@@ -14,6 +14,7 @@ export class VehicleService {
   // TODO: Usar DTO
   public async createVehicle(data: any): Promise<void> {
       const vehicle = new Vehicle(
+          undefined,
           data.plate,
           data.brand,
           data.model,

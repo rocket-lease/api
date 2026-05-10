@@ -24,6 +24,7 @@ Given('el vehiculo ya esta publicado', async function (this: MyWorld) {
     const create_vehicle_response = await request(this.app.getHttpServer())
         .post("/vehicle")
         .send(this.world.create_vehicle_dto);
+    console.log("Create vehicle response: ", create_vehicle_response.body);
     expect(create_vehicle_response.status).toBe(201);
 });
 

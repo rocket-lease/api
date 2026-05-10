@@ -1,7 +1,9 @@
 import { z } from 'zod';
+import { randomUUID } from 'node:crypto';
 import { InvalidEntityDataException } from '../exceptions/domain.exception';
 
 const vehicleSchema = z.object({
+    id: z.string().uuid("Invalid ID format"),
     plate: z.string().trim().min(1, "Plate cannot be empty"),
     brand: z.string().min(1, "Brand is required"),
     model: z.string().min(1, "Model is required"),
@@ -13,19 +15,21 @@ const vehicleSchema = z.object({
 
 export class Vehicle {
     constructor(
-        private readonly plate: string,
-        private readonly brand: string,
-        private readonly model: string,
-        private color: string,
-        private mileage: number,
-        private basePrice: number,
-        private description: string,
+        public readonly id: string = randomUUID(),
+        public readonly plate: string,
+        public readonly brand: string,
+        public readonly model: string,
+        public readonly color: string,
+        public readonly mileage: number,
+        public readonly basePrice: number,
+        public readonly description: string | null,
     ) {
         this.validate();
     }
 
     private validate(): void {
         const result = vehicleSchema.safeParse({
+            id: this.id, 
             plate: this.plate,
             brand: this.brand,
             model: this.model,

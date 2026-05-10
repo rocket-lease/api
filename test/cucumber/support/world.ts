@@ -1,8 +1,8 @@
 import { IWorldOptions, setWorldConstructor, World } from "@cucumber/cucumber";
 import { INestApplication } from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
-import { AppModule } from "@/app.module";
-import { DomainExceptionFilter } from "@/infraestructure/filters/domain-exception.filter";
+import { AppModule } from "@/infrastructure/modules/app.module";
+import { DomainExceptionFilter } from "@/infrastructure/filters/domain-exception.filter";
 
 interface GlobalContext {
     create_vehicle_dto?: any;
