@@ -1,6 +1,7 @@
-import { Vehicle } from '@/domain/vehicle.entity';
-import type { VehicleRepository } from '@/domain/vehicle.repository';
-import { VEHICLE_REPOSITORY } from '@/domain/vehicle.repository';
+import { Vehicle } from '@/domain/entities/vehicle.entity';
+import { EntityAlreadyExistsException } from '@/domain/exceptions/domain.exception';
+import type { VehicleRepository } from '@/domain/repositories/vehicle.repository';
+import { VEHICLE_REPOSITORY } from '@/domain/repositories/vehicle.repository';
 import { Inject, Injectable } from '@nestjs/common';
 
 @Injectable()
@@ -11,7 +12,7 @@ export class VehicleService {
   ) {}
 
   // TODO: Usar DTO
-  public async publish_vehicle(data: any): Promise<void> {
+  public async createVehicle(data: any): Promise<void> {
       const vehicle = new Vehicle(
           data.plate,
           data.brand,
@@ -21,10 +22,13 @@ export class VehicleService {
           data.basePrice,
           data.description,
       );
-
     const exists = await this.vehicleRepository.findByPlate(vehicle.getPlate());
-    if (exists) throw new Error('El vehículo ya está registrado');
-
+    if (exists) throw new EntityAlreadyExistsException('vehicle', vehicle.getPlate());
     await this.vehicleRepository.save(vehicle);
+  }
+
+  // TODO: Usar DTO
+  public async getAll(): Promise<Array<any>> {
+      return await this.vehicleRepository.fetchAll();
   }
 }
