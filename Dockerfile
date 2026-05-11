@@ -7,7 +7,7 @@ ENV CI=true
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml .npmrc nest-cli.json tsconfig.json tsconfig.build.json ./
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 COPY src/ ./src/
 COPY prisma/ ./prisma/
