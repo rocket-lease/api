@@ -19,13 +19,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.0.8
-
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.8
 
       - name: Start test database
         run: docker compose -f docker-compose.test.yml up -d --wait
