@@ -1,7 +1,7 @@
 import { IWorldOptions, setWorldConstructor, World } from '@cucumber/cucumber';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { AppModule } from '@/app.module';
+import { AppModule } from '@/infrastructure/modules/app.module';
 import { DomainExceptionFilter } from '@/infrastructure/filters/domain-exception.filter';
 
 interface GlobalContext {

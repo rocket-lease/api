@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { AppModule } from './infrastructure/modules/app.module';
 import { DomainExceptionFilter } from './infrastructure/filters/domain-exception.filter';
 
 async function bootstrap() {
