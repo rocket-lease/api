@@ -1,8 +1,9 @@
 import { Module } from '@nestjs/common';
 import { AuthService } from '@/application/auth.service';
 import { AuthController } from '@/infrastructure/controllers/auth.controller';
-import { InMemoryUserRepository } from '@/infrastructure/repository/in_memory_user.repository';
-import { StubAuthProvider } from '@/infrastructure/providers/stub.auth.provider';
+import { PrismaService } from '@/infrastructure/database/prisma.service';
+import { PostgresUserRepository } from '@/infrastructure/repository/postgres.user.repository';
+import { SupabaseAuthProvider } from '@/infrastructure/providers/supabase.auth.provider';
 import { USER_REPOSITORY } from '@/domain/repositories/user.repository';
 import { AUTH_PROVIDER } from '@/domain/providers/auth.provider';
 
@@ -10,8 +11,9 @@ import { AUTH_PROVIDER } from '@/domain/providers/auth.provider';
   controllers: [AuthController],
   providers: [
     AuthService,
-    { provide: USER_REPOSITORY, useClass: InMemoryUserRepository },
-    { provide: AUTH_PROVIDER, useClass: StubAuthProvider },
+    PrismaService,
+    { provide: USER_REPOSITORY, useClass: PostgresUserRepository },
+    { provide: AUTH_PROVIDER, useClass: SupabaseAuthProvider },
   ],
 })
 export class AuthModule {}

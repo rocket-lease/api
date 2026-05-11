@@ -15,4 +15,15 @@ export class StubAuthProvider implements AuthProvider {
       userId: `stub-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     };
   }
+
+  public async signIn(
+    _email: string,
+    _password: string,
+  ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
+    return {
+      access_token: 'stub-access-token',
+      refresh_token: 'stub-refresh-token',
+      expires_in: 3600,
+    };
+  }
 }

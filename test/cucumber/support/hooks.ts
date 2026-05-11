@@ -3,6 +3,7 @@ import { MyWorld } from './world';
 
 Before(async function (this: MyWorld) {
   await this.initNest();
+  await this.cleanDb();
 });
 
 After(async function (this: MyWorld) {

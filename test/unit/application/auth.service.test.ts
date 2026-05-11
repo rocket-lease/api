@@ -24,6 +24,11 @@ describe('AuthService', () => {
     };
     authProviderMock = {
       signUp: jest.fn().mockResolvedValue({ userId: 'stub-id' }),
+      signIn: jest.fn().mockResolvedValue({
+        access_token: 'at',
+        refresh_token: 'rt',
+        expires_in: 3600,
+      }),
     };
     service = new AuthService(userRepoMock, authProviderMock);
   });

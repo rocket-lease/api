@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './infrastructure/modules/app.module';
 import { DomainExceptionFilter } from './infrastructure/filters/domain-exception.filter';

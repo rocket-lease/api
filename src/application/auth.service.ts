@@ -1,7 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type {
-  RegisterUserRequest,
-  RegisterUserResponse,
+import {
+  type RegisterUserRequest,
+  type RegisterUserResponse,
+  type LoginUserRequest,
+  type LoginUserResponse,
 } from '@rocket-lease/contracts';
 import { User } from '@/domain/entities/user.entity';
 import { EntityAlreadyExistsException } from '@/domain/exceptions/domain.exception';
@@ -28,5 +30,10 @@ export class AuthService {
     await this.userRepository.save(user);
 
     return { id: user.getId(), name: user.getName(), email: user.getEmail() };
+  }
+
+  public async login(dto: LoginUserRequest): Promise<LoginUserResponse> {
+    const authData = await this.authProvider.signIn(dto.email, dto.password);
+    return authData;
   }
 }
