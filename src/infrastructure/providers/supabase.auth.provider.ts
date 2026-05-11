@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { createClient } from '@supabase/supabase-js';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { AuthProvider } from '@/domain/providers/auth.provider';
 import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
 
@@ -8,6 +9,10 @@ export class SupabaseAuthProvider implements AuthProvider {
   private readonly supabase = createClient(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
+  private readonly jwks = createRemoteJWKSet(
+    new URL(`${process.env.SUPABASE_URL}/auth/v1/.well-known/jwks.json`),
   );
 
   async signUp(email: string, password: string): Promise<{ userId: string }> {
@@ -31,5 +36,18 @@ export class SupabaseAuthProvider implements AuthProvider {
       refresh_token: data.session.refresh_token,
       expires_in: data.session.expires_in,
     };
+  }
+
+  async verifyToken(token: string): Promise<{ userId: string }> {
+    try {
+      const { payload } = await jwtVerify(token, this.jwks);
+      if (!payload.sub) throw new InvalidEntityDataException('Token sin sub claim');
+      return { userId: payload.sub };
+    } catch (err) {
+      if (err instanceof InvalidEntityDataException) throw err;
+      throw new InvalidEntityDataException(
+        err instanceof Error ? err.message : 'Token inválido',
+      );
+    }
   }
 }

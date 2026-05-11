@@ -35,6 +35,7 @@
         "@rocket-lease/contracts": "^0.1.3",
         "@supabase/supabase-js": "^2.105.4",
         "dotenv": "^17.4.2",
+        "jose": "^6.2.3",
         "reflect-metadata": "^0.2.2",
         "rxjs": "^7.8.2",
         "zod": "^3.25.76"
