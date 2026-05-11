@@ -1,20 +1,29 @@
 import { IWorldOptions, setWorldConstructor, World } from "@cucumber/cucumber";
 import { INestApplication } from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
-import { AppModule } from "@/app.module";
+import { AppModule } from "@/infrastructure/modules/app.module";
+import { DomainExceptionFilter } from "@/infrastructure/filters/domain-exception.filter";
+
+interface GlobalContext {
+    create_vehicle_dto?: any;
+    create_vehicle_response?: any;
+    last_user_id?: string;
+    response?: any;
+}
 
 export interface MyWorld extends World {
     app: INestApplication;
-    response: any;
+    world: GlobalContext;
     initNest(): Promise<void>;
 };
 
 class CustomWorld extends World implements MyWorld {
     app: INestApplication;
-    response: any;
+    world: any;
     
     constructor(options: IWorldOptions) {
-        super(options)
+        super(options);
+        this.world = {};
     }
 
     async initNest() {
@@ -23,6 +32,7 @@ class CustomWorld extends World implements MyWorld {
         }).compile();
 
         this.app = moduleFixture.createNestApplication();
+        this.app.useGlobalFilters(new DomainExceptionFilter());
         await this.app.init();
     }
 }

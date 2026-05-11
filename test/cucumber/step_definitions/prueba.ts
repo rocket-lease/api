@@ -10,17 +10,17 @@ Given('estoy probando cucumber', async function (this: MyWorld) {
 });
 
 When('ejecuto un test', async function (this: MyWorld) {
-    this.response = await request(this.app.getHttpServer()).get('/');
+    this.world.response = await request(this.app.getHttpServer()).get('/');
 });
 
 When('ejecuto un test que deberia fallar', async function (this: MyWorld) {
-    this.response = await request(this.app.getHttpServer()).get('/endpoint-que-no-existe');
+    this.world.response = await request(this.app.getHttpServer()).get('/endpoint-que-no-existe');
 });
 
 Then('da exitoso', function (this: MyWorld) {
-    expect(this.response.status).toBe(200);
+    expect(this.world.response.status).toBe(200);
 });
 
 Then('da error', function (this: MyWorld) {
-    expect(this.response.status).toBe(404); 
+    expect(this.world.response.status).toBe(404); 
 });
