@@ -4,21 +4,13 @@ RUN npm install -g pnpm@11.0.8
 
 ENV CI=true
 
-WORKDIR /workspace
+WORKDIR /app
 
-# Copy only what's needed for contracts (no node_modules)
-COPY contracts/src/ ./contracts/src/
-COPY contracts/package.json contracts/pnpm-lock.yaml contracts/tsconfig.json ./contracts/
-WORKDIR /workspace/contracts
+COPY package.json pnpm-lock.yaml .npmrc nest-cli.json tsconfig.json tsconfig.build.json ./
 RUN pnpm install --frozen-lockfile
-RUN pnpm build
 
-# Copy only what's needed for api (no node_modules, no dist)
-WORKDIR /workspace/api
-COPY api/package.json api/pnpm-lock.yaml api/.npmrc api/nest-cli.json api/tsconfig.json api/tsconfig.build.json ./
-RUN pnpm install --frozen-lockfile
-COPY api/src/ ./src/
-COPY api/prisma/ ./prisma/
+COPY src/ ./src/
+COPY prisma/ ./prisma/
 RUN pnpm exec prisma generate
 RUN pnpm build
 
