@@ -1,5 +1,6 @@
 import { VehicleService } from '@/application/vehicle.service';
 import { Body, Controller, Post, Get } from '@nestjs/common';
+import * as Contracts from '@rocket-lease/contracts';
 
 @Controller('vehicle')
 export class VehicleController {
@@ -7,12 +8,12 @@ export class VehicleController {
     }
 
     @Get()
-    async getVehicles(): Promise<Array<any>> {
+    async getVehicles(): Promise<Array<Contracts.GetVehicleResponse>> {
         return await this.vehicleService.getAll();
     }
+
     @Post()
-    // TODO: usar dto
-    async publishVehicle(@Body() dto: any) {
+    async publishVehicle(@Body() dto: Contracts.CreateVehicleRequest): Promise<Contracts.CreateVehicleResponse> {
         return await this.vehicleService.createVehicle(dto);
     }
 }

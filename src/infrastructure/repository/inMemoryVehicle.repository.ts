@@ -6,7 +6,7 @@ import { VehicleRepository } from '@/domain/repositories/vehicle.repository';
 export class InMemoryVehicleRepository implements VehicleRepository {
     private readonly storage: Map<string, any> = new Map();
 
-    async save(vehicle: Vehicle): Promise<void> {
+    async save(vehicle: Vehicle): Promise<Vehicle> {
         const { ...data } = vehicle as any;
 
         this.storage.set(data.id, {
@@ -19,6 +19,8 @@ export class InMemoryVehicleRepository implements VehicleRepository {
             basePrice: data.basePrice,
             description: data.description,
         });
+
+        return vehicle;
     }
 
     async findByPlate(plate: string): Promise<Vehicle | null> {
