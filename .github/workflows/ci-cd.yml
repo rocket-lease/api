@@ -28,33 +28,27 @@ jobs:
           node-version: '22'
 
       - name: Start test database
-        working-directory: api
         run: docker compose -f docker-compose.test.yml up -d --wait
 
       - name: Install API dependencies
-        working-directory: api
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client
-        working-directory: api
         run: pnpm exec prisma generate
 
       - name: Apply test migrations
-        working-directory: api
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
           DIRECT_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
         run: pnpm exec prisma migrate deploy
 
       - name: Unit tests
-        working-directory: api
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
           DIRECT_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
         run: pnpm test:unit
 
       - name: Cucumber tests
-        working-directory: api
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
           DIRECT_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
@@ -62,7 +56,6 @@ jobs:
 
       - name: Stop test database
         if: always()
-        working-directory: api
         run: docker compose -f docker-compose.test.yml down
 
   deploy:
@@ -89,7 +82,6 @@ jobs:
         run: gcloud auth configure-docker us-west1-docker.pkg.dev
 
       - name: Build image
-        working-directory: api
         run: |
           docker build -f Dockerfile \
             -t ${{ env.IMAGE }}:${{ github.sha }} \
