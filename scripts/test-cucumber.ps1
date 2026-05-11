@@ -1,4 +1,5 @@
 $env:DATABASE_URL = "postgresql://postgres:postgres@localhost:5435/rocket_lease_test"
+$env:DIRECT_URL = "postgresql://postgres:postgres@localhost:5435/rocket_lease_test"
 
 Write-Host "Iniciando base de datos de test..."
 docker compose -f docker-compose.test.yml up -d --wait
