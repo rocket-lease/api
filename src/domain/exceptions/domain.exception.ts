@@ -1,19 +1,19 @@
 export abstract class DomainException extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = this.constructor.name;
-        Object.setPrototypeOf(this, new.target.prototype);
-    }
+  constructor(message: string) {
+    super(message);
+    this.name = this.constructor.name;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
 }
 
 export class EntityAlreadyExistsException extends DomainException {
-    constructor(entity: string, id: string) {
-        super(`${entity} with id ${id} already exists`);
-    }
+  constructor(entity: string, id: string) {
+    super(`${entity} with id ${id} already exists`);
+  }
 }
 
 export class InvalidEntityDataException extends DomainException {
-    constructor(message: string) {
-        super(`Validation error: ${message}`);
-    }
+  constructor(message: string) {
+    super(`Validation error: ${message}`);
+  }
 }

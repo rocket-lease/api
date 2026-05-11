@@ -1,40 +1,42 @@
-import { IWorldOptions, setWorldConstructor, World } from "@cucumber/cucumber";
-import { INestApplication } from "@nestjs/common";
-import { Test, TestingModule } from "@nestjs/testing";
-import { AppModule } from "@/infrastructure/modules/app.module";
-import { DomainExceptionFilter } from "@/infrastructure/filters/domain-exception.filter";
+import { IWorldOptions, setWorldConstructor, World } from '@cucumber/cucumber';
+import { INestApplication } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import { AppModule } from '@/infrastructure/modules/app.module';
+import { DomainExceptionFilter } from '@/infrastructure/filters/domain-exception.filter';
 
 interface GlobalContext {
-    create_vehicle_dto?: any;
-    create_vehicle_response?: any;
-    last_user_id?: string;
-    response?: any;
+  register_dto?: any;
+  register_response?: any;
+  create_vehicle_dto?: any;
+  create_vehicle_response?: any;
+  last_user_id?: string;
+  response?: any;
 }
 
 export interface MyWorld extends World {
-    app: INestApplication;
-    world: GlobalContext;
-    initNest(): Promise<void>;
-};
+  app: INestApplication;
+  world: GlobalContext;
+  initNest(): Promise<void>;
+}
 
 class CustomWorld extends World implements MyWorld {
-    app: INestApplication;
-    world: any;
-    
-    constructor(options: IWorldOptions) {
-        super(options);
-        this.world = {};
-    }
+  app: INestApplication;
+  world: any;
 
-    async initNest() {
-        const moduleFixture: TestingModule = await Test.createTestingModule({
-            imports: [AppModule],
-        }).compile();
+  constructor(options: IWorldOptions) {
+    super(options);
+    this.world = {};
+  }
 
-        this.app = moduleFixture.createNestApplication();
-        this.app.useGlobalFilters(new DomainExceptionFilter());
-        await this.app.init();
-    }
+  async initNest() {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    this.app = moduleFixture.createNestApplication();
+    this.app.useGlobalFilters(new DomainExceptionFilter());
+    await this.app.init();
+  }
 }
 
 setWorldConstructor(CustomWorld);
