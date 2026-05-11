@@ -35,7 +35,7 @@ $ pnpm install
 
 ```bash
 # development
-$ pnpm run start
+$ make run
 
 # watch mode
 $ pnpm run start:dev
@@ -47,8 +47,8 @@ $ pnpm run start:prod
 ## Run tests
 
 ```bash
-# unit tests
-$ pnpm run test
+# cucumber tests
+$ make test
 
 # e2e tests
 $ pnpm run test:e2e
