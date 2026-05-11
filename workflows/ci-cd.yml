@@ -1,0 +1,112 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGION: us-west1
+  PROJECT_ID: project-b607cbd7-eafa-4aed-872
+  IMAGE: us-west1-docker.pkg.dev/project-b607cbd7-eafa-4aed-872/rocket-leaser/api
+  SERVICE: rocket-leaser-api
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.8
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Start test database
+        working-directory: api
+        run: docker compose -f docker-compose.test.yml up -d --wait
+
+      - name: Install API dependencies
+        working-directory: api
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        working-directory: api
+        run: pnpm exec prisma generate
+
+      - name: Apply test migrations
+        working-directory: api
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
+        run: pnpm exec prisma migrate deploy
+
+      - name: Unit tests
+        working-directory: api
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
+        run: pnpm test:unit
+
+      - name: Cucumber tests
+        working-directory: api
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
+        run: pnpm test:cucumber
+
+      - name: Stop test database
+        if: always()
+        working-directory: api
+        run: docker compose -f docker-compose.test.yml down
+
+  deploy:
+    name: Build & Deploy
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/831744561983/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-actions-sa@project-b607cbd7-eafa-4aed-872.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker auth
+        run: gcloud auth configure-docker us-west1-docker.pkg.dev
+
+      - name: Build image
+        working-directory: api
+        run: |
+          docker build -f Dockerfile \
+            -t ${{ env.IMAGE }}:${{ github.sha }} \
+            -t ${{ env.IMAGE }}:latest \
+            .
+
+      - name: Push image
+        run: |
+          docker push ${{ env.IMAGE }}:${{ github.sha }}
+          docker push ${{ env.IMAGE }}:latest
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE }} \
+            --image=${{ env.IMAGE }}:${{ github.sha }} \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --project=${{ env.PROJECT_ID }} \
+            --set-env-vars="DATABASE_URL=${{ secrets.DATABASE_URL }},DIRECT_URL=${{ secrets.DIRECT_URL }},SUPABASE_URL=${{ secrets.SUPABASE_URL }},SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }},SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
