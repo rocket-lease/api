@@ -1,30 +1,42 @@
-import { IWorldOptions, setWorldConstructor, World } from "@cucumber/cucumber";
-import { INestApplication } from "@nestjs/common";
-import { Test, TestingModule } from "@nestjs/testing";
-import { AppModule } from "@/app.module";
+import { IWorldOptions, setWorldConstructor, World } from '@cucumber/cucumber';
+import { INestApplication } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import { AppModule } from '@/app.module';
+import { DomainExceptionFilter } from '@/infrastructure/filters/domain-exception.filter';
+
+interface GlobalContext {
+  register_dto?: any;
+  register_response?: any;
+  create_vehicle_dto?: any;
+  create_vehicle_response?: any;
+  last_user_id?: string;
+  response?: any;
+}
 
 export interface MyWorld extends World {
-    app: INestApplication;
-    response: any;
-    initNest(): Promise<void>;
-};
+  app: INestApplication;
+  world: GlobalContext;
+  initNest(): Promise<void>;
+}
 
 class CustomWorld extends World implements MyWorld {
-    app: INestApplication;
-    response: any;
-    
-    constructor(options: IWorldOptions) {
-        super(options)
-    }
+  app: INestApplication;
+  world: any;
 
-    async initNest() {
-        const moduleFixture: TestingModule = await Test.createTestingModule({
-            imports: [AppModule],
-        }).compile();
+  constructor(options: IWorldOptions) {
+    super(options);
+    this.world = {};
+  }
 
-        this.app = moduleFixture.createNestApplication();
-        await this.app.init();
-    }
+  async initNest() {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    this.app = moduleFixture.createNestApplication();
+    this.app.useGlobalFilters(new DomainExceptionFilter());
+    await this.app.init();
+  }
 }
 
 setWorldConstructor(CustomWorld);
