@@ -1,5 +1,8 @@
 #language: es
 Característica: Publicacion de vehículos
+    Como rentador
+    quiero publicar mis vehículos
+    para ponerlos en alquiler en la plataforma
 
     Escenario: Listado de vehiculo recien creado
         Dado un vehículo con los siguientes datos:
