@@ -1,6 +1,6 @@
 import { AuthService } from '@/application/auth.service';
 import { VehicleService } from '@/application/vehicle.service';
-import { Body, Controller, Post, Get, Req, Query, Patch, Param } from '@nestjs/common';
+import { Body, Controller, Post, Get, Req, Patch, Param, Delete } from '@nestjs/common';
 import * as Contracts from '@rocket-lease/contracts';
 import * as Express from 'express';
 
@@ -20,6 +20,13 @@ export class VehicleController {
     @Get(':id')
     async getVehicleById(@Param('id') id: string): Promise<Contracts.GetVehicleResponse> {
         return await this.vehicleService.getById(id);
+    }
+
+    @Delete(':id')
+    async deleteVehicle(
+        @Param('id') id: string,
+    ): Promise<void> {
+        await this.vehicleService.deleteVehicle(id);
     }
 
     @Patch(':id')

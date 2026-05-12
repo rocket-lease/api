@@ -63,6 +63,12 @@ export class VehicleService {
         return vehicles.map(this.toDTO);
     }
 
+    public async deleteVehicle(vehicleId: string): Promise<void> {
+        const vehicle = await this.vehicleRepository.findById(vehicleId);
+        if (!vehicle) throw new EntityNotFoundException('vehicle', vehicleId);
+        await this.vehicleRepository.delete(vehicleId);
+    }
+
     private toDTO(vehicle: Vehicle): GetVehicleResponse {
         return GetVehicleResponseSchema.parse({
             id: vehicle.getId(),

@@ -87,6 +87,10 @@ export class PostgresVehicleRepository implements VehicleRepository {
     return raws.map(raw => this.mapToDomain(raw));
   }
 
+  async delete(id: string): Promise<void> {
+      await this.prisma.vehicle.delete({ where: { id } });
+  }
+
   private mapToDomain(raw: any): Vehicle {
     return new Vehicle(
       raw.id,
