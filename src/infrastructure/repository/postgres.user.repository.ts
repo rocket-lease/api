@@ -28,6 +28,41 @@ export class PostgresUserRepository implements UserRepository {
     return new User(row.id, row.name, row.email, row.dni, row.phone);
   }
 
+  async findById(id: string): Promise<User | null> {
+    const row: PrismaUser | null = await this.prisma.user.findUnique({
+      where: { id },
+    });
+    if (!row) return null;
+    return new User(row.id, row.name, row.email, row.dni, row.phone);
+  }
+
+  async markEmailVerified(id: string, verifiedAt: Date): Promise<void> {
+    await this.prisma.user.update({
+      where: { id },
+      data: { emailVerifiedAt: verifiedAt },
+    });
+  }
+
+  async markPhoneVerified(id: string, verifiedAt: Date): Promise<void> {
+    await this.prisma.user.update({
+      where: { id },
+      data: { phoneVerifiedAt: verifiedAt },
+    });
+  }
+
+  async getVerificationStatus(
+    id: string,
+  ): Promise<{ email: boolean; phone: boolean }> {
+    const row = await this.prisma.user.findUnique({
+      where: { id },
+      select: { emailVerifiedAt: true, phoneVerifiedAt: true },
+    });
+    return {
+      email: !!row?.emailVerifiedAt,
+      phone: !!row?.phoneVerifiedAt,
+    };
+  }
+
   async clean(): Promise<void> {
     await this.prisma.user.deleteMany({});
   }

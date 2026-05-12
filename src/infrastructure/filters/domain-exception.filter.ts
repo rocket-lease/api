@@ -1,5 +1,6 @@
 import {
   EntityAlreadyExistsException,
+  EntityNotFoundException,
   InvalidEntityDataException,
 } from '@/domain/exceptions/domain.exception';
 import {
@@ -37,6 +38,8 @@ export class DomainExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof EntityAlreadyExistsException) {
       status = HttpStatus.CONFLICT;
+    } else if (exception instanceof EntityNotFoundException) {
+      status = HttpStatus.NOT_FOUND;
     } else if (exception instanceof InvalidEntityDataException) {
       status = HttpStatus.BAD_REQUEST;
     } else if (isZodError(exception)) {

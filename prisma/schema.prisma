@@ -9,12 +9,32 @@ datasource db {
 }
 
 model User {
-  id        String   @id
-  name      String
-  email     String   @unique
-  dni       String
-  phone     String
-  createdAt DateTime @default(now()) @map("created_at")
+  id              String    @id
+  name            String
+  email           String    @unique
+  dni             String
+  phone           String
+  createdAt       DateTime  @default(now()) @map("created_at")
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  phoneVerifiedAt DateTime? @map("phone_verified_at")
+
+  otps VerificationOtp[]
 
   @@map("users")
+}
+
+model VerificationOtp {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  channel   String
+  codeHash  String    @map("code_hash")
+  attempts  Int       @default(0)
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, channel, usedAt])
+  @@map("verification_otps")
 }

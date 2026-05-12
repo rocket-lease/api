@@ -5,6 +5,7 @@ export class StubAuthProvider implements AuthProvider {
   static readonly STUB_USER_ID = 'stub-user-id';
 
   private readonly registeredEmails = new Set<string>();
+  private lastUserId: string = StubAuthProvider.STUB_USER_ID;
 
   public async signUp(
     email: string,
@@ -14,9 +15,9 @@ export class StubAuthProvider implements AuthProvider {
       throw new Error('Email already registered in auth provider');
     }
     this.registeredEmails.add(email);
-    return {
-      userId: `stub-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    };
+    const userId = `stub-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    this.lastUserId = userId;
+    return { userId };
   }
 
   public async signIn(
@@ -34,6 +35,6 @@ export class StubAuthProvider implements AuthProvider {
     if (token !== StubAuthProvider.STUB_TOKEN) {
       throw new Error(`StubAuthProvider: token desconocido "${token}"`);
     }
-    return { userId: StubAuthProvider.STUB_USER_ID };
+    return { userId: this.lastUserId };
   }
 }
