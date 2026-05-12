@@ -83,27 +83,19 @@ describe('AuthService', () => {
 
   describe('deleteAccount', () => {
     it('deletes user from repo and auth provider', async () => {
-      const userFake = new User(
-        'user-1',
-        'Juan',
-        'juan@example.com',
-        '12345678',
-        '1123456789',
-      );
-      userRepoMock.findById.mockResolvedValue(userFake);
-
       await service.deleteAccount('user-1');
 
       expect(userRepoMock.deleteById).toHaveBeenCalledWith('user-1');
       expect(authProviderMock.deleteUser).toHaveBeenCalledWith('user-1');
     });
 
-    it('throws when user does not exist', async () => {
-      userRepoMock.findById.mockResolvedValue(null);
+    it('propagates repo errors and skips auth provider', async () => {
+      userRepoMock.deleteById.mockRejectedValue(
+        new InvalidEntityDataException('User not found'),
+      );
       await expect(service.deleteAccount('missing')).rejects.toThrow(
         InvalidEntityDataException,
       );
-      expect(userRepoMock.deleteById).not.toHaveBeenCalled();
       expect(authProviderMock.deleteUser).not.toHaveBeenCalled();
     });
   });
