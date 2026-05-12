@@ -91,6 +91,10 @@ export class PostgresUserRepository implements UserRepository {
     return this.mapProfile(row);
   }
 
+  async deleteById(id: string): Promise<void> {
+    await this.prisma.user.delete({ where: { id } });
+  }
+
   async clean(): Promise<void> {
     await this.prisma.user.deleteMany({});
   }

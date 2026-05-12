@@ -52,4 +52,16 @@ export class StubAuthProvider implements AuthProvider {
 
     return { userId };
   }
+
+  public async deleteUser(userId: string): Promise<void> {
+    for (const [email, id] of this.userIdByEmail.entries()) {
+      if (id === userId) {
+        this.userIdByEmail.delete(email);
+        this.registeredEmails.delete(email);
+      }
+    }
+    for (const [token, id] of this.userIdByToken.entries()) {
+      if (id === userId) this.userIdByToken.delete(token);
+    }
+  }
 }

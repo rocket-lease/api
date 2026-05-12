@@ -77,6 +77,13 @@ export class InMemoryUserRepository implements UserRepository {
     return nextProfile;
   }
 
+  public async deleteById(id: string): Promise<void> {
+    const user = this.storageById.get(id);
+    if (user) this.storageByEmail.delete(user.getEmail());
+    this.storageById.delete(id);
+    this.profiles.delete(id);
+  }
+
   public async clean(): Promise<void> {
     this.storageByEmail.clear();
     this.storageById.clear();

@@ -2,11 +2,14 @@ import { ProfileService } from '@/application/profile.service';
 import { UserRepository } from '@/domain/repositories/user.repository';
 import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
 import { MediaProvider } from '@/domain/providers/media.provider';
+import { AuthProvider } from '@/domain/providers/auth.provider';
+import { User } from '@/domain/entities/user.entity';
 
 describe('ProfileService', () => {
   let service: ProfileService;
   let userRepoMock: jest.Mocked<UserRepository>;
   let mediaProviderMock: jest.Mocked<MediaProvider>;
+  let authProviderMock: jest.Mocked<AuthProvider>;
 
   beforeEach(() => {
     userRepoMock = {
@@ -16,12 +19,19 @@ describe('ProfileService', () => {
       getProfileById: jest.fn().mockResolvedValue(null),
       updateProfile: jest.fn(),
       updateAvatar: jest.fn(),
+      deleteById: jest.fn(),
     };
     mediaProviderMock = {
       uploadAvatar: jest.fn(),
     };
+    authProviderMock = {
+      signUp: jest.fn(),
+      signIn: jest.fn(),
+      verifyToken: jest.fn(),
+      deleteUser: jest.fn().mockResolvedValue(undefined),
+    };
 
-    service = new ProfileService(userRepoMock, mediaProviderMock);
+    service = new ProfileService(userRepoMock, mediaProviderMock, authProviderMock);
   });
 
   it('returns profile data when user exists', async () => {
@@ -133,5 +143,32 @@ describe('ProfileService', () => {
       'https://cdn.example.com/avatar-nuevo.jpg',
     );
     expect(updated.avatarUrl).toBe('https://cdn.example.com/avatar-nuevo.jpg');
+  });
+
+  describe('deleteMyAccount', () => {
+    it('deletes user from repo and auth provider', async () => {
+      const userFake = new User(
+        'user-1',
+        'Juan',
+        'juan@example.com',
+        '12345678',
+        '1123456789',
+      );
+      userRepoMock.findById.mockResolvedValue(userFake);
+
+      await service.deleteMyAccount('user-1');
+
+      expect(userRepoMock.deleteById).toHaveBeenCalledWith('user-1');
+      expect(authProviderMock.deleteUser).toHaveBeenCalledWith('user-1');
+    });
+
+    it('throws when user does not exist', async () => {
+      userRepoMock.findById.mockResolvedValue(null);
+      await expect(service.deleteMyAccount('missing')).rejects.toThrow(
+        InvalidEntityDataException,
+      );
+      expect(userRepoMock.deleteById).not.toHaveBeenCalled();
+      expect(authProviderMock.deleteUser).not.toHaveBeenCalled();
+    });
   });
 });

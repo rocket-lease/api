@@ -25,6 +25,7 @@ describe('AuthService', () => {
       getProfileById: jest.fn().mockResolvedValue(null),
       updateProfile: jest.fn(),
       updateAvatar: jest.fn(),
+      deleteById: jest.fn(),
     };
     authProviderMock = {
       signUp: jest.fn().mockResolvedValue({ userId: 'stub-id' }),
@@ -33,6 +34,7 @@ describe('AuthService', () => {
         refresh_token: 'rt',
         expires_in: 3600,
       }),
+      deleteUser: jest.fn().mockResolvedValue(undefined),
       verifyToken: jest.fn().mockResolvedValue({ userId: 'stub-id' }),
     };
     service = new AuthService(userRepoMock, authProviderMock);
