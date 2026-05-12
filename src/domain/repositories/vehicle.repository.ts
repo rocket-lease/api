@@ -2,7 +2,8 @@ import { Vehicle } from '../entities/vehicle.entity';
 
 export interface VehicleRepository {
   save(vehicle: Vehicle): Promise<Vehicle>;
-  fetchAll(): Promise<Array<Vehicle>>;
+  fetchAll(): Promise<Vehicle[]>;
+  findById(id: string): Promise<Vehicle | null>;
   findByPlate(plate: string): Promise<Vehicle | null>;
 }
 
