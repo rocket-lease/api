@@ -55,6 +55,27 @@ When('envio el formulario de creacion de vehiculo', async function(this: MyWorld
         .send(this.world.create_vehicle_dto);
 });
 
+When('elimino el vehículo', async function(this: MyWorld) {
+    const vehicleId = this.world.create_vehicle_response.body.id;
+    this.world.delete_vehicle_response = await request(this.app.getHttpServer())
+        .delete(`/vehicle/${vehicleId}`)
+        .set('Authorization', `Bearer ${this.world.access_token}`);
+});
+
+Then('el vehículo es eliminado', function(this: MyWorld) {
+    expect(this.world.delete_vehicle_response.status).toBe(200);
+});
+
+Then("el vehículo no aparece en 'Mis vehículos'", async function(this: MyWorld) {
+    const my_vehicles_response = await request(this.app.getHttpServer())
+        .get(`/vehicle`)
+        .set('Authorization', `Bearer ${this.world.access_token}`);
+    expect(my_vehicles_response.status).toBe(200);
+    const plate = this.world.create_vehicle_dto.plate;
+    const vehicle_exists = my_vehicles_response.body.some((v: any) => v.plate === plate);
+    expect(vehicle_exists).toBe(false);
+});
+
 Then("el vehiculo es publicado", async function(this: MyWorld) {
     console.log("el vehiculo es publicado: ", this.world.create_vehicle_response.body)
     const response = this.world.create_vehicle_response;

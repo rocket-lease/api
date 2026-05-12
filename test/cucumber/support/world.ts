@@ -9,7 +9,6 @@ import { StubAuthProvider } from '@/infrastructure/providers/stub.auth.provider'
 import { AUTH_PROVIDER } from '@/domain/providers/auth.provider';
 import { USER_REPOSITORY } from '@/domain/repositories/user.repository';
 import { PostgresUserRepository } from '@/infrastructure/repository/postgres.user.repository';
-import { PostgresVehicleRepository } from '@/infrastructure/repository/postgres.vehicle.repository';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 
 interface GlobalContext {
@@ -21,6 +20,7 @@ interface GlobalContext {
     create_vehicle_response?: any;
     update_vehicle_dto?: any;
     update_vehicle_response?: any;
+    delete_vehicle_response?: any;
     last_user_id?: string;
     response?: any;
 }
