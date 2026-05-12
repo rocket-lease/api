@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { createClient } from '@supabase/supabase-js';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { AuthProvider } from '@/domain/providers/auth.provider';
@@ -6,6 +6,8 @@ import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception
 
 @Injectable()
 export class SupabaseAuthProvider implements AuthProvider {
+  private readonly logger = new Logger(SupabaseAuthProvider.name);
+
   private readonly supabase = createClient(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -49,5 +51,25 @@ export class SupabaseAuthProvider implements AuthProvider {
         err instanceof Error ? err.message : 'Token inválido',
       );
     }
+  }
+
+  async requestPasswordReset(email: string): Promise<void> {
+    const redirectTo = process.env.PASSWORD_RESET_REDIRECT_URL;
+    const { error } = await this.supabase.auth.resetPasswordForEmail(
+      email,
+      redirectTo ? { redirectTo } : undefined,
+    );
+    if (error) {
+      this.logger.warn(
+        `resetPasswordForEmail failed for ${email}: ${error.message}`,
+      );
+    }
+  }
+
+  async updatePassword(userId: string, newPassword: string): Promise<void> {
+    const { error } = await this.supabase.auth.admin.updateUserById(userId, {
+      password: newPassword,
+    });
+    if (error) throw new InvalidEntityDataException(error.message);
   }
 }

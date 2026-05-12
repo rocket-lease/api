@@ -5,6 +5,13 @@ import { DomainExceptionFilter } from './infrastructure/filters/domain-exception
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.enableCors({
+    origin: process.env.CORS_ORIGIN?.split(',') ?? [
+      'http://localhost:5173',
+      'http://localhost:4173',
+    ],
+    credentials: true,
+  });
   app.useGlobalFilters(new DomainExceptionFilter());
   await app.listen(process.env.PORT ?? 3000);
 }

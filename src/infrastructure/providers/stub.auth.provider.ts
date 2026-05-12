@@ -1,10 +1,16 @@
 import { AuthProvider } from '@/domain/providers/auth.provider';
+import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
 
 export class StubAuthProvider implements AuthProvider {
   static readonly STUB_TOKEN = 'stub-access-token';
   static readonly STUB_USER_ID = 'stub-user-id';
 
   private readonly registeredEmails = new Set<string>();
+  public readonly resetEmailsSent: string[] = [];
+  public readonly passwordUpdates: Array<{
+    userId: string;
+    newPassword: string;
+  }> = [];
 
   public async signUp(
     email: string,
@@ -32,8 +38,19 @@ export class StubAuthProvider implements AuthProvider {
 
   public async verifyToken(token: string): Promise<{ userId: string }> {
     if (token !== StubAuthProvider.STUB_TOKEN) {
-      throw new Error(`StubAuthProvider: token desconocido "${token}"`);
+      throw new InvalidEntityDataException(`StubAuthProvider: token desconocido "${token}"`);
     }
     return { userId: StubAuthProvider.STUB_USER_ID };
+  }
+
+  public async requestPasswordReset(email: string): Promise<void> {
+    this.resetEmailsSent.push(email);
+  }
+
+  public async updatePassword(
+    userId: string,
+    newPassword: string,
+  ): Promise<void> {
+    this.passwordUpdates.push({ userId, newPassword });
   }
 }
