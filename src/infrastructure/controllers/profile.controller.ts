@@ -95,6 +95,6 @@ export class ProfileController {
     @Headers('authorization') authorization: string | undefined,
   ) {
     const userId = await this.resolveUserId(authorization);
-    await this.profileService.deleteMyAccount(userId);
+    await this.authService.deleteAccount(userId);
   }
 }

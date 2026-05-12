@@ -1,6 +1,9 @@
 import { AuthService } from '@/application/auth.service';
 import { User } from '@/domain/entities/user.entity';
-import { EntityAlreadyExistsException } from '@/domain/exceptions/domain.exception';
+import {
+  EntityAlreadyExistsException,
+  InvalidEntityDataException,
+} from '@/domain/exceptions/domain.exception';
 import { UserRepository } from '@/domain/repositories/user.repository';
 import { AuthProvider } from '@/domain/providers/auth.provider';
 
@@ -76,5 +79,32 @@ describe('AuthService', () => {
     userRepoMock.findByEmail.mockResolvedValue(existing);
     await expect(service.register(validDto)).rejects.toThrow();
     expect(authProviderMock.signUp).not.toHaveBeenCalled();
+  });
+
+  describe('deleteAccount', () => {
+    it('deletes user from repo and auth provider', async () => {
+      const userFake = new User(
+        'user-1',
+        'Juan',
+        'juan@example.com',
+        '12345678',
+        '1123456789',
+      );
+      userRepoMock.findById.mockResolvedValue(userFake);
+
+      await service.deleteAccount('user-1');
+
+      expect(userRepoMock.deleteById).toHaveBeenCalledWith('user-1');
+      expect(authProviderMock.deleteUser).toHaveBeenCalledWith('user-1');
+    });
+
+    it('throws when user does not exist', async () => {
+      userRepoMock.findById.mockResolvedValue(null);
+      await expect(service.deleteAccount('missing')).rejects.toThrow(
+        InvalidEntityDataException,
+      );
+      expect(userRepoMock.deleteById).not.toHaveBeenCalled();
+      expect(authProviderMock.deleteUser).not.toHaveBeenCalled();
+    });
   });
 });

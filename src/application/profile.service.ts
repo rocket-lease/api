@@ -10,8 +10,6 @@ import type { MediaProvider } from '@/domain/providers/media.provider';
 import { MEDIA_PROVIDER } from '@/domain/providers/media.provider';
 import type { UserRepository } from '@/domain/repositories/user.repository';
 import { USER_REPOSITORY } from '@/domain/repositories/user.repository';
-import type { AuthProvider } from '@/domain/providers/auth.provider';
-import { AUTH_PROVIDER } from '@/domain/providers/auth.provider';
 import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
 
 @Injectable()
@@ -19,7 +17,6 @@ export class ProfileService {
   constructor(
     @Inject(USER_REPOSITORY) private readonly userRepository: UserRepository,
     @Inject(MEDIA_PROVIDER) private readonly mediaProvider: MediaProvider,
-    @Inject(AUTH_PROVIDER) private readonly authProvider: AuthProvider,
   ) {}
 
   public async getMyProfile(userId: string): Promise<GetMyProfileResponse> {
@@ -74,13 +71,4 @@ export class ProfileService {
     return GetMyProfileResponseSchema.parse(updated);
   }
 
-  public async deleteMyAccount(userId: string): Promise<void> {
-    const existing = await this.userRepository.findById(userId);
-    if (!existing) {
-      throw new InvalidEntityDataException('User not found');
-    }
-
-    await this.userRepository.deleteById(userId);
-    await this.authProvider.deleteUser(userId);
-  }
 }

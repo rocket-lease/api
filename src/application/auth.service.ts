@@ -8,7 +8,10 @@ import {
   LoginUserResponseSchema,
 } from '@rocket-lease/contracts';
 import { User } from '@/domain/entities/user.entity';
-import { EntityAlreadyExistsException } from '@/domain/exceptions/domain.exception';
+import {
+  EntityAlreadyExistsException,
+  InvalidEntityDataException,
+} from '@/domain/exceptions/domain.exception';
 import type { UserRepository } from '@/domain/repositories/user.repository';
 import { USER_REPOSITORY } from '@/domain/repositories/user.repository';
 import type { AuthProvider } from '@/domain/providers/auth.provider';
@@ -49,5 +52,15 @@ export class AuthService {
       : token;
     const { userId } = await this.authProvider.verifyToken(rawToken);
     return userId;
+  }
+
+  public async deleteAccount(userId: string): Promise<void> {
+    const existing = await this.userRepository.findById(userId);
+    if (!existing) {
+      throw new InvalidEntityDataException('User not found');
+    }
+
+    await this.userRepository.deleteById(userId);
+    await this.authProvider.deleteUser(userId);
   }
 }
