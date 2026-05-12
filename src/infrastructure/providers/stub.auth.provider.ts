@@ -1,8 +1,9 @@
 import { AuthProvider } from '@/domain/providers/auth.provider';
+import { randomUUID } from 'node:crypto';
 
 export class StubAuthProvider implements AuthProvider {
-  static readonly STUB_TOKEN = 'stub-access-token';
-  static readonly STUB_USER_ID = 'stub-user-id';
+  static readonly STUB_TOKEN = randomUUID();
+  static readonly STUB_USER_ID = '00000000-0000-0000-0000-000000000001';
 
   private readonly registeredEmails = new Set<string>();
 
@@ -13,10 +14,8 @@ export class StubAuthProvider implements AuthProvider {
     if (this.registeredEmails.has(email)) {
       throw new Error('Email already registered in auth provider');
     }
-    this.registeredEmails.add(email);
-    return {
-      userId: `stub-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    };
+      this.registeredEmails.add(email);
+      return { userId: StubAuthProvider.STUB_USER_ID };
   }
 
   public async signIn(
