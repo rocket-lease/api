@@ -1,6 +1,9 @@
 import { AuthProvider } from '@/domain/providers/auth.provider';
 
 export class StubAuthProvider implements AuthProvider {
+  static readonly STUB_TOKEN = 'stub-access-token';
+  static readonly STUB_USER_ID = 'stub-user-id';
+
   private readonly registeredEmails = new Set<string>();
 
   public async signUp(
@@ -21,9 +24,16 @@ export class StubAuthProvider implements AuthProvider {
     _password: string,
   ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
     return {
-      access_token: 'stub-access-token',
+      access_token: StubAuthProvider.STUB_TOKEN,
       refresh_token: 'stub-refresh-token',
       expires_in: 3600,
     };
+  }
+
+  public async verifyToken(token: string): Promise<{ userId: string }> {
+    if (token !== StubAuthProvider.STUB_TOKEN) {
+      throw new Error(`StubAuthProvider: token desconocido "${token}"`);
+    }
+    return { userId: StubAuthProvider.STUB_USER_ID };
   }
 }

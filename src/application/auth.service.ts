@@ -2,8 +2,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   type RegisterUserRequest,
   type RegisterUserResponse,
+  RegisterUserResponseSchema,
   type LoginUserRequest,
   type LoginUserResponse,
+  LoginUserResponseSchema,
 } from '@rocket-lease/contracts';
 import { User } from '@/domain/entities/user.entity';
 import { EntityAlreadyExistsException } from '@/domain/exceptions/domain.exception';
@@ -29,11 +31,23 @@ export class AuthService {
     const user = new User(userId, dto.name, dto.email, dto.dni, dto.phone);
     await this.userRepository.save(user);
 
-    return { id: user.getId(), name: user.getName(), email: user.getEmail() };
+    return RegisterUserResponseSchema.parse({
+      id: user.getId(),
+      name: user.getName(),
+      email: user.getEmail(),
+    });
   }
 
   public async login(dto: LoginUserRequest): Promise<LoginUserResponse> {
     const authData = await this.authProvider.signIn(dto.email, dto.password);
-    return authData;
+    return LoginUserResponseSchema.parse(authData);
+  }
+
+  public async getUserIdFromToken(token: string): Promise<string> {
+    const rawToken = token.startsWith('Bearer ')
+      ? token.slice('Bearer '.length)
+      : token;
+    const { userId } = await this.authProvider.verifyToken(rawToken);
+    return userId;
   }
 }
