@@ -9,6 +9,8 @@ import { StubAuthProvider } from '@/infrastructure/providers/stub.auth.provider'
 import { AUTH_PROVIDER } from '@/domain/providers/auth.provider';
 import { USER_REPOSITORY } from '@/domain/repositories/user.repository';
 import { PostgresUserRepository } from '@/infrastructure/repository/postgres.user.repository';
+import { MEDIA_PROVIDER } from '@/domain/providers/media.provider';
+import { StubMediaProvider } from './stub.media.provider';
 
 interface GlobalContext {
   register_dto?: any;
@@ -21,6 +23,10 @@ interface GlobalContext {
   auth_token?: string;
   favorite_vehicle_id?: string;
   favorite_response?: any;
+  profile_response?: any;
+  update_profile_response?: any;
+  upload_avatar_response?: any;
+  profile_payload?: any;
 }
 
 export interface MyWorld extends World {
@@ -45,6 +51,8 @@ class CustomWorld extends World implements MyWorld {
     })
       .overrideProvider(AUTH_PROVIDER)
       .useClass(StubAuthProvider)
+      .overrideProvider(MEDIA_PROVIDER)
+      .useClass(StubMediaProvider)
       .compile();
 
     this.app = moduleFixture.createNestApplication();
