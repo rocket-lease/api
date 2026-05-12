@@ -40,6 +40,8 @@ describe('AuthService', () => {
         expires_in: 3600,
       }),
       verifyToken: jest.fn().mockResolvedValue({ userId: 'stub-id' }),
+      requestPasswordReset: jest.fn().mockResolvedValue(undefined),
+      updatePassword: jest.fn().mockResolvedValue(undefined),
     };
     verificationServiceMock = {
       sendOtpsAfterRegister: jest.fn().mockResolvedValue(undefined),
@@ -95,5 +97,46 @@ describe('AuthService', () => {
     await expect(service.register(validDto)).rejects.toThrow();
     expect(authProviderMock.signUp).not.toHaveBeenCalled();
     expect(verificationServiceMock.sendOtpsAfterRegister).not.toHaveBeenCalled();
+  });
+
+  describe('forgotPassword', () => {
+    it('delegates to authProvider.requestPasswordReset', async () => {
+      const result = await service.forgotPassword({ email: 'a@b.com' });
+      expect(authProviderMock.requestPasswordReset).toHaveBeenCalledWith(
+        'a@b.com',
+      );
+      expect(result.message).toBeDefined();
+    });
+
+    it('returns generic message regardless of email existence', async () => {
+      const r1 = await service.forgotPassword({ email: 'exists@b.com' });
+      const r2 = await service.forgotPassword({ email: 'missing@b.com' });
+      expect(r1.message).toBe(r2.message);
+    });
+  });
+
+  describe('resetPassword', () => {
+    const dto = { accessToken: 'token-x', newPassword: 'Newp4ss!' };
+
+    it('verifies token and updates password', async () => {
+      authProviderMock.verifyToken.mockResolvedValue({ userId: 'user-1' });
+      const result = await service.resetPassword(dto);
+      expect(authProviderMock.verifyToken).toHaveBeenCalledWith(
+        dto.accessToken,
+      );
+      expect(authProviderMock.updatePassword).toHaveBeenCalledWith(
+        'user-1',
+        dto.newPassword,
+      );
+      expect(result.message).toBeDefined();
+    });
+
+    it('throws when token is invalid', async () => {
+      authProviderMock.verifyToken.mockRejectedValue(
+        new Error('Token inválido'),
+      );
+      await expect(service.resetPassword(dto)).rejects.toThrow();
+      expect(authProviderMock.updatePassword).not.toHaveBeenCalled();
+    });
   });
 });
