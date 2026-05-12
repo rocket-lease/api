@@ -27,7 +27,12 @@ export class FavoriteController {
 
   private async resolveConductorId(authHeader: string | undefined): Promise<string> {
     if (!authHeader) throw new UnauthorizedException('Missing Authorization header');
-    return this.authService.getUserIdFromToken(authHeader);
+
+    try {
+      return await this.authService.getUserIdFromToken(authHeader);
+    } catch {
+      throw new UnauthorizedException('Invalid or expired token');
+    }
   }
 
   @Post()
