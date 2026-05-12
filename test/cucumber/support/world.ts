@@ -18,6 +18,9 @@ interface GlobalContext {
   create_vehicle_response?: any;
   last_user_id?: string;
   response?: any;
+  auth_token?: string;
+  favorite_vehicle_id?: string;
+  favorite_response?: any;
 }
 
 export interface MyWorld extends World {

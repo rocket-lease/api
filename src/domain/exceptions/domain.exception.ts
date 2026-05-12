@@ -17,3 +17,21 @@ export class InvalidEntityDataException extends DomainException {
     super(`Validation error: ${message}`);
   }
 }
+
+export class EntityNotFoundException extends DomainException {
+  constructor(entity: string, id: string) {
+    super(`${entity} with id ${id} not found`);
+  }
+}
+
+export class FavoriteAlreadyExistsException extends DomainException {
+  constructor(vehicleId: string) {
+    super(`favorite for vehicle ${vehicleId} already exists`);
+  }
+}
+
+export class FavoriteNotFoundException extends DomainException {
+  constructor(vehicleId: string) {
+    super(`favorite for vehicle ${vehicleId} not found`);
+  }
+}
