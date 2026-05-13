@@ -1,4 +1,5 @@
 import { Vehicle } from '../entities/vehicle.entity';
+import { Characteristic } from '@rocket-lease/contracts';
 
 export interface VehicleRepository {
   save(vehicle: Vehicle): Promise<Vehicle>;
@@ -6,6 +7,7 @@ export interface VehicleRepository {
   findById(id: string): Promise<Vehicle | null>;
   findByPlate(plate: string): Promise<Vehicle | null>;
   findByOwnerId(ownerId: string): Promise<Vehicle[]>;
+  findByCharacteristics(characteristics: Characteristic[]): Promise<Vehicle[]>;
   delete(id: string): Promise<void>;
 }
 

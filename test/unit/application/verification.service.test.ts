@@ -28,6 +28,7 @@ describe('VerificationService', () => {
       getProfileById: jest.fn(),
       updateProfile: jest.fn(),
       updateAvatar: jest.fn(),
+      updateBasicInfo: jest.fn(),
       deleteById: jest.fn(),
       markPhoneVerified: jest.fn().mockResolvedValue(undefined),
       isPhoneVerified: jest.fn().mockResolvedValue(false),

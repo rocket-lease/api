@@ -33,6 +33,18 @@ const vehicleSchema = z.object({
         province: z.string().min(1, 'Province is required'),
         city: z.string().min(1, 'City is required'),
         availableFrom: z.string().date('Invalid date format'),
+        characteristics: z.array(
+            z.enum([
+                'GPS',
+                'BABY_SEAT',
+                'SUNROOF',
+                'PET_FRIENDLY',
+                'WIFI',
+                'USB_CHARGER',
+                'AUX_CABLE',
+                'BLUETOOTH',
+            ]),
+        ),
 });
 
 export class Vehicle {
@@ -49,6 +61,16 @@ export class Vehicle {
         private isAccessible: boolean,
         private enabled: boolean,
         private photos: string[],
+        private characteristics: Array<
+            | 'GPS'
+            | 'BABY_SEAT'
+            | 'SUNROOF'
+            | 'PET_FRIENDLY'
+            | 'WIFI'
+            | 'USB_CHARGER'
+            | 'AUX_CABLE'
+            | 'BLUETOOTH'
+        >,
         private color: string,
         private mileage: number,
         private basePrice: number,
@@ -93,6 +115,18 @@ export class Vehicle {
     public getPhotos(): string[] {
         return [...this.photos];
     }
+    public getCharacteristics(): Array<
+        | 'GPS'
+        | 'BABY_SEAT'
+        | 'SUNROOF'
+        | 'PET_FRIENDLY'
+        | 'WIFI'
+        | 'USB_CHARGER'
+        | 'AUX_CABLE'
+        | 'BLUETOOTH'
+    > {
+        return [...this.characteristics];
+    }
     public getColor(): string {
         return this.color;
     }
@@ -136,6 +170,9 @@ export class Vehicle {
     public update(data: any): void {
         if (data.mileage !== undefined) this.updateMileage(data.mileage);
         if (data.photos) this.photos = data.photos;
+        if (data.characteristics) {
+            this.characteristics = Array.from(new Set(data.characteristics));
+        }
         if (data.color) this.color = data.color;
         if (data.basePrice) this.basePrice = data.basePrice;
         if (data.description !== undefined) this.description = data.description;
@@ -169,6 +206,7 @@ export class Vehicle {
             province: this.province,
             city: this.city,
             availableFrom: this.availableFrom,
+            characteristics: this.characteristics,
         });
 
         if (!result.success) {
