@@ -85,7 +85,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
 
   async findByOwnerId(ownerId: string): Promise<Vehicle[]> {
     const raws = await this.prisma.vehicle.findMany({
-      where: { ownerId, enabled: true },
+      where: { ownerId },
       include: { photos: true },
     });
     return raws.map((raw) => this.mapToDomain(raw));
@@ -93,6 +93,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
 
   async fetchAll(): Promise<Vehicle[]> {
     const raws = await this.prisma.vehicle.findMany({
+      where: { enabled: true },
       include: { photos: true },
     });
     return raws.map((raw) => this.mapToDomain(raw));

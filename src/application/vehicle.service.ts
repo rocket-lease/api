@@ -85,7 +85,7 @@ export class VehicleService {
 
     public async getAll(): Promise<Array<GetVehicleResponse>> {
         const vehicles = await this.vehicleRepository.fetchAll();
-        return vehicles.filter((v) => v.isEnabled()).map((v) => this.toDTO(v));
+        return vehicles.map((v) => this.toDTO(v));
     }
 
     public async deleteVehicle(vehicleId: string): Promise<void> {
