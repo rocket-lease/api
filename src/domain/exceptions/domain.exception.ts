@@ -24,6 +24,12 @@ export class InvalidEntityDataException extends DomainException {
   }
 }
 
+export class EmailNotVerifiedException extends DomainException {
+  constructor(email: string) {
+    super(`email ${email} is not verified`);
+  }
+}
+
 export class FavoriteAlreadyExistsException extends DomainException {
   constructor(vehicleId: string) {
     super(`favorite for vehicle ${vehicleId} already exists`);
