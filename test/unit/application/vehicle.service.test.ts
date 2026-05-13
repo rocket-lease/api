@@ -23,7 +23,7 @@ const validDto = {
     province: 'Buenos Aires',
     city: 'La Plata',
     availableFrom: '2025-01-01',
-    characteristics: ['GPS', 'BLUETOOTH'] as const,
+    characteristics: ['GPS', 'BLUETOOTH'] as Array<'GPS' | 'BLUETOOTH'>,
 };
 
 const buildVehicle = (overrides: Partial<{ id: string; ownerId: string }> = {}) =>
