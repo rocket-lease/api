@@ -1,6 +1,6 @@
 import { When, Then } from '@cucumber/cucumber';
 import { MyWorld } from '../support/world';
-import request from 'supertest';
+import { api } from '../support/http-client';
 import { expect } from 'expect';
 import { AUTH_PROVIDER } from '@/domain/providers/auth.provider';
 import { StubAuthProvider } from '@/infrastructure/providers/stub.auth.provider';
@@ -8,27 +8,29 @@ import { StubAuthProvider } from '@/infrastructure/providers/stub.auth.provider'
 When(
   'el usuario solicita recuperar contraseña para el email {string}',
   async function (this: MyWorld, email: string) {
-    this.world.response = await request(this.app.getHttpServer())
-      .post('/auth/forgot-password')
-      .send({ email });
+    this.world.response = await api(this).post('/auth/forgot-password', {
+      email,
+    });
   },
 );
 
 When(
   'el usuario envía un reset de contraseña con token válido y nueva contraseña {string}',
   async function (this: MyWorld, newPassword: string) {
-    this.world.response = await request(this.app.getHttpServer())
-      .post('/auth/reset-password')
-      .send({ accessToken: StubAuthProvider.STUB_TOKEN, newPassword });
+    this.world.response = await api(this).post('/auth/reset-password', {
+      accessToken: StubAuthProvider.STUB_TOKEN,
+      newPassword,
+    });
   },
 );
 
 When(
   'el usuario envía un reset de contraseña con token {string} y nueva contraseña {string}',
   async function (this: MyWorld, accessToken: string, newPassword: string) {
-    this.world.response = await request(this.app.getHttpServer())
-      .post('/auth/reset-password')
-      .send({ accessToken, newPassword });
+    this.world.response = await api(this).post('/auth/reset-password', {
+      accessToken,
+      newPassword,
+    });
   },
 );
 
