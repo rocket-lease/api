@@ -12,8 +12,15 @@ export class EntityAlreadyExistsException extends DomainException {
   }
 }
 
+export class EntityNotFoundException extends DomainException {
+  constructor(entity: string, id: string) {
+    super(`${entity} with id ${id} not found`);
+  }
+}
+
 export class InvalidEntityDataException extends DomainException {
   constructor(message: string) {
     super(`Validation error: ${message}`);
   }
 }
+

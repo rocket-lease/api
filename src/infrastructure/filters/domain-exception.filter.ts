@@ -39,6 +39,8 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.CONFLICT;
     } else if (exception instanceof InvalidEntityDataException) {
       status = HttpStatus.BAD_REQUEST;
+    } else if (exception instanceof InvalidEntityDataException) {
+      status = HttpStatus.NOT_FOUND;
     } else if (isZodError(exception)) {
       status = HttpStatus.BAD_REQUEST;
       message = exception.issues.map((i) => i.message).join('; ');

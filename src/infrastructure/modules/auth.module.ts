@@ -9,6 +9,7 @@ import { AUTH_PROVIDER } from '@/domain/providers/auth.provider';
 
 @Module({
   controllers: [AuthController],
+  exports: [AuthService, PrismaService],
   providers: [
     AuthService,
     PrismaService,

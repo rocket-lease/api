@@ -2,16 +2,18 @@ import { Module } from '@nestjs/common';
 import { VehicleController } from '@/infrastructure/controllers/vehicle.controller';
 import { VEHICLE_REPOSITORY } from '@/domain/repositories/vehicle.repository';
 import { VehicleService } from '@/application/vehicle.service';
-import { InMemoryVehicleRepository } from '../repository/inMemoryVehicle.repository';
+import { PostgresVehicleRepository } from '../repository/postgres.vehicle.repository';
+import { AuthModule } from './auth.module';
 
 @Module({
-  controllers: [VehicleController],
-  providers: [
-    VehicleService,
-    {
-      provide: VEHICLE_REPOSITORY,
-      useClass: InMemoryVehicleRepository,
-    },
-  ],
+    imports: [AuthModule],
+    controllers: [VehicleController],
+    providers: [
+        VehicleService,
+        {
+            provide: VEHICLE_REPOSITORY,
+            useClass: PostgresVehicleRepository,
+        },
+    ],
 })
 export class VehicleModule {}
