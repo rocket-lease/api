@@ -1,5 +1,4 @@
-#language: es
-
+# language: es
 Característica: Gestion de vehiculos
     Como rentador
     quiero actualizar, habilitar, deshabilitar y eliminar mis vehículos

@@ -13,11 +13,12 @@ export class StubAuthProvider implements AuthProvider {
     email: string,
     _password: string,
   ): Promise<{ userId: string }> {
-    if (this.registeredEmails.has(email)) {
+    if (this.registeredEmails.has(email) || this.userIdByEmail.has(email)) {
       throw new Error('Email already registered in auth provider');
     }
-      this.registeredEmails.add(email);
-      return { userId: StubAuthProvider.STUB_USER_ID };
+    this.registeredEmails.add(email);
+    this.userIdByEmail.set(email, StubAuthProvider.STUB_USER_ID);
+    return { userId: StubAuthProvider.STUB_USER_ID };
   }
 
   public async signIn(

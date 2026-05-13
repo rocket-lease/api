@@ -1,4 +1,4 @@
-#language: es
+# language: es
 Característica: Inicio de sesión de usuarios
 
   Escenario: Login exitoso con credenciales válidas

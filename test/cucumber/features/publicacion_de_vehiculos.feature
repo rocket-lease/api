@@ -1,4 +1,4 @@
-#language: es
+# language: es
 Característica: Publicacion de vehículos
     Como rentador
     quiero publicar mis vehículos
