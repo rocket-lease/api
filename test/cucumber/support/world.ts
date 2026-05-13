@@ -18,11 +18,12 @@ interface GlobalContext {
     login_response?: any;
     create_vehicle_dto?: any;
     create_vehicle_response?: any;
+    enable_vehicle_response?: any;
     update_vehicle_dto?: any;
     update_vehicle_response?: any;
     delete_vehicle_response?: any;
     last_user_id?: string;
-    response?: any;
+    lastResponse?: any;
 }
 
 export interface MyWorld extends World {
