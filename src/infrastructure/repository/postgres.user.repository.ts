@@ -43,6 +43,16 @@ export class PostgresUserRepository implements UserRepository {
     });
   }
 
+  async updateBasicInfo(
+    id: string,
+    data: { name: string; dni: string; phone: string },
+  ): Promise<void> {
+    await this.prisma.user.update({
+      where: { id },
+      data: { name: data.name, dni: data.dni, phone: data.phone },
+    });
+  }
+
   async findByEmail(email: string): Promise<User | null> {
     const row: PrismaUser | null = await this.prisma.user.findUnique({
       where: { email },
@@ -104,6 +114,21 @@ export class PostgresUserRepository implements UserRepository {
       }
       throw error;
     }
+  }
+
+  async markPhoneVerified(id: string, verifiedAt: Date): Promise<void> {
+    await this.prisma.user.update({
+      where: { id },
+      data: { phoneVerifiedAt: verifiedAt },
+    });
+  }
+
+  async isPhoneVerified(id: string): Promise<boolean> {
+    const row = await this.prisma.user.findUnique({
+      where: { id },
+      select: { phoneVerifiedAt: true },
+    });
+    return !!row?.phoneVerifiedAt;
   }
 
   async clean(): Promise<void> {
