@@ -14,6 +14,9 @@ import {
     CreateVehicleResponseSchema,
     GetVehicleResponse,
     GetVehicleResponseSchema,
+    SearchVehiclesQuery,
+    SearchVehiclesResponse,
+    SearchVehiclesResponseSchema,
     UpdateVehicleRequest,
 } from '@rocket-lease/contracts';
 
@@ -88,6 +91,24 @@ export class VehicleService {
         return vehicles.map((v) => this.toDTO(v));
     }
 
+    public async searchVehicles(query: SearchVehiclesQuery): Promise<SearchVehiclesResponse> {
+        const vehicles = await this.vehicleRepository.search({
+            transmission:   query.transmission,
+            minPrice:       query.minPrice,
+            maxPrice:       query.maxPrice,
+            minSeats:       query.minSeats,
+            minTrunkLiters: query.minTrunkLiters,
+            minYear:        query.minYear,
+            maxYear:        query.maxYear,
+            model:          query.model,
+            isAccessible:   query.isAccessible,
+        });
+
+        return SearchVehiclesResponseSchema.parse({
+            vehicles: vehicles.map((v) => this.toDTO(v)),
+        });
+    }
+
     public async deleteVehicle(vehicleId: string): Promise<void> {
         const vehicle = await this.vehicleRepository.findById(vehicleId);
         if (!vehicle) throw new EntityNotFoundException('vehicle', vehicleId);
@@ -112,6 +133,10 @@ export class VehicleService {
             mileage: vehicle.getMileage(),
             basePrice: vehicle.getBasePrice(),
             description: vehicle.getDescription(),
+            // Placeholders hasta que US-18 agregue estos campos a la entity y la DB
+            city: '-',
+            province: '-',
+            availableFrom: '2000-01-01',
         });
     }
 }

@@ -1,4 +1,4 @@
-import { VehicleRepository } from '@/domain/repositories/vehicle.repository';
+import { VehicleRepository, VehicleSearchParams } from '@/domain/repositories/vehicle.repository';
 import { PrismaService } from '../database/prisma.service';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { Injectable } from '@nestjs/common';
@@ -101,6 +101,25 @@ export class PostgresVehicleRepository implements VehicleRepository {
 
   async delete(id: string): Promise<void> {
     await this.prisma.vehicle.delete({ where: { id } });
+  }
+
+  async search(params: VehicleSearchParams): Promise<Vehicle[]> {
+    const raws = await this.prisma.vehicle.findMany({
+      where: {
+        enabled: true,
+        ...(params.transmission   && { transmission: params.transmission as any }),
+        ...(params.minPrice       !== undefined && { basePrice: { gte: params.minPrice } }),
+        ...(params.maxPrice       !== undefined && { basePrice: { lte: params.maxPrice } }),
+        ...(params.minSeats       !== undefined && { passengers: { gte: params.minSeats } }),
+        ...(params.minTrunkLiters !== undefined && { trunkLiters: { gte: params.minTrunkLiters } }),
+        ...(params.minYear        !== undefined && { year: { gte: params.minYear } }),
+        ...(params.maxYear        !== undefined && { year: { lte: params.maxYear } }),
+        ...(params.model          && { model: { contains: params.model, mode: 'insensitive' as const } }),
+        ...(params.isAccessible   !== undefined && { isAccessible: params.isAccessible }),
+      },
+      include: { photos: true },
+    });
+    return raws.map((raw) => this.mapToDomain(raw));
   }
 
   private mapToDomain(raw: any): Vehicle {
