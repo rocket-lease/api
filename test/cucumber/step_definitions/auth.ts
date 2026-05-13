@@ -1,12 +1,12 @@
 import { Given, When, Then } from '@cucumber/cucumber';
 import { MyWorld } from '../support/world';
-import request from 'supertest';
+import { api } from '../support/http-client';
 import { expect } from 'expect';
 
 Given(
   'que existe un usuario registrado con email {string} y contraseña {string}',
   async function (this: MyWorld, email: string, password: string) {
-    await request(this.app.getHttpServer()).post('/auth/register').send({
+    await api(this).post('/auth/register', {
       name: 'Usuario Test',
       email,
       dni: '12345678',
@@ -16,12 +16,29 @@ Given(
   },
 );
 
+Given('que estoy autenticado', async function (this: MyWorld) {
+  const email = `test-${Date.now()}@example.com`;
+  const registerRes = await api(this).post('/auth/register', {
+    name: 'Test',
+    email,
+    dni: '12345678',
+    phone: '1123456789',
+    password: 'Passw0rd!',
+  });
+  const loginRes = await api(this).post('/auth/login', {
+    email,
+    password: 'Passw0rd!',
+  });
+  this.world.access_token = loginRes.body.access_token;
+});
+
 When(
   'el usuario intenta iniciar sesión con email {string} y contraseña {string}',
   async function (this: MyWorld, email: string, password: string) {
-    this.world.login_response = await request(this.app.getHttpServer())
-      .post('/auth/login')
-      .send({ email, password });
+    this.world.login_response = await api(this).post('/auth/login', {
+      email,
+      password,
+    });
   },
 );
 

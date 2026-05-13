@@ -9,6 +9,8 @@ module.exports = {
       'test/cucumber/support/**/*.ts'
     ],
     paths: ['test/cucumber/features/**/*.feature'],
-    publishQuiet: true
+    publishQuiet: true,
+    backtrace: true,
+    format: ['summary']
   }
 }

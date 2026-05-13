@@ -6,6 +6,12 @@ import {
   type LoginUserRequest,
   type LoginUserResponse,
   LoginUserResponseSchema,
+  type ForgotPasswordRequest,
+  type ForgotPasswordResponse,
+  ForgotPasswordResponseSchema,
+  type ResetPasswordRequest,
+  type ResetPasswordResponse,
+  ResetPasswordResponseSchema,
 } from '@rocket-lease/contracts';
 import { User } from '@/domain/entities/user.entity';
 import { EntityAlreadyExistsException } from '@/domain/exceptions/domain.exception';
@@ -25,7 +31,26 @@ export class AuthService {
     dto: RegisterUserRequest,
   ): Promise<RegisterUserResponse> {
     const existing = await this.userRepository.findByEmail(dto.email);
-    if (existing) throw new EntityAlreadyExistsException('user', dto.email);
+    if (existing) {
+      const verified = await this.authProvider.getEmailVerificationStatus(
+        existing.getId(),
+      );
+      if (verified) throw new EntityAlreadyExistsException('user', dto.email);
+
+      await this.authProvider.updatePassword(existing.getId(), dto.password);
+      await this.userRepository.updateBasicInfo(existing.getId(), {
+        name: dto.name,
+        dni: dto.dni,
+        phone: dto.phone,
+      });
+      await this.authProvider.resendSignupOtp(dto.email);
+
+      return RegisterUserResponseSchema.parse({
+        id: existing.getId(),
+        name: dto.name,
+        email: dto.email,
+      });
+    }
 
     const { userId } = await this.authProvider.signUp(dto.email, dto.password);
     const user = new User(userId, dto.name, dto.email, dto.dni, dto.phone);
@@ -49,5 +74,29 @@ export class AuthService {
       : token;
     const { userId } = await this.authProvider.verifyToken(rawToken);
     return userId;
+  }
+
+  public async forgotPassword(
+    dto: ForgotPasswordRequest,
+  ): Promise<ForgotPasswordResponse> {
+    await this.authProvider.requestPasswordReset(dto.email);
+    return ForgotPasswordResponseSchema.parse({
+      message: 'If the email exists, a reset link has been sent',
+    });
+  }
+
+  public async resetPassword(
+    dto: ResetPasswordRequest,
+  ): Promise<ResetPasswordResponse> {
+    const { userId } = await this.authProvider.verifyToken(dto.accessToken);
+    await this.authProvider.updatePassword(userId, dto.newPassword);
+    return ResetPasswordResponseSchema.parse({
+      message: 'Password updated successfully',
+    });
+  }
+
+  public async deleteAccount(userId: string): Promise<void> {
+    await this.userRepository.deleteById(userId);
+    await this.authProvider.deleteUser(userId);
   }
 }

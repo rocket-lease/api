@@ -1,6 +1,9 @@
 import { AuthService } from '@/application/auth.service';
 import { User } from '@/domain/entities/user.entity';
-import { EntityAlreadyExistsException } from '@/domain/exceptions/domain.exception';
+import {
+  EntityAlreadyExistsException,
+  InvalidEntityDataException,
+} from '@/domain/exceptions/domain.exception';
 import { UserRepository } from '@/domain/repositories/user.repository';
 import { AuthProvider } from '@/domain/providers/auth.provider';
 
@@ -21,6 +24,11 @@ describe('AuthService', () => {
     userRepoMock = {
       save: jest.fn(),
       findByEmail: jest.fn().mockResolvedValue(null),
+      findById: jest.fn().mockResolvedValue(null),
+      getProfileById: jest.fn().mockResolvedValue(null),
+      updateProfile: jest.fn(),
+      updateAvatar: jest.fn(),
+      deleteById: jest.fn(),
     };
     authProviderMock = {
       signUp: jest.fn().mockResolvedValue({ userId: 'stub-id' }),
@@ -29,6 +37,10 @@ describe('AuthService', () => {
         refresh_token: 'rt',
         expires_in: 3600,
       }),
+      verifyToken: jest.fn().mockResolvedValue({ userId: 'stub-id' }),
+      requestPasswordReset: jest.fn().mockResolvedValue(undefined),
+      updatePassword: jest.fn().mockResolvedValue(undefined),
+      deleteUser: jest.fn().mockResolvedValue(undefined),
     };
     service = new AuthService(userRepoMock, authProviderMock);
   });
@@ -69,5 +81,65 @@ describe('AuthService', () => {
     userRepoMock.findByEmail.mockResolvedValue(existing);
     await expect(service.register(validDto)).rejects.toThrow();
     expect(authProviderMock.signUp).not.toHaveBeenCalled();
+  });
+
+  describe('forgotPassword', () => {
+    it('delegates to authProvider.requestPasswordReset', async () => {
+      const result = await service.forgotPassword({ email: 'a@b.com' });
+      expect(authProviderMock.requestPasswordReset).toHaveBeenCalledWith(
+        'a@b.com',
+      );
+      expect(result.message).toBeDefined();
+    });
+
+    it('returns generic message regardless of email existence', async () => {
+      const r1 = await service.forgotPassword({ email: 'exists@b.com' });
+      const r2 = await service.forgotPassword({ email: 'missing@b.com' });
+      expect(r1.message).toBe(r2.message);
+    });
+  });
+
+  describe('resetPassword', () => {
+    const dto = { accessToken: 'token-x', newPassword: 'Newp4ss!' };
+
+    it('verifies token and updates password', async () => {
+      authProviderMock.verifyToken.mockResolvedValue({ userId: 'user-1' });
+      const result = await service.resetPassword(dto);
+      expect(authProviderMock.verifyToken).toHaveBeenCalledWith(
+        dto.accessToken,
+      );
+      expect(authProviderMock.updatePassword).toHaveBeenCalledWith(
+        'user-1',
+        dto.newPassword,
+      );
+      expect(result.message).toBeDefined();
+    });
+
+    it('throws when token is invalid', async () => {
+      authProviderMock.verifyToken.mockRejectedValue(
+        new Error('Token inválido'),
+      );
+      await expect(service.resetPassword(dto)).rejects.toThrow();
+      expect(authProviderMock.updatePassword).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deleteAccount', () => {
+    it('deletes user from repo and auth provider', async () => {
+      await service.deleteAccount('user-1');
+
+      expect(userRepoMock.deleteById).toHaveBeenCalledWith('user-1');
+      expect(authProviderMock.deleteUser).toHaveBeenCalledWith('user-1');
+    });
+
+    it('propagates repo errors and skips auth provider', async () => {
+      userRepoMock.deleteById.mockRejectedValue(
+        new InvalidEntityDataException('User not found'),
+      );
+      await expect(service.deleteAccount('missing')).rejects.toThrow(
+        InvalidEntityDataException,
+      );
+      expect(authProviderMock.deleteUser).not.toHaveBeenCalled();
+    });
   });
 });

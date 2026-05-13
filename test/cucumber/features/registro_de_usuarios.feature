@@ -1,4 +1,4 @@
-#language: es
+# language: es
 Característica: Registro de usuarios
 
   Escenario: Registro exitoso con datos válidos
@@ -7,8 +7,9 @@ Característica: Registro de usuarios
     Entonces la cuenta es creada exitosamente
     Y el usuario puede acceder a la plataforma
 
-  Escenario: Intento de registro con email ya existente
+  Escenario: Intento de registro con email ya existente y verificado
     Dado que ya existe un usuario registrado con email "repetido@ejemplo.com"
+    Y ese email ya fue verificado
     Y que un nuevo usuario quiere registrarse con nombre "Pedro", email "repetido@ejemplo.com", DNI "87654321", teléfono "1198765432" y contraseña "Passw0rd!"
     Cuando envía el formulario de registro
     Entonces el sistema indica que el correo ya está en uso

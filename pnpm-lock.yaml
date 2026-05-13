@@ -21,11 +21,14 @@ importers:
         specifier: ^6.19.3
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
       '@rocket-lease/contracts':
-        specifier: ^0.1.3
-        version: 0.1.3(zod@3.25.76)
+        specifier: ^0.1.4
+        version: 0.1.4(zod@3.25.76)
       '@supabase/supabase-js':
         specifier: ^2.105.4
         version: 2.105.4
+      cloudinary:
+        specifier: ^2.7.0
+        version: 2.10.0
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
@@ -830,8 +833,8 @@ packages:
   '@prisma/get-platform@6.19.3':
     resolution: {integrity: sha512-xFj1VcJ1N3MKooOQAGO0W5tsd0W2QzIvW7DD7c/8H14Zmp4jseeWAITm+w2LLoLrlhoHdPPh0NMZ8mfL6puoHA==}
 
-  '@rocket-lease/contracts@0.1.3':
-    resolution: {integrity: sha512-/cr9aUGsUtORk8X0IzyJQHWhuJIP6mTIqHaswZmfssF49F/j5mjsDYcMeCJk5aQ8JNRMAgEzJwdX9llkIUeXnQ==}
+  '@rocket-lease/contracts@0.1.4':
+    resolution: {integrity: sha512-Nf5mN+pqmLRbEofRRz08j4Xm2c70QNr2JD6IpBoeFndeZrfMEF7Orm/OsZLP3qXvTDoj8aUsmwfaTMyDm03W7w==}
     peerDependencies:
       zod: ^3.23.8
 
@@ -1511,6 +1514,10 @@ packages:
   clone@1.0.4:
     resolution: {integrity: sha512-JQHZ2QMW6l3aH/j6xCqQThY/9OH4D/9ls34cgkUBiEeocRTU04tHfKPBsUK1PqZCUQM7GiA0IIXJSuXHI64Kbg==}
     engines: {node: '>=0.8'}
+
+  cloudinary@2.10.0:
+    resolution: {integrity: sha512-sY09kYg7wprkndAOjZBAYqFZqwL+SxnEGcAvksOvFA+5upnFn949UjkEkHKNSwkBtW/xRDd0p6NgbSXZcxkI3w==}
+    engines: {node: '>=9'}
 
   co@4.6.0:
     resolution: {integrity: sha512-QVb0dM5HvG+uaxitm8wONl7jltx8dqhfU33DcqtOZcLSVIKSDDLDi7+0LbAKiyI8hD9u42m2YxXSkMGWThaecQ==}
@@ -4408,7 +4415,7 @@ snapshots:
     dependencies:
       '@prisma/debug': 6.19.3
 
-  '@rocket-lease/contracts@0.1.3(zod@3.25.76)':
+  '@rocket-lease/contracts@0.1.4(zod@3.25.76)':
     dependencies:
       zod: 3.25.76
 
@@ -5150,6 +5157,10 @@ snapshots:
       wrap-ansi: 7.0.0
 
   clone@1.0.4: {}
+
+  cloudinary@2.10.0:
+    dependencies:
+      lodash: 4.18.1
 
   co@4.6.0: {}
 
