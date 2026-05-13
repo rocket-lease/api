@@ -7,7 +7,12 @@ import { PrismaService } from '@/infrastructure/database/prisma.service';
 export class PostgresFavoriteRepository implements FavoriteRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  private reconstitute(row: { id: string; conductorId: string; vehicleId: string; createdAt: Date }): Favorite {
+  private reconstitute(row: {
+    id: string;
+    conductorId: string;
+    vehicleId: string;
+    createdAt: Date;
+  }): Favorite {
     return new Favorite(row.id, row.conductorId, row.vehicleId, row.createdAt);
   }
 
@@ -37,7 +42,10 @@ export class PostgresFavoriteRepository implements FavoriteRepository {
     return rows.map((r) => this.reconstitute(r));
   }
 
-  async findByConductorAndVehicle(conductorId: string, vehicleId: string): Promise<Favorite | null> {
+  async findByConductorAndVehicle(
+    conductorId: string,
+    vehicleId: string,
+  ): Promise<Favorite | null> {
     const row = await this.prisma.favorite.findUnique({
       where: { conductorId_vehicleId: { conductorId, vehicleId } },
     });

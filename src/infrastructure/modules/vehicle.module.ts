@@ -6,14 +6,14 @@ import { PostgresVehicleRepository } from '../repository/postgres.vehicle.reposi
 import { AuthModule } from './auth.module';
 
 @Module({
-    imports: [AuthModule],
-    controllers: [VehicleController],
-    providers: [
-        VehicleService,
-        {
-            provide: VEHICLE_REPOSITORY,
-            useClass: PostgresVehicleRepository,
-        },
-    ],
+  imports: [AuthModule],
+  controllers: [VehicleController],
+  providers: [
+    VehicleService,
+    {
+      provide: VEHICLE_REPOSITORY,
+      useClass: PostgresVehicleRepository,
+    },
+  ],
 })
 export class VehicleModule {}

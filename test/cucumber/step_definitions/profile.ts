@@ -4,7 +4,7 @@ import { expect } from 'expect';
 import type { MyWorld } from '../support/world';
 
 Given(
-  'que existe un usuario autenticado con email {string} y contrasena {string}',
+  'que existe un usuario autenticado con email {string} y contraseña {string}',
   async function (this: MyWorld, email: string, password: string) {
     await api(this).post('/auth/register', {
       name: 'Usuario Perfil',

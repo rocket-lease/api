@@ -39,7 +39,13 @@ export class InMemoryUserRepository implements UserRepository {
   ): Promise<void> {
     const existing = this.storageById.get(id);
     if (!existing) return;
-    const updated = new User(id, data.name, existing.getEmail(), data.dni, data.phone);
+    const updated = new User(
+      id,
+      data.name,
+      existing.getEmail(),
+      data.dni,
+      data.phone,
+    );
     this.storageById.set(id, updated);
     this.storageByEmail.set(existing.getEmail(), updated);
     const profile = this.profiles.get(id);
@@ -60,7 +66,10 @@ export class InMemoryUserRepository implements UserRepository {
     return this.profiles.get(id) ?? null;
   }
 
-  public async updateProfile(id: string, profile: UpdateUserProfile): Promise<UserProfile> {
+  public async updateProfile(
+    id: string,
+    profile: UpdateUserProfile,
+  ): Promise<UserProfile> {
     const existing = this.profiles.get(id);
     if (!existing) {
       throw new Error('User profile not found');
@@ -78,7 +87,10 @@ export class InMemoryUserRepository implements UserRepository {
     return nextProfile;
   }
 
-  public async updateAvatar(id: string, avatarUrl: string): Promise<UserProfile> {
+  public async updateAvatar(
+    id: string,
+    avatarUrl: string,
+  ): Promise<UserProfile> {
     const existing = this.profiles.get(id);
     if (!existing) {
       throw new Error('User profile not found');
