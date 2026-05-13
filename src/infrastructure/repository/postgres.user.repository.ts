@@ -106,6 +106,21 @@ export class PostgresUserRepository implements UserRepository {
     }
   }
 
+  async markPhoneVerified(id: string, verifiedAt: Date): Promise<void> {
+    await this.prisma.user.update({
+      where: { id },
+      data: { phoneVerifiedAt: verifiedAt },
+    });
+  }
+
+  async isPhoneVerified(id: string): Promise<boolean> {
+    const row = await this.prisma.user.findUnique({
+      where: { id },
+      select: { phoneVerifiedAt: true },
+    });
+    return !!row?.phoneVerifiedAt;
+  }
+
   async clean(): Promise<void> {
     await this.prisma.user.deleteMany({});
   }
