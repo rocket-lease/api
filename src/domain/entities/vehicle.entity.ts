@@ -15,6 +15,7 @@ const vehicleSchema = z.object({
         errorMap: () => ({ message: "Invalid transmission type" })
     }),
     isAccessible: z.boolean(),
+    enabled: z.boolean(),
     photos: z.array(z.string().url("Invalid photo URL format")).min(1, "At least one photo is required"),
     color: z.string().min(1, "Color is required"),
     mileage: z.number().min(0, "Mileage cannot be negative"),
@@ -33,7 +34,8 @@ export class Vehicle {
         private readonly passengers: number,
         private readonly trunkLiters: number,
         private readonly transmission: 'Manual' | 'Automatico' | 'Semiautomatico',
-        private readonly isAccessible: boolean,
+        private isAccessible: boolean,
+        private enabled: boolean,
         private photos: string[],
         private color: string,
         private mileage: number,
@@ -59,6 +61,10 @@ export class Vehicle {
     public getBasePrice(): number { return this.basePrice; }
     public getDescription(): string | null { return this.description; }
 
+    public isEnabled(): boolean { 
+        return this.enabled; 
+    }
+
     public updateMileage(newMileage: number): void {
         if (newMileage < this.mileage) {
             throw new InvalidEntityDataException(
@@ -79,7 +85,8 @@ export class Vehicle {
         if (data.color) this.color = data.color;
         if (data.basePrice) this.basePrice = data.basePrice;
         if (data.description !== undefined) this.description = data.description;
-
+        if (data.isAccessible !== undefined) this.description = data.description;
+        if (data.enabled !== undefined) this.enabled = data.enabled;
         this.validate();
     }
 
@@ -95,6 +102,7 @@ export class Vehicle {
             trunkLiters: this.trunkLiters,
             transmission: this.transmission,
             isAccessible: this.isAccessible,
+            enabled: this.enabled,
             photos: this.photos,
             color: this.color,
             mileage: this.mileage,

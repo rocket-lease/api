@@ -15,6 +15,8 @@ export class PostgresVehicleRepository implements VehicleRepository {
         color: vehicle.getColor(),
         basePrice: vehicle.getBasePrice(),
         description: vehicle.getDescription(),
+        isAccessible: vehicle.getIsAccessible(),
+        enabled: vehicle.isEnabled(),
         photos: {
           deleteMany: {}, 
           create: vehicle.getPhotos().map(url => ({ url }))
@@ -62,6 +64,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
       raw.trunkLiters,
       raw.transmission as any,
       raw.isAccessible,
+      raw.enabled,
       raw.photos.map(p => p.url),
       raw.color,
       raw.mileage,
@@ -103,6 +106,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
       raw.trunkLiters,
       raw.transmission,
       raw.isAccessible,
+      raw.enabled,
       raw.photos.map((p: any) => p.url),
       raw.color,
       raw.mileage,

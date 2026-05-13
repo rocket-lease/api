@@ -1,8 +1,9 @@
 import { Vehicle } from '@/domain/entities/vehicle.entity';
-import { EntityAlreadyExistsException, EntityNotFoundException } from '@/domain/exceptions/domain.exception';
+import { EntityAlreadyExistsException, EntityNotFoundException, InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
 import type { VehicleRepository } from '@/domain/repositories/vehicle.repository';
 import { VEHICLE_REPOSITORY } from '@/domain/repositories/vehicle.repository';
 import { Inject, Injectable } from '@nestjs/common';
+import { UpdateVehicleRequestSchema } from '@rocket-lease/contracts';
 import { 
     CreateVehicleRequest, 
     CreateVehicleResponse, 
@@ -34,6 +35,7 @@ export class VehicleService {
             data.trunkLiters,
             data.transmission,
             data.isAccessible,
+            true,
             data.photos,
             data.color,
             data.mileage,
@@ -54,13 +56,21 @@ export class VehicleService {
     public async updateVehicle(vehicleId: string, data: UpdateVehicleRequest): Promise<void> {
         const vehicle = await this.vehicleRepository.findById(vehicleId);
         if (!vehicle) throw new EntityNotFoundException('vehicle', vehicleId);
-        vehicle.update(data);
-        await this.vehicleRepository.save(vehicle);
+        try {
+            const parsed = UpdateVehicleRequestSchema.parse(data);
+            vehicle.update(parsed);
+            await this.vehicleRepository.save(vehicle);
+        } catch (e) {
+            const field = e.issues?.[0]?.keys?.[0] ?? 'desconocido';
+            throw new InvalidEntityDataException(`cannot modify field '${field}'`);
+        }
     }
 
     public async getAll(): Promise<Array<GetVehicleResponse>> {
         const vehicles = await this.vehicleRepository.fetchAll();
-        return vehicles.map(this.toDTO);
+        return vehicles
+        .filter(v => v.isEnabled())
+        .map(v => this.toDTO(v));
     }
 
     public async deleteVehicle(vehicleId: string): Promise<void> {
@@ -81,6 +91,7 @@ export class VehicleService {
             trunkLiters: vehicle.getTrunkLiters(),
             transmission: vehicle.getTransmission(),
             isAccessible: vehicle.getIsAccessible(),
+            enabled: vehicle.isEnabled(),
             photos: vehicle.getPhotos(),
             color: vehicle.getColor(),
             mileage: vehicle.getMileage(),
