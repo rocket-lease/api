@@ -48,6 +48,9 @@ export class VehicleService {
             data.mileage,
             data.basePrice,
             data.description,
+            data.province,
+            data.city,
+            data.availableFrom,
         );
 
         const savedVehicle = await this.vehicleRepository.save(vehicle);
@@ -112,6 +115,9 @@ export class VehicleService {
             mileage: vehicle.getMileage(),
             basePrice: vehicle.getBasePrice(),
             description: vehicle.getDescription(),
+            province: vehicle.getProvince(),
+            city: vehicle.getCity(),
+            availableFrom: vehicle.getAvailableFrom(),
         });
     }
 }

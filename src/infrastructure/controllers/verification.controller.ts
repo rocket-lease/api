@@ -7,16 +7,25 @@ import {
   Post,
   UnauthorizedException,
 } from '@nestjs/common';
-import {
-  ResendEmailOtpRequestSchema,
-  type ResendEmailOtpRequest,
-  VerifyEmailOtpRequestSchema,
-  type VerifyEmailOtpRequest,
-  VerifyPhoneOtpRequestSchema,
-  type VerifyPhoneOtpRequest,
-} from '@rocket-lease/contracts';
+import { z } from 'zod';
 import { AuthService } from '@/application/auth.service';
 import { VerificationService } from '@/application/verification.service';
+
+const ResendEmailOtpRequestSchema = z.object({
+  email: z.string().email(),
+});
+type ResendEmailOtpRequest = z.infer<typeof ResendEmailOtpRequestSchema>;
+
+const VerifyEmailOtpRequestSchema = z.object({
+  email: z.string().email(),
+  token: z.string().regex(/^\d{6}$/, 'Code must be 6 digits'),
+});
+type VerifyEmailOtpRequest = z.infer<typeof VerifyEmailOtpRequestSchema>;
+
+const VerifyPhoneOtpRequestSchema = z.object({
+  token: z.string().regex(/^\d{6}$/, 'Code must be 6 digits'),
+});
+type VerifyPhoneOtpRequest = z.infer<typeof VerifyPhoneOtpRequestSchema>;
 
 @Controller('verifications')
 export class VerificationController {
