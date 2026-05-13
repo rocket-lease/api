@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env.test' });
 import { IWorldOptions, setWorldConstructor, World } from '@cucumber/cucumber';
+import type { Characteristic } from '@rocket-lease/contracts';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '@/infrastructure/modules/app.module';
@@ -33,6 +34,11 @@ interface GlobalContext {
   update_profile_response?: any;
   upload_avatar_response?: any;
   profile_payload?: any;
+  characteristics_vehicles?: Array<{ id: string; plate: string; characteristics: Characteristic[] }>;
+  expected_filter_plates?: string[];
+  current_characteristics?: Characteristic[];
+  filter_response?: any;
+  filter_characteristic?: Characteristic;
 }
 
 export interface MyWorld extends World {

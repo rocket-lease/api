@@ -12,6 +12,7 @@ import {
     CreateVehicleRequest,
     CreateVehicleResponse,
     CreateVehicleResponseSchema,
+    Characteristic,
     GetVehicleResponse,
     GetVehicleResponseSchema,
     UpdateVehicleRequest,
@@ -44,6 +45,7 @@ export class VehicleService {
             data.isAccessible,
             true,
             data.photos,
+            data.characteristics || [],
             data.color,
             data.mileage,
             data.basePrice,
@@ -65,10 +67,14 @@ export class VehicleService {
 
     public async updateVehicle(
         vehicleId: string,
+        ownerId: string,
         data: UpdateVehicleRequest,
     ): Promise<void> {
         const vehicle = await this.vehicleRepository.findById(vehicleId);
         if (!vehicle) throw new EntityNotFoundException('vehicle', vehicleId);
+        if (vehicle.getOwnerId() !== ownerId) {
+            throw new EntityNotFoundException('vehicle', vehicleId);
+        }
         try {
             const parsed = UpdateVehicleRequestSchema.parse(data);
             vehicle.update(parsed);
@@ -91,9 +97,21 @@ export class VehicleService {
         return vehicles.map((v) => this.toDTO(v));
     }
 
-    public async deleteVehicle(vehicleId: string): Promise<void> {
+    public async getByCharacteristics(
+        characteristics: Characteristic[],
+    ): Promise<Array<GetVehicleResponse>> {
+        const vehicles = await this.vehicleRepository.findByCharacteristics(
+            characteristics,
+        );
+        return vehicles.map((v) => this.toDTO(v));
+    }
+
+    public async deleteVehicle(vehicleId: string, ownerId: string): Promise<void> {
         const vehicle = await this.vehicleRepository.findById(vehicleId);
         if (!vehicle) throw new EntityNotFoundException('vehicle', vehicleId);
+        if (vehicle.getOwnerId() !== ownerId) {
+            throw new EntityNotFoundException('vehicle', vehicleId);
+        }
         await this.vehicleRepository.delete(vehicleId);
     }
 
@@ -111,6 +129,7 @@ export class VehicleService {
             isAccessible: vehicle.getIsAccessible(),
             enabled: vehicle.isEnabled(),
             photos: vehicle.getPhotos(),
+            characteristics: vehicle.getCharacteristics(),
             color: vehicle.getColor(),
             mileage: vehicle.getMileage(),
             basePrice: vehicle.getBasePrice(),

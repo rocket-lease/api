@@ -23,7 +23,32 @@ const validDto = {
     province: 'Buenos Aires',
     city: 'La Plata',
     availableFrom: '2025-01-01',
+    characteristics: ['GPS', 'BLUETOOTH'] as Array<'GPS' | 'BLUETOOTH'>,
 };
+
+const buildVehicle = (overrides: Partial<{ id: string; ownerId: string }> = {}) =>
+    new Vehicle(
+        overrides.id ?? randomUUID(),
+        overrides.ownerId ?? OWNER_ID,
+        validDto.plate,
+        validDto.brand,
+        validDto.model,
+        validDto.year,
+        validDto.passengers,
+        validDto.trunkLiters,
+        validDto.transmission,
+        validDto.isAccessible,
+        true,
+        validDto.photos,
+        [...validDto.characteristics],
+        validDto.color,
+        validDto.mileage,
+        validDto.basePrice,
+        validDto.description,
+        validDto.province,
+        validDto.city,
+        validDto.availableFrom,
+    );
 
 describe('VehicleService', () => {
     let service: VehicleService;
@@ -32,41 +57,19 @@ describe('VehicleService', () => {
     beforeEach(() => {
         repositoryMock = {
             save: jest.fn(),
-            fetchAll: jest.fn(),
+            fetchAll: jest.fn().mockResolvedValue([]),
             findById: jest.fn().mockResolvedValue(null),
             findByPlate: jest.fn().mockResolvedValue(null),
             findByOwnerId: jest.fn().mockResolvedValue([]),
+            findByCharacteristics: jest.fn().mockResolvedValue([]),
             delete: jest.fn().mockResolvedValue(undefined),
         };
 
         service = new VehicleService(repositoryMock);
     });
 
-    it('should create a vehicle', async () => {
-        const id = randomUUID();
-        const expectedVehicle = new Vehicle(
-            id,
-            OWNER_ID,
-            validDto.plate,
-            validDto.brand,
-            validDto.model,
-            validDto.year,
-            validDto.passengers,
-            validDto.trunkLiters,
-            validDto.transmission,
-            validDto.isAccessible,
-            true,
-            validDto.photos,
-            validDto.color,
-            validDto.mileage,
-            validDto.basePrice,
-            validDto.description,
-            validDto.province,
-            validDto.city,
-            validDto.availableFrom,
-        );
-
-        repositoryMock.findByPlate.mockResolvedValue(null);
+    it('should create a vehicle with characteristics', async () => {
+        const expectedVehicle = buildVehicle();
         repositoryMock.save.mockResolvedValue(expectedVehicle);
 
         const response = await service.createVehicle(OWNER_ID, validDto);
@@ -77,31 +80,23 @@ describe('VehicleService', () => {
     });
 
     it('should throw when plate already exists', async () => {
-        const existingVehicle = new Vehicle(
-            randomUUID(),
-            OWNER_ID,
-            validDto.plate,
-            validDto.brand,
-            validDto.model,
-            validDto.year,
-            validDto.passengers,
-            validDto.trunkLiters,
-            validDto.transmission,
-            validDto.isAccessible,
-            true,
-            validDto.photos,
-            validDto.color,
-            validDto.mileage,
-            validDto.basePrice,
-            validDto.description,
-            validDto.province,
-            validDto.city,
-            validDto.availableFrom,
-        );
-
-        repositoryMock.findByPlate.mockResolvedValue(existingVehicle);
+        repositoryMock.findByPlate.mockResolvedValue(buildVehicle());
 
         await expect(service.createVehicle(OWNER_ID, validDto)).rejects.toThrow();
         expect(repositoryMock.save).not.toHaveBeenCalled();
+    });
+
+    it('should filter vehicles by characteristics', async () => {
+        await service.getByCharacteristics(['GPS']);
+        expect(repositoryMock.findByCharacteristics).toHaveBeenCalledWith(['GPS']);
+    });
+
+    it('should reject delete by non-owner', async () => {
+        const vehicleId = randomUUID();
+        const intruderId = randomUUID();
+        repositoryMock.findById.mockResolvedValue(buildVehicle({ id: vehicleId }));
+
+        await expect(service.deleteVehicle(vehicleId, intruderId)).rejects.toThrow();
+        expect(repositoryMock.delete).not.toHaveBeenCalled();
     });
 });
