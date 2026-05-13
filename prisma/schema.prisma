@@ -30,6 +30,7 @@ model Vehicle {
   trunkLiters  Float
   transmission Transmission
   isAccessible Boolean      @default(false)
+  enabled Boolean           @default(true)
   color        String
   mileage      Float
   basePrice    Float
