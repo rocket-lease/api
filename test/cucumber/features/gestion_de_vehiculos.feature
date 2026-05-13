@@ -70,7 +70,7 @@ Característica: Gestion de vehiculos
         Cuando elimino el vehículo 
         Entonces el sistema cancela las reserva
 
-    Escenario:
+    Escenario: Habilitacion de vehiculo deshabilitado
         Dado un vehículo con los siguientes datos:
             | patente | marca | modelo | año  | pasajeros | baul | transmisión | accesible | color | kilometraje | precio base | descripción                  | fotos                          |
             | AE987CC | Ford  | Ranger | 2023 | 5         | 800  | Manual      | No        | Gris  | 45000       | 38000000    | Pick-up lista para trabajar  | https://i.com/1.jpg            |
