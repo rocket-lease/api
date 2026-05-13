@@ -1,7 +1,9 @@
+import { Injectable } from '@nestjs/common';
 import { AuthProvider } from '@/domain/providers/auth.provider';
 import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
 import { randomUUID } from 'node:crypto';
 
+@Injectable()
 export class StubAuthProvider implements AuthProvider {
   static readonly STUB_TOKEN = randomUUID();
   static readonly STUB_USER_ID = '00000000-0000-0000-0000-000000000001';
@@ -30,7 +32,11 @@ export class StubAuthProvider implements AuthProvider {
   public async signIn(
     email: string,
     _password: string,
-  ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
+  ): Promise<{
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+  }> {
     const userId = this.userIdByEmail.get(email);
     if (!userId) {
       throw new Error('User is not registered in auth provider');
@@ -53,7 +59,9 @@ export class StubAuthProvider implements AuthProvider {
 
     const userId = this.userIdByToken.get(token);
     if (!userId) {
-      throw new InvalidEntityDataException(`StubAuthProvider: token desconocido "${token}"`);
+      throw new InvalidEntityDataException(
+        `StubAuthProvider: token desconocido "${token}"`,
+      );
     }
 
     return { userId };
