@@ -138,5 +138,4 @@ describe('ProfileService', () => {
     );
     expect(updated.avatarUrl).toBe('https://cdn.example.com/avatar-nuevo.jpg');
   });
-
 });

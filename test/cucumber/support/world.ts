@@ -34,7 +34,11 @@ interface GlobalContext {
   update_profile_response?: any;
   upload_avatar_response?: any;
   profile_payload?: any;
-  characteristics_vehicles?: Array<{ id: string; plate: string; characteristics: Characteristic[] }>;
+  characteristics_vehicles?: Array<{
+    id: string;
+    plate: string;
+    characteristics: Characteristic[];
+  }>;
   expected_filter_plates?: string[];
   current_characteristics?: Characteristic[];
   filter_response?: any;

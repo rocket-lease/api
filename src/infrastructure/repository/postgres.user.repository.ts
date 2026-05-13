@@ -6,7 +6,10 @@ import {
   UserProfile,
   UpdateUserProfile,
 } from '@/domain/repositories/user.repository';
-import { InvalidEntityDataException, UserHasVehiclesException } from '@/domain/exceptions/domain.exception';
+import {
+  InvalidEntityDataException,
+  UserHasVehiclesException,
+} from '@/domain/exceptions/domain.exception';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 
 @Injectable()
@@ -20,11 +23,13 @@ export class PostgresUserRepository implements UserRepository {
       email: row.email,
       phone: row.phone,
       avatarUrl: row.avatarUrl,
-      verificationStatus: row.verificationStatus as UserProfile['verificationStatus'],
+      verificationStatus:
+        row.verificationStatus as UserProfile['verificationStatus'],
       level: row.level as UserProfile['level'],
       reputationScore: row.reputationScore,
       preferences: {
-        transmission: (row.preferredTransmission ?? null) as UserProfile['preferences']['transmission'],
+        transmission: (row.preferredTransmission ??
+          null) as UserProfile['preferences']['transmission'],
         accessibility: row.preferredAccessibility,
         maxPriceDaily: row.preferredMaxPriceDaily,
       },
@@ -77,7 +82,10 @@ export class PostgresUserRepository implements UserRepository {
     return this.mapProfile(row);
   }
 
-  async updateProfile(id: string, profile: UpdateUserProfile): Promise<UserProfile> {
+  async updateProfile(
+    id: string,
+    profile: UpdateUserProfile,
+  ): Promise<UserProfile> {
     const row = await this.prisma.user.update({
       where: { id },
       data: {

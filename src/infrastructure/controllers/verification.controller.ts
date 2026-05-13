@@ -35,7 +35,8 @@ export class VerificationController {
   ) {}
 
   private async resolveUserId(authorization?: string): Promise<string> {
-    if (!authorization) throw new UnauthorizedException('Missing authorization header');
+    if (!authorization)
+      throw new UnauthorizedException('Missing authorization header');
     try {
       return await this.authService.getUserIdFromToken(authorization);
     } catch {

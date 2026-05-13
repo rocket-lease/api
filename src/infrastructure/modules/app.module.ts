@@ -6,6 +6,12 @@ import { ProfileModule } from './profile.module';
 import { VerificationModule } from './verification.module';
 
 @Module({
-  imports: [VehicleModule, AuthModule, FavoriteModule, ProfileModule, VerificationModule],
+  imports: [
+    VehicleModule,
+    AuthModule,
+    FavoriteModule,
+    ProfileModule,
+    VerificationModule,
+  ],
 })
 export class AppModule {}

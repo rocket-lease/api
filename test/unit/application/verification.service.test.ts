@@ -56,7 +56,13 @@ describe('VerificationService', () => {
   describe('verifyPhoneOtp', () => {
     it('marks phone verified for existing user', async () => {
       userRepoMock.findById.mockResolvedValue(
-        new User('user-1', 'Juan', 'juan@example.com', '12345678', '1123456789'),
+        new User(
+          'user-1',
+          'Juan',
+          'juan@example.com',
+          '12345678',
+          '1123456789',
+        ),
       );
       await service.verifyPhoneOtp('user-1', '654321');
       expect(userRepoMock.markPhoneVerified).toHaveBeenCalledWith(
