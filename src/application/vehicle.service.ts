@@ -6,6 +6,8 @@ import {
 } from '@/domain/exceptions/domain.exception';
 import type { VehicleRepository } from '@/domain/repositories/vehicle.repository';
 import { VEHICLE_REPOSITORY } from '@/domain/repositories/vehicle.repository';
+import type { UserRepository } from '@/domain/repositories/user.repository';
+import { USER_REPOSITORY } from '@/domain/repositories/user.repository';
 import { Inject, Injectable } from '@nestjs/common';
 import { UpdateVehicleRequestSchema } from '@rocket-lease/contracts';
 import {
@@ -16,6 +18,7 @@ import {
     GetVehicleResponse,
     GetVehicleResponseSchema,
     UpdateVehicleRequest,
+    VehicleOwner,
 } from '@rocket-lease/contracts';
 
 @Injectable()
@@ -23,6 +26,8 @@ export class VehicleService {
     constructor(
         @Inject(VEHICLE_REPOSITORY)
         private readonly vehicleRepository: VehicleRepository,
+        @Inject(USER_REPOSITORY)
+        private readonly userRepository: UserRepository,
     ) {}
 
     public async createVehicle(
@@ -62,7 +67,8 @@ export class VehicleService {
     public async getById(vehicleId: string): Promise<GetVehicleResponse> {
         const vehicle = await this.vehicleRepository.findById(vehicleId);
         if (!vehicle) throw new EntityNotFoundException('vehicle', vehicleId);
-        return this.toDTO(vehicle);
+        const owner = await this.loadOwner(vehicle.getOwnerId());
+        return this.toDTO(vehicle, owner);
     }
 
     public async updateVehicle(
@@ -89,12 +95,12 @@ export class VehicleService {
         ownerId: string,
     ): Promise<Array<GetVehicleResponse>> {
         const vehicles = await this.vehicleRepository.findByOwnerId(ownerId);
-        return vehicles.map((v) => this.toDTO(v));
+        return this.toListDTO(vehicles);
     }
 
     public async getAll(): Promise<Array<GetVehicleResponse>> {
         const vehicles = await this.vehicleRepository.fetchAll();
-        return vehicles.map((v) => this.toDTO(v));
+        return this.toListDTO(vehicles);
     }
 
     public async getByCharacteristics(
@@ -103,7 +109,7 @@ export class VehicleService {
         const vehicles = await this.vehicleRepository.findByCharacteristics(
             characteristics,
         );
-        return vehicles.map((v) => this.toDTO(v));
+        return this.toListDTO(vehicles);
     }
 
     public async deleteVehicle(vehicleId: string, ownerId: string): Promise<void> {
@@ -115,7 +121,30 @@ export class VehicleService {
         await this.vehicleRepository.delete(vehicleId);
     }
 
-    private toDTO(vehicle: Vehicle): GetVehicleResponse {
+    private async loadOwner(ownerId: string): Promise<VehicleOwner | undefined> {
+        const profile = await this.userRepository.getProfileById(ownerId);
+        if (!profile) return undefined;
+        return {
+            id: profile.id,
+            name: profile.name,
+            avatarUrl: profile.avatarUrl,
+            level: profile.level,
+            reputationScore: profile.reputationScore,
+            verified: profile.verificationStatus === 'verified',
+        };
+    }
+
+    private async toListDTO(vehicles: Vehicle[]): Promise<GetVehicleResponse[]> {
+        const ownerIds = Array.from(new Set(vehicles.map((v) => v.getOwnerId())));
+        const owners = new Map<string, VehicleOwner>();
+        for (const id of ownerIds) {
+            const owner = await this.loadOwner(id);
+            if (owner) owners.set(id, owner);
+        }
+        return vehicles.map((v) => this.toDTO(v, owners.get(v.getOwnerId())));
+    }
+
+    private toDTO(vehicle: Vehicle, owner?: VehicleOwner): GetVehicleResponse {
         return GetVehicleResponseSchema.parse({
             id: vehicle.getId(),
             ownerId: vehicle.getOwnerId(),
@@ -137,6 +166,7 @@ export class VehicleService {
             province: vehicle.getProvince(),
             city: vehicle.getCity(),
             availableFrom: vehicle.getAvailableFrom(),
+            owner,
         });
     }
 }
