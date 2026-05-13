@@ -1,7 +1,7 @@
-import { VehicleRepository } from "@/domain/repositories/vehicle.repository";
-import { PrismaService } from "../database/prisma.service";
-import { Vehicle } from "@/domain/entities/vehicle.entity";
-import { Injectable } from "@nestjs/common";
+import { VehicleRepository } from '@/domain/repositories/vehicle.repository';
+import { PrismaService } from '../database/prisma.service';
+import { Vehicle } from '@/domain/entities/vehicle.entity';
+import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class PostgresVehicleRepository implements VehicleRepository {
@@ -18,9 +18,9 @@ export class PostgresVehicleRepository implements VehicleRepository {
         isAccessible: vehicle.getIsAccessible(),
         enabled: vehicle.isEnabled(),
         photos: {
-          deleteMany: {}, 
-          create: vehicle.getPhotos().map(url => ({ url }))
-        }
+          deleteMany: {},
+          create: vehicle.getPhotos().map((url) => ({ url })),
+        },
       },
       create: {
         id: vehicle.getId(),
@@ -38,9 +38,9 @@ export class PostgresVehicleRepository implements VehicleRepository {
         basePrice: vehicle.getBasePrice(),
         description: vehicle.getDescription(),
         photos: {
-          create: vehicle.getPhotos().map(url => ({ url }))
-        }
-      }
+          create: vehicle.getPhotos().map((url) => ({ url })),
+        },
+      },
     });
     return vehicle;
   }
@@ -48,7 +48,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
   async findById(id: string): Promise<Vehicle | null> {
     const raw = await this.prisma.vehicle.findUnique({
       where: { id },
-      include: { photos: true }
+      include: { photos: true },
     });
 
     if (!raw) return null;
@@ -65,33 +65,41 @@ export class PostgresVehicleRepository implements VehicleRepository {
       raw.transmission as any,
       raw.isAccessible,
       raw.enabled,
-      raw.photos.map(p => p.url),
+      raw.photos.map((p) => p.url),
       raw.color,
       raw.mileage,
       raw.basePrice,
-      raw.description
+      raw.description,
     );
   }
 
   async findByPlate(plate: string): Promise<Vehicle | null> {
     const raw = await this.prisma.vehicle.findUnique({
       where: { plate },
-      include: { photos: true }
+      include: { photos: true },
     });
 
     if (!raw) return null;
     return this.mapToDomain(raw);
   }
 
+  async findByOwnerId(ownerId: string): Promise<Vehicle[]> {
+    const raws = await this.prisma.vehicle.findMany({
+      where: { ownerId, enabled: true },
+      include: { photos: true },
+    });
+    return raws.map((raw) => this.mapToDomain(raw));
+  }
+
   async fetchAll(): Promise<Vehicle[]> {
     const raws = await this.prisma.vehicle.findMany({
-      include: { photos: true }
+      include: { photos: true },
     });
-    return raws.map(raw => this.mapToDomain(raw));
+    return raws.map((raw) => this.mapToDomain(raw));
   }
 
   async delete(id: string): Promise<void> {
-      await this.prisma.vehicle.delete({ where: { id } });
+    await this.prisma.vehicle.delete({ where: { id } });
   }
 
   private mapToDomain(raw: any): Vehicle {
@@ -111,7 +119,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
       raw.color,
       raw.mileage,
       raw.basePrice,
-      raw.description
+      raw.description,
     );
   }
 }

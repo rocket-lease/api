@@ -1,26 +1,33 @@
 import { Vehicle } from '@/domain/entities/vehicle.entity';
-import { EntityAlreadyExistsException, EntityNotFoundException, InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
+import {
+    EntityAlreadyExistsException,
+    EntityNotFoundException,
+    InvalidEntityDataException,
+} from '@/domain/exceptions/domain.exception';
 import type { VehicleRepository } from '@/domain/repositories/vehicle.repository';
 import { VEHICLE_REPOSITORY } from '@/domain/repositories/vehicle.repository';
 import { Inject, Injectable } from '@nestjs/common';
 import { UpdateVehicleRequestSchema } from '@rocket-lease/contracts';
-import { 
-    CreateVehicleRequest, 
-    CreateVehicleResponse, 
-    CreateVehicleResponseSchema, 
-    GetVehicleResponse, 
+import {
+    CreateVehicleRequest,
+    CreateVehicleResponse,
+    CreateVehicleResponseSchema,
+    GetVehicleResponse,
     GetVehicleResponseSchema,
-    UpdateVehicleRequest 
+    UpdateVehicleRequest,
 } from '@rocket-lease/contracts';
 
 @Injectable()
 export class VehicleService {
     constructor(
-        @Inject(VEHICLE_REPOSITORY) 
-        private readonly vehicleRepository: VehicleRepository
+        @Inject(VEHICLE_REPOSITORY)
+        private readonly vehicleRepository: VehicleRepository,
     ) {}
 
-    public async createVehicle(ownerId: string, data: CreateVehicleRequest): Promise<CreateVehicleResponse> {
+    public async createVehicle(
+        ownerId: string,
+        data: CreateVehicleRequest,
+    ): Promise<CreateVehicleResponse> {
         const exists = await this.vehicleRepository.findByPlate(data.plate);
         if (exists) throw new EntityAlreadyExistsException('vehicle', data.plate);
 
@@ -53,7 +60,10 @@ export class VehicleService {
         return this.toDTO(vehicle);
     }
 
-    public async updateVehicle(vehicleId: string, data: UpdateVehicleRequest): Promise<void> {
+    public async updateVehicle(
+        vehicleId: string,
+        data: UpdateVehicleRequest,
+    ): Promise<void> {
         const vehicle = await this.vehicleRepository.findById(vehicleId);
         if (!vehicle) throw new EntityNotFoundException('vehicle', vehicleId);
         try {
@@ -66,11 +76,16 @@ export class VehicleService {
         }
     }
 
+    public async getMyVehicles(
+        ownerId: string,
+    ): Promise<Array<GetVehicleResponse>> {
+        const vehicles = await this.vehicleRepository.findByOwnerId(ownerId);
+        return vehicles.map((v) => this.toDTO(v));
+    }
+
     public async getAll(): Promise<Array<GetVehicleResponse>> {
         const vehicles = await this.vehicleRepository.fetchAll();
-        return vehicles
-        .filter(v => v.isEnabled())
-        .map(v => this.toDTO(v));
+        return vehicles.filter((v) => v.isEnabled()).map((v) => this.toDTO(v));
     }
 
     public async deleteVehicle(vehicleId: string): Promise<void> {

@@ -1,6 +1,15 @@
 import { AuthService } from '@/application/auth.service';
 import { VehicleService } from '@/application/vehicle.service';
-import { Body, Controller, Post, Get, Req, Patch, Param, Delete } from '@nestjs/common';
+import {
+    Body,
+    Controller,
+    Post,
+    Get,
+    Req,
+    Patch,
+    Param,
+    Delete,
+} from '@nestjs/common';
 import * as Contracts from '@rocket-lease/contracts';
 import * as Express from 'express';
 
@@ -8,8 +17,17 @@ import * as Express from 'express';
 export class VehicleController {
     constructor(
         private readonly vehicleService: VehicleService,
-        private readonly authService: AuthService
-               ) {
+        private readonly authService: AuthService,
+    ) {}
+
+    @Get('mine')
+    async getMyVehicles(
+        @Req() req: Express.Request,
+    ): Promise<Array<Contracts.GetVehicleResponse>> {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) throw new Error('Token not found');
+        const ownerId = await this.authService.getUserIdFromToken(authHeader);
+        return await this.vehicleService.getMyVehicles(ownerId);
     }
 
     @Get()
@@ -18,14 +36,14 @@ export class VehicleController {
     }
 
     @Get(':id')
-    async getVehicleById(@Param('id') id: string): Promise<Contracts.GetVehicleResponse> {
+    async getVehicleById(
+        @Param('id') id: string,
+    ): Promise<Contracts.GetVehicleResponse> {
         return await this.vehicleService.getById(id);
     }
 
     @Delete(':id')
-    async deleteVehicle(
-        @Param('id') id: string,
-    ): Promise<void> {
+    async deleteVehicle(@Param('id') id: string): Promise<void> {
         await this.vehicleService.deleteVehicle(id);
     }
 
@@ -40,7 +58,7 @@ export class VehicleController {
     @Post()
     async publishVehicle(
         @Body() dto: Contracts.CreateVehicleRequest,
-        @Req() req: Express.Request
+        @Req() req: Express.Request,
     ): Promise<Contracts.CreateVehicleResponse> {
         const authHeader = req.headers.authorization;
         if (!authHeader) {
