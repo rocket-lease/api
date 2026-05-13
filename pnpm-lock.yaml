@@ -21,8 +21,8 @@ importers:
         specifier: ^6.19.3
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
       '@rocket-lease/contracts':
-        specifier: ^0.2.3
-        version: 0.2.5(zod@3.25.76)
+        specifier: ^0.3.0
+        version: 0.3.0(zod@3.25.76)
       '@supabase/supabase-js':
         specifier: ^2.105.4
         version: 2.105.4
@@ -833,8 +833,8 @@ packages:
   '@prisma/get-platform@6.19.3':
     resolution: {integrity: sha512-xFj1VcJ1N3MKooOQAGO0W5tsd0W2QzIvW7DD7c/8H14Zmp4jseeWAITm+w2LLoLrlhoHdPPh0NMZ8mfL6puoHA==}
 
-  '@rocket-lease/contracts@0.2.5':
-    resolution: {integrity: sha512-go+gDfjaYFzxndIxcRpR7Vsw3fwtzOaVH0WSxnElALmhQicM9KHH7lm8BMXfUBxLQkvVgyA4blPYWMSV+dH9RQ==}
+  '@rocket-lease/contracts@0.3.0':
+    resolution: {integrity: sha512-nV4lK16BIaApj0ehhKO4dKTzlYhlMhXp8h1/g4viBtBccAQLSrDj8Y1wdbMBoJ/hl8o7vtVefdKBZeEDuvnOOw==}
     peerDependencies:
       zod: ^3.23.8
 
@@ -2618,8 +2618,8 @@ packages:
   node-int64@0.4.0:
     resolution: {integrity: sha512-O5lz91xSOeoXP6DulyHfllpq+Eg00MWitZIbtPfoSEvqIHdl5gfcY6hYzDWnj0qD5tz52PI08u9qUvSVeUBeHw==}
 
-  node-releases@2.0.38:
-    resolution: {integrity: sha512-3qT/88Y3FbH/Kx4szpQQ4HzUbVrHPKTLVpVocKiLfoYvw9XSGOX2FmD2d6DrXbVYyAQTF2HeF6My8jmzx7/CRw==}
+  node-releases@2.0.44:
+    resolution: {integrity: sha512-5WUyunoPMsvvEhS8AxHtRzP+oA8UCkJ7YRxatWKjngndhDGLiqEVAQKWjFAiAiuL8zMRGzGSJxFnLetoa43qGQ==}
 
   normalize-package-data@8.0.0:
     resolution: {integrity: sha512-RWk+PI433eESQ7ounYxIp67CYuVsS1uYSonX3kA6ps/3LWfjVQa/ptEg6Y3T6uAMq1mWpX9PQ+qx+QaHpsc7gQ==}
@@ -4415,7 +4415,7 @@ snapshots:
     dependencies:
       '@prisma/debug': 6.19.3
 
-  '@rocket-lease/contracts@0.2.5(zod@3.25.76)':
+  '@rocket-lease/contracts@0.3.0(zod@3.25.76)':
     dependencies:
       zod: 3.25.76
 
@@ -5046,7 +5046,7 @@ snapshots:
       baseline-browser-mapping: 2.10.29
       caniuse-lite: 1.0.30001792
       electron-to-chromium: 1.5.353
-      node-releases: 2.0.38
+      node-releases: 2.0.44
       update-browserslist-db: 1.2.3(browserslist@4.28.2)
 
   bs-logger@0.2.6:
@@ -6382,7 +6382,7 @@ snapshots:
 
   node-int64@0.4.0: {}
 
-  node-releases@2.0.38: {}
+  node-releases@2.0.44: {}
 
   normalize-package-data@8.0.0:
     dependencies:
