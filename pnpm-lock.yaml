@@ -21,8 +21,8 @@ importers:
         specifier: ^6.19.3
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
       '@rocket-lease/contracts':
-        specifier: ^0.3.0
-        version: 0.3.0(zod@3.25.76)
+        specifier: ^0.4.0
+        version: 0.4.0(zod@3.25.76)
       '@supabase/supabase-js':
         specifier: ^2.105.4
         version: 2.105.4
@@ -833,8 +833,8 @@ packages:
   '@prisma/get-platform@6.19.3':
     resolution: {integrity: sha512-xFj1VcJ1N3MKooOQAGO0W5tsd0W2QzIvW7DD7c/8H14Zmp4jseeWAITm+w2LLoLrlhoHdPPh0NMZ8mfL6puoHA==}
 
-  '@rocket-lease/contracts@0.3.0':
-    resolution: {integrity: sha512-nV4lK16BIaApj0ehhKO4dKTzlYhlMhXp8h1/g4viBtBccAQLSrDj8Y1wdbMBoJ/hl8o7vtVefdKBZeEDuvnOOw==}
+  '@rocket-lease/contracts@0.4.0':
+    resolution: {integrity: sha512-vfDmoec7Idm+JDRRAlPfae7djM90QLsuoZKas8uy1f0laK6WxxAYq4sQzblRUQE5W8R58q2z/X9Sgnmr6lEzgQ==}
     peerDependencies:
       zod: ^3.23.8
 
@@ -4415,7 +4415,7 @@ snapshots:
     dependencies:
       '@prisma/debug': 6.19.3
 
-  '@rocket-lease/contracts@0.3.0(zod@3.25.76)':
+  '@rocket-lease/contracts@0.4.0(zod@3.25.76)':
     dependencies:
       zod: 3.25.76
 
