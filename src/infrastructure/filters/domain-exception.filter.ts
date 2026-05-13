@@ -1,4 +1,5 @@
 import {
+  EmailNotVerifiedException,
   EntityAlreadyExistsException,
   EntityNotFoundException,
   FavoriteAlreadyExistsException,
@@ -48,6 +49,8 @@ export class DomainExceptionFilter implements ExceptionFilter {
       exception instanceof EntityNotFoundException
     ) {
       status = HttpStatus.NOT_FOUND;
+    } else if (exception instanceof EmailNotVerifiedException) {
+      status = HttpStatus.FORBIDDEN;
     } else if (exception instanceof InvalidEntityDataException) {
       status = HttpStatus.BAD_REQUEST;
     } else if (isZodError(exception)) {

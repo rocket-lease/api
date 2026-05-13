@@ -2,7 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { createClient } from '@supabase/supabase-js';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { AuthProvider } from '@/domain/providers/auth.provider';
-import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
+import {
+  EmailNotVerifiedException,
+  InvalidEntityDataException,
+} from '@/domain/exceptions/domain.exception';
 
 @Injectable()
 export class SupabaseAuthProvider implements AuthProvider {
@@ -43,7 +46,13 @@ export class SupabaseAuthProvider implements AuthProvider {
     password: string,
   ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
     const { data, error } = await this.supabase.auth.signInWithPassword({ email, password });
-    if (error) throw new InvalidEntityDataException(error.message);
+    if (error) {
+      const code = (error as { code?: string }).code;
+      if (code === 'email_not_confirmed') {
+        throw new EmailNotVerifiedException(email);
+      }
+      throw new InvalidEntityDataException(error.message);
+    }
     return {
       access_token: data.session.access_token,
       refresh_token: data.session.refresh_token,

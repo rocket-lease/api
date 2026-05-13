@@ -33,6 +33,21 @@ export class InMemoryUserRepository implements UserRepository {
     });
   }
 
+  public async updateBasicInfo(
+    id: string,
+    data: { name: string; dni: string; phone: string },
+  ): Promise<void> {
+    const existing = this.storageById.get(id);
+    if (!existing) return;
+    const updated = new User(id, data.name, existing.getEmail(), data.dni, data.phone);
+    this.storageById.set(id, updated);
+    this.storageByEmail.set(existing.getEmail(), updated);
+    const profile = this.profiles.get(id);
+    if (profile) {
+      this.profiles.set(id, { ...profile, name: data.name, phone: data.phone });
+    }
+  }
+
   public async findByEmail(email: string): Promise<User | null> {
     return this.storageByEmail.get(email) ?? null;
   }

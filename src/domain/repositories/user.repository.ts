@@ -30,6 +30,10 @@ export interface UpdateUserProfile {
 
 export interface UserRepository {
   save(user: User): Promise<void>;
+  updateBasicInfo(
+    id: string,
+    data: { name: string; dni: string; phone: string },
+  ): Promise<void>;
   findByEmail(email: string): Promise<User | null>;
   findById(id: string): Promise<User | null>;
   getProfileById(id: string): Promise<UserProfile | null>;
