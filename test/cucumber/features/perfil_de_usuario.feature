@@ -1,5 +1,5 @@
-#language: es
-Caracteristica: Perfil de usuario
+# language: es
+Característica: Perfil de usuario
   Como usuario
   quiero ver y editar mi perfil
   para mantener mis datos actualizados

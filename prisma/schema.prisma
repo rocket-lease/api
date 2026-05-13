@@ -23,6 +23,7 @@ model User {
   preferredMaxPriceDaily Int?      @map("preferred_max_price_daily")
   createdAt             DateTime   @default(now()) @map("created_at")
   favorites             Favorite[]
+  vehicles              Vehicle[]
 
   @@map("users")
 }
@@ -37,4 +38,45 @@ model Favorite {
 
   @@unique([conductorId, vehicleId])
   @@map("favorites")
+}
+
+model Vehicle {
+  id           String       @id @default(uuid())
+  plate        String       @unique
+  brand        String
+  model        String
+  year         Int
+  passengers   Int
+  trunkLiters  Float
+  transmission Transmission
+  isAccessible Boolean      @default(false)
+  enabled      Boolean      @default(true)
+  color        String
+  mileage      Float
+  basePrice    Float
+  description  String?      @db.Text
+  
+  ownerId      String       
+  owner        User         @relation(fields: [ownerId], references: [id])
+  photos       Photo[]      
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("vehicles")
+}
+
+model Photo {
+  id        String  @id @default(uuid())
+  url       String  @db.Text
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@map("photos")
+}
+
+enum Transmission {
+  Manual
+  Automatico
+  Semiautomatico
 }

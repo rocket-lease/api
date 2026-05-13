@@ -35,6 +35,7 @@ export interface UserRepository {
   getProfileById(id: string): Promise<UserProfile | null>;
   updateProfile(id: string, profile: UpdateUserProfile): Promise<UserProfile>;
   updateAvatar(id: string, avatarUrl: string): Promise<UserProfile>;
+  deleteById(id: string): Promise<void>;
 }
 
 export const USER_REPOSITORY = Symbol('UserRepository');

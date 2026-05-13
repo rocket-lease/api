@@ -1,5 +1,6 @@
 import { Given, When, Then } from '@cucumber/cucumber';
 import request from 'supertest';
+import { api } from '../support/http-client';
 import { expect } from 'expect';
 import type { MyWorld } from '../support/world';
 
@@ -74,10 +75,11 @@ When(
     accessibilityCsv: string,
     maxPriceDaily: number,
   ) {
-    const meResponse = await request(this.app.getHttpServer())
+    const meResponse = await api(this)
       .get('/profile/me')
-      .set('Authorization', `Bearer ${this.world.auth_token}`);
-
+    console.log("auth token: ", this.world.auth_token);
+    console.log("Status: ", meResponse.status);
+    console.log("Me Response: ", meResponse.body);
     expect(meResponse.status).toBe(200);
 
     this.world.profile_payload = {

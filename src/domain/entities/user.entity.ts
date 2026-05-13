@@ -28,7 +28,7 @@ export class User {
     });
 
     if (!result.success) {
-      throw new InvalidEntityDataException(result.error.issues[0].message);
+      throw new InvalidEntityDataException(JSON.stringify(result.error.issues));
     }
   }
 

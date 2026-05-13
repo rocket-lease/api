@@ -1,24 +1,30 @@
 import { AuthProvider } from '@/domain/providers/auth.provider';
+import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
+import { randomUUID } from 'node:crypto';
 
 export class StubAuthProvider implements AuthProvider {
-  static readonly STUB_TOKEN = 'stub-access-token';
-  static readonly STUB_USER_ID = 'stub-user-id';
+  static readonly STUB_TOKEN = randomUUID();
+  static readonly STUB_USER_ID = '00000000-0000-0000-0000-000000000001';
 
   private readonly registeredEmails = new Set<string>();
   private readonly userIdByEmail = new Map<string, string>();
   private readonly userIdByToken = new Map<string, string>();
+  public readonly resetEmailsSent: string[] = [];
+  public readonly passwordUpdates: Array<{
+    userId: string;
+    newPassword: string;
+  }> = [];
 
   public async signUp(
     email: string,
     _password: string,
   ): Promise<{ userId: string }> {
-    if (this.registeredEmails.has(email)) {
+    if (this.registeredEmails.has(email) || this.userIdByEmail.has(email)) {
       throw new Error('Email already registered in auth provider');
     }
     this.registeredEmails.add(email);
-    const userId = `stub-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    this.userIdByEmail.set(email, userId);
-    return { userId };
+    this.userIdByEmail.set(email, StubAuthProvider.STUB_USER_ID);
+    return { userId: StubAuthProvider.STUB_USER_ID };
   }
 
   public async signIn(
@@ -47,9 +53,32 @@ export class StubAuthProvider implements AuthProvider {
 
     const userId = this.userIdByToken.get(token);
     if (!userId) {
-      throw new Error(`StubAuthProvider: token desconocido "${token}"`);
+      throw new InvalidEntityDataException(`StubAuthProvider: token desconocido "${token}"`);
     }
 
     return { userId };
+  }
+
+  public async deleteUser(userId: string): Promise<void> {
+    for (const [email, id] of this.userIdByEmail.entries()) {
+      if (id === userId) {
+        this.userIdByEmail.delete(email);
+        this.registeredEmails.delete(email);
+      }
+    }
+    for (const [token, id] of this.userIdByToken.entries()) {
+      if (id === userId) this.userIdByToken.delete(token);
+    }
+  }
+
+  public async requestPasswordReset(email: string): Promise<void> {
+    this.resetEmailsSent.push(email);
+  }
+
+  public async updatePassword(
+    userId: string,
+    newPassword: string,
+  ): Promise<void> {
+    this.passwordUpdates.push({ userId, newPassword });
   }
 }

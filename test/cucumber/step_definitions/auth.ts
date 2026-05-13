@@ -16,6 +16,16 @@ Given(
   },
 );
 
+Given('que estoy autenticado', async function (this: MyWorld) {
+  const email = `test-${Date.now()}@example.com`;
+  await request(this.app.getHttpServer()).post('/auth/register').send({
+    name: 'Test', email, dni: '12345678', phone: '1123456789', password: 'Passw0rd!',
+  });
+  const loginRes = await request(this.app.getHttpServer())
+    .post('/auth/login').send({ email, password: 'Passw0rd!' });
+  this.world.access_token = loginRes.body.access_token;
+});
+
 When(
   'el usuario intenta iniciar sesión con email {string} y contraseña {string}',
   async function (this: MyWorld, email: string, password: string) {

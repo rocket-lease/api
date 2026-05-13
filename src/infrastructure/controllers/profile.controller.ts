@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   HttpCode,
@@ -86,5 +87,14 @@ export class ProfileController {
       originalname: file.originalname,
       mimetype: file.mimetype,
     });
+  }
+
+  @Delete('me')
+  @HttpCode(204)
+  public async deleteMyAccount(
+    @Headers('authorization') authorization: string | undefined,
+  ) {
+    const userId = await this.resolveUserId(authorization);
+    await this.authService.deleteAccount(userId);
   }
 }

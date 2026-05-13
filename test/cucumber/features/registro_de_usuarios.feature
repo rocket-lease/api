@@ -1,4 +1,4 @@
-#language: es
+# language: es
 Característica: Registro de usuarios
 
   Escenario: Registro exitoso con datos válidos
