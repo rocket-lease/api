@@ -6,7 +6,7 @@ import {
   UserProfile,
   UpdateUserProfile,
 } from '@/domain/repositories/user.repository';
-import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
+import { InvalidEntityDataException, UserHasVehiclesException } from '@/domain/exceptions/domain.exception';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 
 @Injectable()
@@ -106,11 +106,13 @@ export class PostgresUserRepository implements UserRepository {
     try {
       await this.prisma.user.delete({ where: { id } });
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2025'
-      ) {
-        throw new InvalidEntityDataException('User not found');
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new InvalidEntityDataException('User not found');
+        }
+        if (error.code === 'P2003' || error.code === 'P2014') {
+          throw new UserHasVehiclesException();
+        }
       }
       throw error;
     }

@@ -5,6 +5,7 @@ import {
   FavoriteAlreadyExistsException,
   FavoriteNotFoundException,
   InvalidEntityDataException,
+  UserHasVehiclesException,
 } from '@/domain/exceptions/domain.exception';
 import {
   ExceptionFilter,
@@ -41,7 +42,8 @@ export class DomainExceptionFilter implements ExceptionFilter {
 
     if (
       exception instanceof FavoriteAlreadyExistsException ||
-      exception instanceof EntityAlreadyExistsException
+      exception instanceof EntityAlreadyExistsException ||
+      exception instanceof UserHasVehiclesException
     ) {
       status = HttpStatus.CONFLICT;
     } else if (
