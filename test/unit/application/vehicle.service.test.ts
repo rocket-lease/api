@@ -1,5 +1,6 @@
 import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { VehicleRepository } from '@/domain/repositories/vehicle.repository';
+import { UserRepository } from '@/domain/repositories/user.repository';
 import { VehicleService } from '@/application/vehicle.service';
 import { CreateVehicleResponseSchema } from '@rocket-lease/contracts';
 import { randomUUID } from 'crypto';
@@ -53,6 +54,7 @@ const buildVehicle = (overrides: Partial<{ id: string; ownerId: string }> = {}) 
 describe('VehicleService', () => {
     let service: VehicleService;
     let repositoryMock: jest.Mocked<VehicleRepository>;
+    let userRepoMock: jest.Mocked<UserRepository>;
 
     beforeEach(() => {
         repositoryMock = {
@@ -64,8 +66,20 @@ describe('VehicleService', () => {
             findByCharacteristics: jest.fn().mockResolvedValue([]),
             delete: jest.fn().mockResolvedValue(undefined),
         };
+        userRepoMock = {
+            save: jest.fn(),
+            findByEmail: jest.fn().mockResolvedValue(null),
+            findById: jest.fn().mockResolvedValue(null),
+            getProfileById: jest.fn().mockResolvedValue(null),
+            updateProfile: jest.fn(),
+            updateAvatar: jest.fn(),
+            updateBasicInfo: jest.fn(),
+            deleteById: jest.fn(),
+            markPhoneVerified: jest.fn(),
+            isPhoneVerified: jest.fn().mockResolvedValue(false),
+        };
 
-        service = new VehicleService(repositoryMock);
+        service = new VehicleService(repositoryMock, userRepoMock);
     });
 
     it('should create a vehicle with characteristics', async () => {
