@@ -9,6 +9,7 @@ import {
     Patch,
     Param,
     Delete,
+    Query,
 } from '@nestjs/common';
 import * as Contracts from '@rocket-lease/contracts';
 import type { Request } from 'express';
@@ -33,6 +34,13 @@ export class VehicleController {
     @Get()
     async getVehicles(): Promise<Array<Contracts.GetVehicleResponse>> {
         return await this.vehicleService.getAll();
+    }
+
+    @Get('search')
+    async searchVehicles(
+        @Query() query: Contracts.SearchVehiclesQuery,
+    ): Promise<Contracts.SearchVehiclesResponse> {
+        return this.vehicleService.searchVehicles(query);
     }
 
     @Get(':id')
