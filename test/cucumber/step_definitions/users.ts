@@ -2,6 +2,7 @@ import { Given, When, Then } from '@cucumber/cucumber';
 import { MyWorld } from '../support/world';
 import { api } from '../support/http-client';
 import { expect } from 'expect';
+import { StubAuthProvider } from '@/infrastructure/providers/stub.auth.provider';
 
 Given(
   'que un nuevo usuario quiere registrarse con nombre {string}, email {string}, DNI {string}, teléfono {string} y contraseña {string}',
@@ -29,6 +30,14 @@ Given(
     });
   },
 );
+
+Given('ese email ya fue verificado', async function (this: MyWorld) {
+  const email = this.world.register_dto?.email ?? 'repetido@ejemplo.com';
+  await api(this).post('/verifications/email/verify', {
+    email,
+    token: StubAuthProvider.STUB_OTP,
+  });
+});
 
 When('envía el formulario de registro', async function (this: MyWorld) {
   this.world.register_response = await api(this).post(

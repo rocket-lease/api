@@ -4,14 +4,18 @@ export DIRECT_URL="postgresql://postgres:postgres@localhost:5435/rocket_lease_te
 
 EXTRA_ARGS="$@"
 
-echo "Iniciando base de datos de test..."
-docker compose -f docker-compose.test.yml up -d --wait || exit 1
-
 cleanup() {
     echo "Deteniendo base de datos de test..."
-    docker compose -f docker-compose.test.yml down
+    docker compose -f docker-compose.test.yml down --remove-orphans >/dev/null 2>&1 || true
 }
+
 trap cleanup EXIT
+
+echo "Limpiando estado previo de la base de datos de test..."
+docker compose -f docker-compose.test.yml down --remove-orphans >/dev/null 2>&1 || true
+
+echo "Iniciando base de datos de test..."
+docker compose -f docker-compose.test.yml up -d --wait || exit 1
 
 echo "Aplicando migraciones..."
 pnpm exec prisma migrate deploy || exit 1
