@@ -9,22 +9,35 @@ datasource db {
 }
 
 model User {
-  id                    String   @id
+  id                    String     @id
   name                  String
-  email                 String   @unique
+  email                 String     @unique
   dni                   String
   phone                 String
-  avatarUrl             String?  @map("avatar_url")
-  verificationStatus    String   @default("pending") @map("verification_status")
-  level                 String   @default("bronze")
-  reputationScore       Float    @default(0) @map("reputation_score")
-  preferredTransmission String?  @map("preferred_transmission")
-  preferredAccessibility String[] @default([]) @map("preferred_accessibility")
-  preferredMaxPriceDaily Int?    @map("preferred_max_price_daily")
-  createdAt             DateTime @default(now()) @map("created_at")
-  vehicles              Vehicle[] 
+  avatarUrl             String?    @map("avatar_url")
+  verificationStatus    String     @default("pending") @map("verification_status")
+  level                 String     @default("bronze")
+  reputationScore       Float      @default(0) @map("reputation_score")
+  preferredTransmission String?    @map("preferred_transmission")
+  preferredAccessibility String[]  @default([]) @map("preferred_accessibility")
+  preferredMaxPriceDaily Int?      @map("preferred_max_price_daily")
+  createdAt             DateTime   @default(now()) @map("created_at")
+  favorites             Favorite[]
+  vehicles              Vehicle[]
 
   @@map("users")
+}
+
+model Favorite {
+  id          String   @id @default(uuid())
+  conductorId String   @map("conductor_id")
+  vehicleId   String   @map("vehicle_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  conductor   User     @relation(fields: [conductorId], references: [id], onDelete: Cascade)
+
+  @@unique([conductorId, vehicleId])
+  @@map("favorites")
 }
 
 model Vehicle {

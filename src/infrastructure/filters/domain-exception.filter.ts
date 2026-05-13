@@ -1,5 +1,8 @@
 import {
   EntityAlreadyExistsException,
+  EntityNotFoundException,
+  FavoriteAlreadyExistsException,
+  FavoriteNotFoundException,
   InvalidEntityDataException,
 } from '@/domain/exceptions/domain.exception';
 import {
@@ -35,12 +38,18 @@ export class DomainExceptionFilter implements ExceptionFilter {
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = exception.message;
 
-    if (exception instanceof EntityAlreadyExistsException) {
+    if (
+      exception instanceof FavoriteAlreadyExistsException ||
+      exception instanceof EntityAlreadyExistsException
+    ) {
       status = HttpStatus.CONFLICT;
+    } else if (
+      exception instanceof FavoriteNotFoundException ||
+      exception instanceof EntityNotFoundException
+    ) {
+      status = HttpStatus.NOT_FOUND;
     } else if (exception instanceof InvalidEntityDataException) {
       status = HttpStatus.BAD_REQUEST;
-    } else if (exception instanceof InvalidEntityDataException) {
-      status = HttpStatus.NOT_FOUND;
     } else if (isZodError(exception)) {
       status = HttpStatus.BAD_REQUEST;
       message = exception.issues.map((i) => i.message).join('; ');
