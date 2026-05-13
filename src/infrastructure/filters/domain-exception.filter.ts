@@ -43,12 +43,13 @@ export class DomainExceptionFilter implements ExceptionFilter {
       exception instanceof EntityAlreadyExistsException
     ) {
       status = HttpStatus.CONFLICT;
-    } else if (exception instanceof FavoriteNotFoundException || exception instanceof EntityNotFoundException) {
+    } else if (
+      exception instanceof FavoriteNotFoundException ||
+      exception instanceof EntityNotFoundException
+    ) {
       status = HttpStatus.NOT_FOUND;
     } else if (exception instanceof InvalidEntityDataException) {
       status = HttpStatus.BAD_REQUEST;
-    } else if (exception instanceof InvalidEntityDataException) {
-      status = HttpStatus.NOT_FOUND;
     } else if (isZodError(exception)) {
       status = HttpStatus.BAD_REQUEST;
       message = exception.issues.map((i) => i.message).join('; ');
