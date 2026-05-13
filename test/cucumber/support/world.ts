@@ -10,20 +10,28 @@ import { AUTH_PROVIDER } from '@/domain/providers/auth.provider';
 import { USER_REPOSITORY } from '@/domain/repositories/user.repository';
 import { PostgresUserRepository } from '@/infrastructure/repository/postgres.user.repository';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
+import { MEDIA_PROVIDER } from '@/domain/providers/media.provider';
+import { StubMediaProvider } from './stub.media.provider';
 
 interface GlobalContext {
     access_token?: any;
+    enable_vehicle_response?: any;
+    update_vehicle_dto?: any;
+    update_vehicle_response?: any;
+    delete_vehicle_response?: any;
+    lastResponse?: any;
     register_dto?: any;
     register_response?: any;
     login_response?: any;
     create_vehicle_dto?: any;
     create_vehicle_response?: any;
-    enable_vehicle_response?: any;
-    update_vehicle_dto?: any;
-    update_vehicle_response?: any;
-    delete_vehicle_response?: any;
     last_user_id?: string;
-    lastResponse?: any;
+    response?: any;
+    auth_token?: string;
+    profile_response?: any;
+    update_profile_response?: any;
+    upload_avatar_response?: any;
+    profile_payload?: any;
 }
 
 export interface MyWorld extends World {
@@ -48,6 +56,8 @@ class CustomWorld extends World implements MyWorld {
         })
         .overrideProvider(AUTH_PROVIDER)
         .useClass(StubAuthProvider)
+        .overrideProvider(MEDIA_PROVIDER)
+        .useClass(StubMediaProvider)
         .compile();
 
         this.app = moduleFixture.createNestApplication();

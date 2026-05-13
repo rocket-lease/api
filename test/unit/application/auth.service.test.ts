@@ -21,6 +21,10 @@ describe('AuthService', () => {
     userRepoMock = {
       save: jest.fn(),
       findByEmail: jest.fn().mockResolvedValue(null),
+      findById: jest.fn().mockResolvedValue(null),
+      getProfileById: jest.fn().mockResolvedValue(null),
+      updateProfile: jest.fn(),
+      updateAvatar: jest.fn(),
     };
     authProviderMock = {
       signUp: jest.fn().mockResolvedValue({ userId: 'stub-id' }),
@@ -29,6 +33,7 @@ describe('AuthService', () => {
         refresh_token: 'rt',
         expires_in: 3600,
       }),
+      verifyToken: jest.fn().mockResolvedValue({ userId: 'stub-id' }),
     };
     service = new AuthService(userRepoMock, authProviderMock);
   });
