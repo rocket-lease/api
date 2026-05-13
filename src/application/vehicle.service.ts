@@ -15,6 +15,9 @@ import {
     GetVehicleResponse,
     GetVehicleResponseSchema,
     UpdateVehicleRequest,
+    SearchVehiclesQuery,
+    SearchVehiclesResponse,
+    SearchVehiclesResponseSchema,
 } from '@rocket-lease/contracts';
 
 @Injectable()
@@ -89,6 +92,15 @@ export class VehicleService {
     public async getAll(): Promise<Array<GetVehicleResponse>> {
         const vehicles = await this.vehicleRepository.fetchAll();
         return vehicles.map((v) => this.toDTO(v));
+    }
+
+    public async searchVehicles(query: SearchVehiclesQuery): Promise<SearchVehiclesResponse> {
+        const vehicles = await this.vehicleRepository.search({
+            city: query.city,
+            startDate: query.startDate ? new Date(query.startDate) : undefined,
+            endDate: query.endDate ? new Date(query.endDate) : undefined,
+        });
+        return SearchVehiclesResponseSchema.parse({ vehicles: vehicles.map((v) => this.toDTO(v)) });
     }
 
     public async deleteVehicle(vehicleId: string): Promise<void> {

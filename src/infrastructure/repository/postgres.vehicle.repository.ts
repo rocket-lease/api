@@ -1,4 +1,4 @@
-import { VehicleRepository } from '@/domain/repositories/vehicle.repository';
+import { VehicleRepository, SearchParams } from '@/domain/repositories/vehicle.repository';
 import { PrismaService } from '../database/prisma.service';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { Injectable } from '@nestjs/common';
@@ -110,6 +110,19 @@ export class PostgresVehicleRepository implements VehicleRepository {
 
   async delete(id: string): Promise<void> {
     await this.prisma.vehicle.delete({ where: { id } });
+  }
+
+  async search(params: SearchParams): Promise<Vehicle[]> {
+    const raws = await this.prisma.vehicle.findMany({
+      where: {
+        enabled: true,
+        city: { equals: params.city, mode: 'insensitive' },
+        ...(params.startDate && { availableFrom: { lte: params.startDate.toISOString().split('T')[0] } }),
+      },
+      include: { photos: true },
+      orderBy: { basePrice: 'asc' },
+    });
+    return raws.map((raw) => this.mapToDomain(raw));
   }
 
   private mapToDomain(raw: any): Vehicle {
