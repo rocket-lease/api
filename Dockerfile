@@ -14,6 +14,6 @@ COPY prisma/ ./prisma/
 RUN pnpm exec prisma generate
 RUN pnpm build
 
-EXPOSE 3000
+EXPOSE 8080
 
 CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && node dist/main"]
