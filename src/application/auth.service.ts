@@ -75,4 +75,9 @@ export class AuthService {
       message: 'Password updated successfully',
     });
   }
+
+  public async deleteAccount(userId: string): Promise<void> {
+    await this.userRepository.deleteById(userId);
+    await this.authProvider.deleteUser(userId);
+  }
 }
