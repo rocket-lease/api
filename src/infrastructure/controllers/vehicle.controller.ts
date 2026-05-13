@@ -11,7 +11,7 @@ import {
     Delete,
 } from '@nestjs/common';
 import * as Contracts from '@rocket-lease/contracts';
-import * as Express from 'express';
+import type { Request } from 'express';
 
 @Controller('vehicle')
 export class VehicleController {
@@ -22,7 +22,7 @@ export class VehicleController {
 
     @Get('mine')
     async getMyVehicles(
-        @Req() req: Express.Request,
+        @Req() req: Request,
     ): Promise<Array<Contracts.GetVehicleResponse>> {
         const authHeader = req.headers.authorization;
         if (!authHeader) throw new Error('Token not found');
@@ -58,7 +58,7 @@ export class VehicleController {
     @Post()
     async publishVehicle(
         @Body() dto: Contracts.CreateVehicleRequest,
-        @Req() req: Express.Request,
+        @Req() req: Request,
     ): Promise<Contracts.CreateVehicleResponse> {
         const authHeader = req.headers.authorization;
         if (!authHeader) {

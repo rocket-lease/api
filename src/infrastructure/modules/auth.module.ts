@@ -16,6 +16,5 @@ import { AUTH_PROVIDER } from '@/domain/providers/auth.provider';
     { provide: USER_REPOSITORY, useClass: PostgresUserRepository },
     { provide: AUTH_PROVIDER, useClass: SupabaseAuthProvider },
   ],
-  exports: [AuthService],
 })
 export class AuthModule {}
