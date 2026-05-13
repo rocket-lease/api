@@ -8,6 +8,7 @@ import {
     Req,
     Patch,
     Param,
+    Query,
     Delete,
 } from '@nestjs/common';
 import * as Contracts from '@rocket-lease/contracts';
@@ -31,7 +32,32 @@ export class VehicleController {
     }
 
     @Get()
-    async getVehicles(): Promise<Array<Contracts.GetVehicleResponse>> {
+    async getVehicles(
+        @Query('characteristic') characteristic?: string,
+        @Query('characteristics') characteristics?: string | string[],
+    ): Promise<Array<Contracts.GetVehicleResponse>> {
+        const parsedList: Contracts.Characteristic[] = [];
+
+        if (characteristics) {
+            const raw = Array.isArray(characteristics)
+                ? characteristics
+                : characteristics.split(',');
+            for (const item of raw) {
+                const trimmed = item.trim();
+                if (!trimmed) continue;
+                parsedList.push(Contracts.CharacteristicSchema.parse(trimmed));
+            }
+        }
+
+        if (characteristic) {
+            parsedList.push(Contracts.CharacteristicSchema.parse(characteristic));
+        }
+
+        const unique = Array.from(new Set(parsedList));
+        if (unique.length > 0) {
+            return await this.vehicleService.getByCharacteristics(unique);
+        }
+
         return await this.vehicleService.getAll();
     }
 

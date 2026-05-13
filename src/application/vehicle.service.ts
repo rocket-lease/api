@@ -12,6 +12,7 @@ import {
     CreateVehicleRequest,
     CreateVehicleResponse,
     CreateVehicleResponseSchema,
+    Characteristic,
     GetVehicleResponse,
     GetVehicleResponseSchema,
     UpdateVehicleRequest,
@@ -44,6 +45,7 @@ export class VehicleService {
             data.isAccessible,
             true,
             data.photos,
+            data.characteristics || [],
             data.color,
             data.mileage,
             data.basePrice,
@@ -91,6 +93,24 @@ export class VehicleService {
         return vehicles.map((v) => this.toDTO(v));
     }
 
+    public async getByCharacteristic(
+        characteristic: Characteristic,
+    ): Promise<Array<GetVehicleResponse>> {
+        const vehicles = await this.vehicleRepository.findByCharacteristic(
+            characteristic,
+        );
+        return vehicles.map((v) => this.toDTO(v));
+    }
+
+    public async getByCharacteristics(
+        characteristics: Characteristic[],
+    ): Promise<Array<GetVehicleResponse>> {
+        const vehicles = await this.vehicleRepository.findByCharacteristics(
+            characteristics,
+        );
+        return vehicles.map((v) => this.toDTO(v));
+    }
+
     public async deleteVehicle(vehicleId: string): Promise<void> {
         const vehicle = await this.vehicleRepository.findById(vehicleId);
         if (!vehicle) throw new EntityNotFoundException('vehicle', vehicleId);
@@ -111,6 +131,7 @@ export class VehicleService {
             isAccessible: vehicle.getIsAccessible(),
             enabled: vehicle.isEnabled(),
             photos: vehicle.getPhotos(),
+            characteristics: vehicle.getCharacteristics(),
             color: vehicle.getColor(),
             mileage: vehicle.getMileage(),
             basePrice: vehicle.getBasePrice(),

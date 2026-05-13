@@ -34,6 +34,11 @@ interface GlobalContext {
   update_profile_response?: any;
   upload_avatar_response?: any;
   profile_payload?: any;
+  characteristics_vehicles?: Array<{ id: string; plate: string; characteristics: string[] }>;
+  expected_filter_plates?: string[];
+  current_characteristics?: string[];
+  filter_response?: any;
+  filter_characteristic?: string;
 }
 
 export interface MyWorld extends World {
