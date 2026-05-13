@@ -7,6 +7,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({
     origin: process.env.CORS_ORIGIN?.split(',') ?? [
+      'https://rocket-lease.vercel.app',
       'http://localhost:5173',
       'http://localhost:4173',
     ],

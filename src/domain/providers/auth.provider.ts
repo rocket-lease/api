@@ -11,6 +11,7 @@ export interface AuthProvider {
   verifyToken(token: string): Promise<{ userId: string }>;
   requestPasswordReset(email: string): Promise<void>;
   updatePassword(userId: string, newPassword: string): Promise<void>;
+  deleteUser(userId: string): Promise<void>;
 }
 
 export const AUTH_PROVIDER = Symbol('AuthProvider');

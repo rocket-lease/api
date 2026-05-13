@@ -1,6 +1,9 @@
 import { AuthService } from '@/application/auth.service';
 import { User } from '@/domain/entities/user.entity';
-import { EntityAlreadyExistsException } from '@/domain/exceptions/domain.exception';
+import {
+  EntityAlreadyExistsException,
+  InvalidEntityDataException,
+} from '@/domain/exceptions/domain.exception';
 import { UserRepository } from '@/domain/repositories/user.repository';
 import { AuthProvider } from '@/domain/providers/auth.provider';
 
@@ -21,6 +24,11 @@ describe('AuthService', () => {
     userRepoMock = {
       save: jest.fn(),
       findByEmail: jest.fn().mockResolvedValue(null),
+      findById: jest.fn().mockResolvedValue(null),
+      getProfileById: jest.fn().mockResolvedValue(null),
+      updateProfile: jest.fn(),
+      updateAvatar: jest.fn(),
+      deleteById: jest.fn(),
     };
     authProviderMock = {
       signUp: jest.fn().mockResolvedValue({ userId: 'stub-id' }),
@@ -32,6 +40,7 @@ describe('AuthService', () => {
       verifyToken: jest.fn().mockResolvedValue({ userId: 'stub-id' }),
       requestPasswordReset: jest.fn().mockResolvedValue(undefined),
       updatePassword: jest.fn().mockResolvedValue(undefined),
+      deleteUser: jest.fn().mockResolvedValue(undefined),
     };
     service = new AuthService(userRepoMock, authProviderMock);
   });
@@ -112,6 +121,25 @@ describe('AuthService', () => {
       );
       await expect(service.resetPassword(dto)).rejects.toThrow();
       expect(authProviderMock.updatePassword).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deleteAccount', () => {
+    it('deletes user from repo and auth provider', async () => {
+      await service.deleteAccount('user-1');
+
+      expect(userRepoMock.deleteById).toHaveBeenCalledWith('user-1');
+      expect(authProviderMock.deleteUser).toHaveBeenCalledWith('user-1');
+    });
+
+    it('propagates repo errors and skips auth provider', async () => {
+      userRepoMock.deleteById.mockRejectedValue(
+        new InvalidEntityDataException('User not found'),
+      );
+      await expect(service.deleteAccount('missing')).rejects.toThrow(
+        InvalidEntityDataException,
+      );
+      expect(authProviderMock.deleteUser).not.toHaveBeenCalled();
     });
   });
 });
