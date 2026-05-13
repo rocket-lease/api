@@ -16,6 +16,7 @@ describe('ProfileService', () => {
       getProfileById: jest.fn().mockResolvedValue(null),
       updateProfile: jest.fn(),
       updateAvatar: jest.fn(),
+      deleteById: jest.fn(),
     };
     mediaProviderMock = {
       uploadAvatar: jest.fn(),
@@ -134,4 +135,5 @@ describe('ProfileService', () => {
     );
     expect(updated.avatarUrl).toBe('https://cdn.example.com/avatar-nuevo.jpg');
   });
+
 });

@@ -6,6 +6,12 @@ import {
   type LoginUserRequest,
   type LoginUserResponse,
   LoginUserResponseSchema,
+  type ForgotPasswordRequest,
+  type ForgotPasswordResponse,
+  ForgotPasswordResponseSchema,
+  type ResetPasswordRequest,
+  type ResetPasswordResponse,
+  ResetPasswordResponseSchema,
 } from '@rocket-lease/contracts';
 import { User } from '@/domain/entities/user.entity';
 import { EntityAlreadyExistsException } from '@/domain/exceptions/domain.exception';
@@ -49,5 +55,29 @@ export class AuthService {
       : token;
     const { userId } = await this.authProvider.verifyToken(rawToken);
     return userId;
+  }
+
+  public async forgotPassword(
+    dto: ForgotPasswordRequest,
+  ): Promise<ForgotPasswordResponse> {
+    await this.authProvider.requestPasswordReset(dto.email);
+    return ForgotPasswordResponseSchema.parse({
+      message: 'If the email exists, a reset link has been sent',
+    });
+  }
+
+  public async resetPassword(
+    dto: ResetPasswordRequest,
+  ): Promise<ResetPasswordResponse> {
+    const { userId } = await this.authProvider.verifyToken(dto.accessToken);
+    await this.authProvider.updatePassword(userId, dto.newPassword);
+    return ResetPasswordResponseSchema.parse({
+      message: 'Password updated successfully',
+    });
+  }
+
+  public async deleteAccount(userId: string): Promise<void> {
+    await this.userRepository.deleteById(userId);
+    await this.authProvider.deleteUser(userId);
   }
 }

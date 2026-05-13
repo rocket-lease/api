@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { User as PrismaUser } from '@prisma/client';
+import { Prisma, User as PrismaUser } from '@prisma/client';
 import { User } from '@/domain/entities/user.entity';
 import {
   UserRepository,
   UserProfile,
   UpdateUserProfile,
 } from '@/domain/repositories/user.repository';
+import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 
 @Injectable()
@@ -89,6 +90,20 @@ export class PostgresUserRepository implements UserRepository {
     });
 
     return this.mapProfile(row);
+  }
+
+  async deleteById(id: string): Promise<void> {
+    try {
+      await this.prisma.user.delete({ where: { id } });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new InvalidEntityDataException('User not found');
+      }
+      throw error;
+    }
   }
 
   async clean(): Promise<void> {

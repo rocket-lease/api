@@ -70,4 +70,5 @@ export class ProfileService {
 
     return GetMyProfileResponseSchema.parse(updated);
   }
+
 }
