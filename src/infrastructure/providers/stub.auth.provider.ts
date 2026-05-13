@@ -1,4 +1,5 @@
 import { AuthProvider } from '@/domain/providers/auth.provider';
+import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
 import { randomUUID } from 'node:crypto';
 
 export class StubAuthProvider implements AuthProvider {
@@ -8,6 +9,11 @@ export class StubAuthProvider implements AuthProvider {
   private readonly registeredEmails = new Set<string>();
   private readonly userIdByEmail = new Map<string, string>();
   private readonly userIdByToken = new Map<string, string>();
+  public readonly resetEmailsSent: string[] = [];
+  public readonly passwordUpdates: Array<{
+    userId: string;
+    newPassword: string;
+  }> = [];
 
   public async signUp(
     email: string,
@@ -46,7 +52,7 @@ export class StubAuthProvider implements AuthProvider {
 
     const userId = this.userIdByToken.get(token);
     if (!userId) {
-      throw new Error(`StubAuthProvider: token desconocido "${token}"`);
+      throw new InvalidEntityDataException(`StubAuthProvider: token desconocido "${token}"`);
     }
 
     return { userId };
@@ -62,5 +68,16 @@ export class StubAuthProvider implements AuthProvider {
     for (const [token, id] of this.userIdByToken.entries()) {
       if (id === userId) this.userIdByToken.delete(token);
     }
+  }
+
+  public async requestPasswordReset(email: string): Promise<void> {
+    this.resetEmailsSent.push(email);
+  }
+
+  public async updatePassword(
+    userId: string,
+    newPassword: string,
+  ): Promise<void> {
+    this.passwordUpdates.push({ userId, newPassword });
   }
 }

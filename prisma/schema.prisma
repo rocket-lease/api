@@ -9,19 +9,20 @@ datasource db {
 }
 
 model User {
-  id                    String   @id
-  name                  String
-  email                 String   @unique
-  dni                   String
-  phone                 String
-  avatarUrl             String?  @map("avatar_url")
-  verificationStatus    String   @default("pending") @map("verification_status")
-  level                 String   @default("bronze")
-  reputationScore       Float    @default(0) @map("reputation_score")
-  preferredTransmission String?  @map("preferred_transmission")
-  preferredAccessibility String[] @default([]) @map("preferred_accessibility")
-  preferredMaxPriceDaily Int?    @map("preferred_max_price_daily")
-  createdAt             DateTime @default(now()) @map("created_at")
+  id                     String    @id
+  name                   String
+  email                  String    @unique
+  dni                    String
+  phone                  String
+  avatarUrl              String?   @map("avatar_url")
+  verificationStatus     String    @default("pending") @map("verification_status")
+  level                  String    @default("bronze")
+  reputationScore        Float     @default(0) @map("reputation_score")
+  preferredTransmission  String?   @map("preferred_transmission")
+  preferredAccessibility String[]  @default([]) @map("preferred_accessibility")
+  preferredMaxPriceDaily Int?      @map("preferred_max_price_daily")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  vehicles               Vehicle[]
 
   @@map("users")
 }
@@ -36,27 +37,27 @@ model Vehicle {
   trunkLiters  Float
   transmission Transmission
   isAccessible Boolean      @default(false)
-  enabled Boolean           @default(true)
+  enabled      Boolean      @default(true)
   color        String
   mileage      Float
   basePrice    Float
   description  String?      @db.Text
-  
-  ownerId      String
-  owner        User         @relation(fields: [ownerId], references: [id])
-  photos       Photo[]      
 
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  ownerId String
+  owner   User    @relation(fields: [ownerId], references: [id])
+  photos  Photo[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("vehicles")
 }
 
 model Photo {
-  id        String   @id @default(uuid())
-  url       String   @db.Text
+  id        String  @id @default(uuid())
+  url       String  @db.Text
   vehicleId String
-  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
   @@map("photos")
 }
