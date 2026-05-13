@@ -50,4 +50,9 @@ export class AuthService {
     const { userId } = await this.authProvider.verifyToken(rawToken);
     return userId;
   }
+
+  public async deleteAccount(userId: string): Promise<void> {
+    await this.userRepository.deleteById(userId);
+    await this.authProvider.deleteUser(userId);
+  }
 }

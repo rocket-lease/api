@@ -1,6 +1,9 @@
 import { AuthService } from '@/application/auth.service';
 import { User } from '@/domain/entities/user.entity';
-import { EntityAlreadyExistsException } from '@/domain/exceptions/domain.exception';
+import {
+  EntityAlreadyExistsException,
+  InvalidEntityDataException,
+} from '@/domain/exceptions/domain.exception';
 import { UserRepository } from '@/domain/repositories/user.repository';
 import { AuthProvider } from '@/domain/providers/auth.provider';
 
@@ -25,6 +28,7 @@ describe('AuthService', () => {
       getProfileById: jest.fn().mockResolvedValue(null),
       updateProfile: jest.fn(),
       updateAvatar: jest.fn(),
+      deleteById: jest.fn(),
     };
     authProviderMock = {
       signUp: jest.fn().mockResolvedValue({ userId: 'stub-id' }),
@@ -33,6 +37,7 @@ describe('AuthService', () => {
         refresh_token: 'rt',
         expires_in: 3600,
       }),
+      deleteUser: jest.fn().mockResolvedValue(undefined),
       verifyToken: jest.fn().mockResolvedValue({ userId: 'stub-id' }),
     };
     service = new AuthService(userRepoMock, authProviderMock);
@@ -74,5 +79,24 @@ describe('AuthService', () => {
     userRepoMock.findByEmail.mockResolvedValue(existing);
     await expect(service.register(validDto)).rejects.toThrow();
     expect(authProviderMock.signUp).not.toHaveBeenCalled();
+  });
+
+  describe('deleteAccount', () => {
+    it('deletes user from repo and auth provider', async () => {
+      await service.deleteAccount('user-1');
+
+      expect(userRepoMock.deleteById).toHaveBeenCalledWith('user-1');
+      expect(authProviderMock.deleteUser).toHaveBeenCalledWith('user-1');
+    });
+
+    it('propagates repo errors and skips auth provider', async () => {
+      userRepoMock.deleteById.mockRejectedValue(
+        new InvalidEntityDataException('User not found'),
+      );
+      await expect(service.deleteAccount('missing')).rejects.toThrow(
+        InvalidEntityDataException,
+      );
+      expect(authProviderMock.deleteUser).not.toHaveBeenCalled();
+    });
   });
 });

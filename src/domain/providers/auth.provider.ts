@@ -5,6 +5,7 @@ export interface AuthProvider {
     password: string,
   ): Promise<{ access_token: string; refresh_token: string; expires_in: number }>;
   verifyToken(token: string): Promise<{ userId: string }>;
+  deleteUser(userId: string): Promise<void>;
 }
 
 export const AUTH_PROVIDER = Symbol('AuthProvider');

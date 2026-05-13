@@ -50,4 +50,9 @@ export class SupabaseAuthProvider implements AuthProvider {
       );
     }
   }
+
+  async deleteUser(userId: string): Promise<void> {
+    const { error } = await this.supabase.auth.admin.deleteUser(userId);
+    if (error) throw new InvalidEntityDataException(error.message);
+  }
 }
