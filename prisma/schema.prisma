@@ -55,6 +55,9 @@ model Vehicle {
   mileage      Float
   basePrice    Float
   description  String?      @db.Text
+  province     String
+  city         String
+  availableFrom String      @map("available_from")
   
   ownerId      String       
   owner        User         @relation(fields: [ownerId], references: [id])

@@ -17,6 +17,9 @@ export class PostgresVehicleRepository implements VehicleRepository {
         description: vehicle.getDescription(),
         isAccessible: vehicle.getIsAccessible(),
         enabled: vehicle.isEnabled(),
+        province: vehicle.getProvince(),
+        city: vehicle.getCity(),
+        availableFrom: vehicle.getAvailableFrom(),
         photos: {
           deleteMany: {},
           create: vehicle.getPhotos().map((url) => ({ url })),
@@ -37,6 +40,9 @@ export class PostgresVehicleRepository implements VehicleRepository {
         color: vehicle.getColor(),
         basePrice: vehicle.getBasePrice(),
         description: vehicle.getDescription(),
+        province: vehicle.getProvince(),
+        city: vehicle.getCity(),
+        availableFrom: vehicle.getAvailableFrom(),
         photos: {
           create: vehicle.getPhotos().map((url) => ({ url })),
         },
@@ -70,6 +76,9 @@ export class PostgresVehicleRepository implements VehicleRepository {
       raw.mileage,
       raw.basePrice,
       raw.description,
+      raw.province,
+      raw.city,
+      raw.availableFrom,
     );
   }
 
@@ -121,6 +130,9 @@ export class PostgresVehicleRepository implements VehicleRepository {
       raw.mileage,
       raw.basePrice,
       raw.description,
+      raw.province,
+      raw.city,
+      raw.availableFrom,
     );
   }
 }
