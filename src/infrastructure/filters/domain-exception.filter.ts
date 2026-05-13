@@ -1,9 +1,11 @@
 import {
+  EmailNotVerifiedException,
   EntityAlreadyExistsException,
   EntityNotFoundException,
   FavoriteAlreadyExistsException,
   FavoriteNotFoundException,
   InvalidEntityDataException,
+  UserHasVehiclesException,
 } from '@/domain/exceptions/domain.exception';
 import {
   ExceptionFilter,
@@ -40,7 +42,8 @@ export class DomainExceptionFilter implements ExceptionFilter {
 
     if (
       exception instanceof FavoriteAlreadyExistsException ||
-      exception instanceof EntityAlreadyExistsException
+      exception instanceof EntityAlreadyExistsException ||
+      exception instanceof UserHasVehiclesException
     ) {
       status = HttpStatus.CONFLICT;
     } else if (
@@ -48,6 +51,8 @@ export class DomainExceptionFilter implements ExceptionFilter {
       exception instanceof EntityNotFoundException
     ) {
       status = HttpStatus.NOT_FOUND;
+    } else if (exception instanceof EmailNotVerifiedException) {
+      status = HttpStatus.FORBIDDEN;
     } else if (exception instanceof InvalidEntityDataException) {
       status = HttpStatus.BAD_REQUEST;
     } else if (isZodError(exception)) {

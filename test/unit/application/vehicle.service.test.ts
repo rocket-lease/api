@@ -1,8 +1,54 @@
-import { Vehicle } from "@/domain/entities/vehicle.entity";
-import { VehicleRepository } from "@/domain/repositories/vehicle.repository";
-import { VehicleService } from "@/application/vehicle.service";
-import { CreateVehicleResponseSchema } from "@rocket-lease/contracts";
-import { randomUUID } from "crypto";
+import { Vehicle } from '@/domain/entities/vehicle.entity';
+import { VehicleRepository } from '@/domain/repositories/vehicle.repository';
+import { VehicleService } from '@/application/vehicle.service';
+import { CreateVehicleResponseSchema } from '@rocket-lease/contracts';
+import { randomUUID } from 'crypto';
+
+const OWNER_ID = randomUUID();
+
+const validDto = {
+    plate: 'ABC-123',
+    brand: 'Toyota',
+    model: 'Corolla',
+    year: 2020,
+    passengers: 5,
+    trunkLiters: 400,
+    transmission: 'Manual' as const,
+    isAccessible: false,
+    photos: ['https://example.com/photo.jpg'],
+    color: 'Blue',
+    mileage: 100,
+    basePrice: 5000,
+    description: null,
+    province: 'Buenos Aires',
+    city: 'La Plata',
+    availableFrom: '2025-01-01',
+    characteristics: ['GPS', 'BLUETOOTH'] as const,
+};
+
+const buildVehicle = (overrides: Partial<{ id: string; ownerId: string }> = {}) =>
+    new Vehicle(
+        overrides.id ?? randomUUID(),
+        overrides.ownerId ?? OWNER_ID,
+        validDto.plate,
+        validDto.brand,
+        validDto.model,
+        validDto.year,
+        validDto.passengers,
+        validDto.trunkLiters,
+        validDto.transmission,
+        validDto.isAccessible,
+        true,
+        validDto.photos,
+        [...validDto.characteristics],
+        validDto.color,
+        validDto.mileage,
+        validDto.basePrice,
+        validDto.description,
+        validDto.province,
+        validDto.city,
+        validDto.availableFrom,
+    );
 
 describe('VehicleService', () => {
     let service: VehicleService;
@@ -11,105 +57,44 @@ describe('VehicleService', () => {
     beforeEach(() => {
         repositoryMock = {
             save: jest.fn(),
-            fetchAll: jest.fn(),
-            findById: jest.fn(),
-            findByPlate: jest.fn(),
-            findByOwnerId: jest.fn(),
-            findByCharacteristics: jest.fn(),
-            delete: jest.fn(),
+            fetchAll: jest.fn().mockResolvedValue([]),
+            findById: jest.fn().mockResolvedValue(null),
+            findByPlate: jest.fn().mockResolvedValue(null),
+            findByOwnerId: jest.fn().mockResolvedValue([]),
+            findByCharacteristics: jest.fn().mockResolvedValue([]),
+            delete: jest.fn().mockResolvedValue(undefined),
         };
 
         service = new VehicleService(repositoryMock);
     });
 
     it('should create a vehicle with characteristics', async () => {
-        const ownerId = randomUUID();
-        const dto = {
-            plate: 'ABC123',
-            brand: 'Toyota',
-            model: 'Corolla',
-            year: 2022,
-            passengers: 5,
-            trunkLiters: 450,
-            transmission: 'Manual' as const,
-            isAccessible: false,
-            photos: ['https://example.com/photo1.jpg'],
-            color: 'Blue',
-            mileage: 100,
-            basePrice: 5000,
-            description: null,
-            availableFrom: '2026-05-13',
-            province: 'BA',
-            city: 'CABA',
-            characteristics: ['GPS', 'BLUETOOTH'] as const,
-        };
-
-        const expectedVehicle = new Vehicle(
-            undefined,
-            ownerId,
-            dto.plate,
-            dto.brand,
-            dto.model,
-            dto.year,
-            dto.passengers,
-            dto.trunkLiters,
-            dto.transmission,
-            dto.isAccessible,
-            true,
-            dto.photos,
-            [...dto.characteristics],
-            dto.color,
-            dto.mileage,
-            dto.basePrice,
-            dto.description,
-            dto.province,
-            dto.city,
-            dto.availableFrom,
-        );
-
-        repositoryMock.findByPlate.mockResolvedValue(null);
+        const expectedVehicle = buildVehicle();
         repositoryMock.save.mockResolvedValue(expectedVehicle);
 
-        const response = await service.createVehicle(ownerId, dto);
+        const response = await service.createVehicle(OWNER_ID, validDto);
 
         expect(repositoryMock.save).toHaveBeenCalledWith(expect.any(Vehicle));
         expect(response).toEqual({ id: expectedVehicle.getId() });
         expect(() => CreateVehicleResponseSchema.parse(response)).not.toThrow();
     });
 
+    it('should throw when plate already exists', async () => {
+        repositoryMock.findByPlate.mockResolvedValue(buildVehicle());
+
+        await expect(service.createVehicle(OWNER_ID, validDto)).rejects.toThrow();
+        expect(repositoryMock.save).not.toHaveBeenCalled();
+    });
+
     it('should filter vehicles by characteristics', async () => {
-        repositoryMock.findByCharacteristics.mockResolvedValue([]);
         await service.getByCharacteristics(['GPS']);
         expect(repositoryMock.findByCharacteristics).toHaveBeenCalledWith(['GPS']);
     });
 
     it('should reject delete by non-owner', async () => {
         const vehicleId = randomUUID();
-        const ownerId = randomUUID();
         const intruderId = randomUUID();
-        const vehicle = new Vehicle(
-            vehicleId,
-            ownerId,
-            'ABC123',
-            'Toyota',
-            'Corolla',
-            2022,
-            5,
-            450,
-            'Manual',
-            false,
-            true,
-            ['https://example.com/photo.jpg'],
-            [],
-            'Blue',
-            100,
-            5000,
-            null,
-            'BA',
-            'CABA',
-            '2026-05-13',
-        );
-        repositoryMock.findById.mockResolvedValue(vehicle);
+        repositoryMock.findById.mockResolvedValue(buildVehicle({ id: vehicleId }));
 
         await expect(service.deleteVehicle(vehicleId, intruderId)).rejects.toThrow();
         expect(repositoryMock.delete).not.toHaveBeenCalled();

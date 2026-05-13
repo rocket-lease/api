@@ -6,7 +6,7 @@ import {
   UserProfile,
   UpdateUserProfile,
 } from '@/domain/repositories/user.repository';
-import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
+import { InvalidEntityDataException, UserHasVehiclesException } from '@/domain/exceptions/domain.exception';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 
 @Injectable()
@@ -40,6 +40,16 @@ export class PostgresUserRepository implements UserRepository {
         dni: user.getDni(),
         phone: user.getPhone(),
       },
+    });
+  }
+
+  async updateBasicInfo(
+    id: string,
+    data: { name: string; dni: string; phone: string },
+  ): Promise<void> {
+    await this.prisma.user.update({
+      where: { id },
+      data: { name: data.name, dni: data.dni, phone: data.phone },
     });
   }
 
@@ -96,14 +106,31 @@ export class PostgresUserRepository implements UserRepository {
     try {
       await this.prisma.user.delete({ where: { id } });
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2025'
-      ) {
-        throw new InvalidEntityDataException('User not found');
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new InvalidEntityDataException('User not found');
+        }
+        if (error.code === 'P2003' || error.code === 'P2014') {
+          throw new UserHasVehiclesException();
+        }
       }
       throw error;
     }
+  }
+
+  async markPhoneVerified(id: string, verifiedAt: Date): Promise<void> {
+    await this.prisma.user.update({
+      where: { id },
+      data: { phoneVerifiedAt: verifiedAt },
+    });
+  }
+
+  async isPhoneVerified(id: string): Promise<boolean> {
+    const row = await this.prisma.user.findUnique({
+      where: { id },
+      select: { phoneVerifiedAt: true },
+    });
+    return !!row?.phoneVerifiedAt;
   }
 
   async clean(): Promise<void> {

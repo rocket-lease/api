@@ -1,5 +1,4 @@
 import { Given, When, Then } from '@cucumber/cucumber';
-import request from 'supertest';
 import { api } from '../support/http-client';
 import { expect } from 'expect';
 import type { MyWorld } from '../support/world';
@@ -7,7 +6,7 @@ import type { MyWorld } from '../support/world';
 Given(
   'que existe un usuario autenticado con email {string} y contrasena {string}',
   async function (this: MyWorld, email: string, password: string) {
-    await request(this.app.getHttpServer()).post('/auth/register').send({
+    await api(this).post('/auth/register', {
       name: 'Usuario Perfil',
       email,
       dni: '12345678',
@@ -15,12 +14,13 @@ Given(
       password,
     });
 
-    const loginResponse = await request(this.app.getHttpServer())
-      .post('/auth/login')
-      .send({ email, password });
+    const loginResponse = await api(this).post('/auth/login', {
+      email,
+      password,
+    });
 
     expect(loginResponse.status).toBe(201);
-    this.world.auth_token = loginResponse.body.access_token;
+    this.world.access_token = loginResponse.body.access_token;
   },
 );
 
@@ -32,37 +32,29 @@ Given(
     accessibilityCsv: string,
     maxPriceDaily: number,
   ) {
-    const meResponse = await request(this.app.getHttpServer())
-      .get('/profile/me')
-      .set('Authorization', `Bearer ${this.world.auth_token}`);
-
+    const meResponse = await api(this).get('/profile/me');
     expect(meResponse.status).toBe(200);
 
-    const updateResponse = await request(this.app.getHttpServer())
-      .patch('/profile/me')
-      .set('Authorization', `Bearer ${this.world.auth_token}`)
-      .send({
-        name: meResponse.body.name,
-        phone: meResponse.body.phone,
-        avatarUrl: meResponse.body.avatarUrl,
-        preferences: {
-          transmission,
-          accessibility: accessibilityCsv
-            .split(',')
-            .map((item) => item.trim())
-            .filter(Boolean),
-          maxPriceDaily,
-        },
-      });
+    const updateResponse = await api(this).patch('/profile/me', {
+      name: meResponse.body.name,
+      phone: meResponse.body.phone,
+      avatarUrl: meResponse.body.avatarUrl,
+      preferences: {
+        transmission,
+        accessibility: accessibilityCsv
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean),
+        maxPriceDaily,
+      },
+    });
 
     expect(updateResponse.status).toBe(200);
   },
 );
 
 When('solicita su perfil', async function (this: MyWorld) {
-  this.world.profile_response = await request(this.app.getHttpServer())
-    .get('/profile/me')
-    .set('Authorization', `Bearer ${this.world.auth_token}`);
+  this.world.profile_response = await api(this).get('/profile/me');
 });
 
 When(
@@ -75,11 +67,7 @@ When(
     accessibilityCsv: string,
     maxPriceDaily: number,
   ) {
-    const meResponse = await api(this)
-      .get('/profile/me')
-    console.log("auth token: ", this.world.auth_token);
-    console.log("Status: ", meResponse.status);
-    console.log("Me Response: ", meResponse.body);
+    const meResponse = await api(this).get('/profile/me');
     expect(meResponse.status).toBe(200);
 
     this.world.profile_payload = {
@@ -96,20 +84,22 @@ When(
       },
     };
 
-    this.world.update_profile_response = await request(this.app.getHttpServer())
-      .patch('/profile/me')
-      .set('Authorization', `Bearer ${this.world.auth_token}`)
-      .send(this.world.profile_payload);
+    this.world.update_profile_response = await api(this).patch(
+      '/profile/me',
+      this.world.profile_payload,
+    );
   },
 );
 
 When(
   'sube una nueva foto de perfil {string}',
   async function (this: MyWorld, filename: string) {
-    this.world.upload_avatar_response = await request(this.app.getHttpServer())
-      .post('/profile/me/avatar')
-      .set('Authorization', `Bearer ${this.world.auth_token}`)
-      .attach('file', Buffer.from('fake-image-content'), filename);
+    this.world.upload_avatar_response = await api(this).upload(
+      '/profile/me/avatar',
+      'file',
+      Buffer.from('fake-image-content'),
+      filename,
+    );
   },
 );
 
@@ -134,9 +124,7 @@ Then(
     expect(this.world.update_profile_response.status).toBe(200);
     expect(this.world.upload_avatar_response.status).toBe(200);
 
-    const meResponse = await request(this.app.getHttpServer())
-      .get('/profile/me')
-      .set('Authorization', `Bearer ${this.world.auth_token}`);
+    const meResponse = await api(this).get('/profile/me');
 
     expect(meResponse.status).toBe(200);
     expect(meResponse.body.name).toBe(this.world.profile_payload.name);

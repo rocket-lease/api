@@ -31,7 +31,26 @@ export class AuthService {
     dto: RegisterUserRequest,
   ): Promise<RegisterUserResponse> {
     const existing = await this.userRepository.findByEmail(dto.email);
-    if (existing) throw new EntityAlreadyExistsException('user', dto.email);
+    if (existing) {
+      const verified = await this.authProvider.getEmailVerificationStatus(
+        existing.getId(),
+      );
+      if (verified) throw new EntityAlreadyExistsException('user', dto.email);
+
+      await this.authProvider.updatePassword(existing.getId(), dto.password);
+      await this.userRepository.updateBasicInfo(existing.getId(), {
+        name: dto.name,
+        dni: dto.dni,
+        phone: dto.phone,
+      });
+      await this.authProvider.resendSignupOtp(dto.email);
+
+      return RegisterUserResponseSchema.parse({
+        id: existing.getId(),
+        name: dto.name,
+        email: dto.email,
+      });
+    }
 
     const { userId } = await this.authProvider.signUp(dto.email, dto.password);
     const user = new User(userId, dto.name, dto.email, dto.dni, dto.phone);

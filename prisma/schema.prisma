@@ -22,6 +22,7 @@ model User {
   preferredAccessibility String[]  @default([]) @map("preferred_accessibility")
   preferredMaxPriceDaily Int?      @map("preferred_max_price_daily")
   createdAt             DateTime   @default(now()) @map("created_at")
+  phoneVerifiedAt       DateTime?  @map("phone_verified_at")
   favorites             Favorite[]
   vehicles              Vehicle[]
 
