@@ -1,6 +1,7 @@
 import { AuthService } from '@/application/auth.service';
 import { VehicleService } from '@/application/vehicle.service';
 import {
+    BadRequestException,
     Body,
     Controller,
     Post,
@@ -33,7 +34,6 @@ export class VehicleController {
 
     @Get()
     async getVehicles(
-        @Query('characteristic') characteristic?: string,
         @Query('characteristics') characteristics?: string | string[],
     ): Promise<Array<Contracts.GetVehicleResponse>> {
         const parsedList: Contracts.Characteristic[] = [];
@@ -45,12 +45,12 @@ export class VehicleController {
             for (const item of raw) {
                 const trimmed = item.trim();
                 if (!trimmed) continue;
-                parsedList.push(Contracts.CharacteristicSchema.parse(trimmed));
+                const parsed = Contracts.CharacteristicSchema.safeParse(trimmed);
+                if (!parsed.success) {
+                    throw new BadRequestException(`invalid characteristic: ${trimmed}`);
+                }
+                parsedList.push(parsed.data);
             }
-        }
-
-        if (characteristic) {
-            parsedList.push(Contracts.CharacteristicSchema.parse(characteristic));
         }
 
         const unique = Array.from(new Set(parsedList));
@@ -69,16 +69,26 @@ export class VehicleController {
     }
 
     @Delete(':id')
-    async deleteVehicle(@Param('id') id: string): Promise<void> {
-        await this.vehicleService.deleteVehicle(id);
+    async deleteVehicle(
+        @Param('id') id: string,
+        @Req() req: Request,
+    ): Promise<void> {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) throw new Error('Token not found');
+        const ownerId = await this.authService.getUserIdFromToken(authHeader);
+        await this.vehicleService.deleteVehicle(id, ownerId);
     }
 
     @Patch(':id')
     async updateVehicle(
         @Param('id') id: string,
         @Body() dto: Contracts.UpdateVehicleRequest,
+        @Req() req: Request,
     ): Promise<void> {
-        return await this.vehicleService.updateVehicle(id, dto);
+        const authHeader = req.headers.authorization;
+        if (!authHeader) throw new Error('Token not found');
+        const ownerId = await this.authService.getUserIdFromToken(authHeader);
+        return await this.vehicleService.updateVehicle(id, ownerId, dto);
     }
 
     @Post()

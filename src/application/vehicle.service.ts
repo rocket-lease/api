@@ -67,10 +67,14 @@ export class VehicleService {
 
     public async updateVehicle(
         vehicleId: string,
+        ownerId: string,
         data: UpdateVehicleRequest,
     ): Promise<void> {
         const vehicle = await this.vehicleRepository.findById(vehicleId);
         if (!vehicle) throw new EntityNotFoundException('vehicle', vehicleId);
+        if (vehicle.getOwnerId() !== ownerId) {
+            throw new EntityNotFoundException('vehicle', vehicleId);
+        }
         try {
             const parsed = UpdateVehicleRequestSchema.parse(data);
             vehicle.update(parsed);
@@ -93,15 +97,6 @@ export class VehicleService {
         return vehicles.map((v) => this.toDTO(v));
     }
 
-    public async getByCharacteristic(
-        characteristic: Characteristic,
-    ): Promise<Array<GetVehicleResponse>> {
-        const vehicles = await this.vehicleRepository.findByCharacteristic(
-            characteristic,
-        );
-        return vehicles.map((v) => this.toDTO(v));
-    }
-
     public async getByCharacteristics(
         characteristics: Characteristic[],
     ): Promise<Array<GetVehicleResponse>> {
@@ -111,9 +106,12 @@ export class VehicleService {
         return vehicles.map((v) => this.toDTO(v));
     }
 
-    public async deleteVehicle(vehicleId: string): Promise<void> {
+    public async deleteVehicle(vehicleId: string, ownerId: string): Promise<void> {
         const vehicle = await this.vehicleRepository.findById(vehicleId);
         if (!vehicle) throw new EntityNotFoundException('vehicle', vehicleId);
+        if (vehicle.getOwnerId() !== ownerId) {
+            throw new EntityNotFoundException('vehicle', vehicleId);
+        }
         await this.vehicleRepository.delete(vehicleId);
     }
 

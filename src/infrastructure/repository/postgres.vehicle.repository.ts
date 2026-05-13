@@ -108,19 +108,6 @@ export class PostgresVehicleRepository implements VehicleRepository {
     return raws.map((raw) => this.mapToDomain(raw));
   }
 
-  async findByCharacteristic(
-    characteristic: Characteristic,
-  ): Promise<Vehicle[]> {
-    const raws = await this.prisma.vehicle.findMany({
-      where: {
-        enabled: true,
-        characteristics: { some: { characteristic } },
-      },
-      include: { photos: true, characteristics: true },
-    });
-    return raws.map((raw) => this.mapToDomain(raw));
-  }
-
   async findByCharacteristics(
     characteristics: Characteristic[],
   ): Promise<Vehicle[]> {

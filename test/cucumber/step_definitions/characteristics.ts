@@ -114,7 +114,7 @@ When('elimino la caracteristica {string}', async function (this: MyWorld, raw: s
 When('filtro vehiculos por {string}', async function (this: MyWorld, raw: string) {
   const characteristic = parseCharacteristics(raw)[0]
   this.world.filter_characteristic = characteristic
-  this.world.filter_response = await api(this).get(`/vehicle?characteristic=${characteristic}`)
+  this.world.filter_response = await api(this).get(`/vehicle?characteristics=${characteristic}`)
 })
 
 Then('el vehiculo queda con las caracteristicas {string}', async function (this: MyWorld, raw: string) {
@@ -156,7 +156,7 @@ Then('el vehiculo no tiene la caracteristica {string}', async function (this: My
 
 Then('el vehiculo no aparece en el catalogo filtrado por {string}', async function (this: MyWorld, raw: string) {
   const characteristic = parseCharacteristics(raw)[0]
-  const res = await api(this).get(`/vehicle?characteristic=${characteristic}`)
+  const res = await api(this).get(`/vehicle?characteristics=${characteristic}`)
   expect(res.status).toBe(200)
   const plates = res.body.map((v: any) => v.plate)
   const currentPlate = this.world.create_vehicle_response.body.plate
