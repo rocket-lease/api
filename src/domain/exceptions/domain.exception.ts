@@ -24,3 +24,14 @@ export class InvalidEntityDataException extends DomainException {
   }
 }
 
+export class FavoriteAlreadyExistsException extends DomainException {
+  constructor(vehicleId: string) {
+    super(`favorite for vehicle ${vehicleId} already exists`);
+  }
+}
+
+export class FavoriteNotFoundException extends DomainException {
+  constructor(vehicleId: string) {
+    super(`favorite for vehicle ${vehicleId} not found`);
+  }
+}
