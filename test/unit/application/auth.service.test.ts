@@ -41,6 +41,9 @@ describe('AuthService', () => {
       requestPasswordReset: jest.fn().mockResolvedValue(undefined),
       updatePassword: jest.fn().mockResolvedValue(undefined),
       deleteUser: jest.fn().mockResolvedValue(undefined),
+      getEmailVerificationStatus: jest.fn().mockResolvedValue(true),
+      resendSignupOtp: jest.fn().mockResolvedValue(undefined),
+      verifySignupOtp: jest.fn().mockResolvedValue({ userId: 'stub-id' }),
     };
     service = new AuthService(userRepoMock, authProviderMock);
   });
