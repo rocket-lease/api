@@ -1,6 +1,6 @@
 import { Given, When, Then } from '@cucumber/cucumber';
 import { MyWorld } from '../support/world';
-import request from 'supertest';
+import { api } from '../support/http-client';
 import { expect } from 'expect';
 
 Given(
@@ -20,7 +20,7 @@ Given(
 Given(
   'que ya existe un usuario registrado con email {string}',
   async function (this: MyWorld, email: string) {
-    await request(this.app.getHttpServer()).post('/auth/register').send({
+    await api(this).post('/auth/register', {
       name: 'Existente',
       email,
       dni: '12345678',
@@ -31,9 +31,10 @@ Given(
 );
 
 When('envía el formulario de registro', async function (this: MyWorld) {
-  this.world.register_response = await request(this.app.getHttpServer())
-    .post('/auth/register')
-    .send(this.world.register_dto);
+  this.world.register_response = await api(this).post(
+    '/auth/register',
+    this.world.register_dto,
+  );
 });
 
 Then('la cuenta es creada exitosamente', function (this: MyWorld) {
