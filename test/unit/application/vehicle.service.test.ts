@@ -111,13 +111,20 @@ describe('VehicleService', () => {
     const enabledA = buildVehicle({ enabled: true });
     const enabledB = buildVehicle({ enabled: true });
     const disabled = buildVehicle({ enabled: false });
-    repositoryMock.findByOwnerId.mockResolvedValue([enabledA, disabled, enabledB]);
+    repositoryMock.findByOwnerId.mockResolvedValue([
+      enabledA,
+      disabled,
+      enabledB,
+    ]);
 
     const result = await service.getPublishedByOwnerId(OWNER_ID);
 
     expect(repositoryMock.findByOwnerId).toHaveBeenCalledWith(OWNER_ID);
     expect(result).toHaveLength(2);
-    expect(result.map((v) => v.id)).toEqual([enabledA.getId(), enabledB.getId()]);
+    expect(result.map((v) => v.id)).toEqual([
+      enabledA.getId(),
+      enabledB.getId(),
+    ]);
   });
 
   it('should reject delete by non-owner', async () => {

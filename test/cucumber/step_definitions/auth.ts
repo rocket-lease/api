@@ -18,7 +18,7 @@ Given(
 
 Given('que estoy autenticado', async function (this: MyWorld) {
   const email = `test-${Date.now()}@example.com`;
-  const registerRes = await api(this).post('/auth/register', {
+  await api(this).post('/auth/register', {
     name: 'Test',
     email,
     dni: '12345678',

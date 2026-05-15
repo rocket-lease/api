@@ -3,7 +3,7 @@ import { MyWorld } from './world';
 
 export function api(world: MyWorld) {
   const server = world.app.getHttpServer();
-  const proxy: Record<string, Function> = {};
+  const proxy: Record<string, (...args: unknown[]) => Promise<any>> = {};
   for (const method of ['get', 'post', 'patch', 'delete', 'put']) {
     proxy[method] = async (url: string, body?: any) => {
       let req = request(server)[method](url);

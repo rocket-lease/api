@@ -42,7 +42,7 @@ export class CloudinaryMediaProvider implements MediaProvider {
         },
         (error, result) => {
           if (error || !result?.secure_url) {
-            return reject(error ?? new Error('Cloudinary upload failed'));
+            return reject(error instanceof Error ? error : new Error('Cloudinary upload failed'));
           }
           resolve(result.secure_url);
         },
