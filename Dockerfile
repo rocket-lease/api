@@ -17,6 +17,11 @@ COPY api ./api
 
 WORKDIR /workspace/api
 
+# Install contracts peer deps so tsc can resolve zod from contracts source.
+WORKDIR /workspace/contracts
+RUN pnpm install --frozen-lockfile --ignore-scripts
+
+WORKDIR /workspace/api
 # preinstall hook checks the sibling — it's present here.
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
