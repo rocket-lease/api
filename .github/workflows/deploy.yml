@@ -1,9 +1,10 @@
-name: CI/CD
+name: Deploy
 
+# Triggered directly on push to main (i.e. PR merge). CI is NOT re-run here —
+# branch protection on `main` (require PR + green CI + up-to-date branch) is the
+# gate that guarantees the merged commit was validated by the PR run.
 on:
   push:
-    branches: [main]
-  pull_request:
     branches: [main]
 
 env:
@@ -13,60 +14,25 @@ env:
   SERVICE: rocket-leaser-api
 
 jobs:
-  test:
-    name: Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Install pnpm
-        run: npm install -g pnpm@11.0.8
-
-      - name: Start test database
-        run: docker compose -f docker-compose.test.yml up -d --wait
-
-      - name: Install API dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Generate Prisma client
-        run: pnpm exec prisma generate
-
-      - name: Apply test migrations
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
-          DIRECT_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
-        run: pnpm exec prisma migrate deploy
-
-      - name: Unit tests
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
-          DIRECT_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
-        run: pnpm test:unit
-
-      - name: Cucumber tests
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
-          DIRECT_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
-        run: pnpm test:cucumber
-
-      - name: Stop test database
-        if: always()
-        run: docker compose -f docker-compose.test.yml down
-
   deploy:
     name: Build & Deploy
-    needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout api
+        uses: actions/checkout@v4
+        with:
+          path: api
+
+      - name: Checkout contracts (main)
+        uses: actions/checkout@v4
+        with:
+          repository: rocket-lease/contracts
+          ref: main
+          token: ${{ secrets.CONTRACTS_TOKEN }}
+          path: contracts
 
       - name: Authenticate to Google Cloud
         id: auth
@@ -86,9 +52,10 @@ jobs:
           username: oauth2accesstoken
           password: ${{ steps.auth.outputs.access_token }}
 
+      # Build context is the parent dir that holds api/ and contracts/ as siblings.
       - name: Build image
         run: |
-          docker build -f Dockerfile \
+          docker build -f api/Dockerfile \
             -t ${{ env.IMAGE }}:${{ github.sha }} \
             -t ${{ env.IMAGE }}:latest \
             .
