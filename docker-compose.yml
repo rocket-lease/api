@@ -1,5 +1,17 @@
+# Local stack. Use the api/Makefile to drive this — do not invoke `docker compose`
+# directly so we can change the layout (Redis, supabase-local, etc.) without
+# touching every dev's muscle memory.
+#
+# Profiles:
+#   db    → only Postgres. The default `make run` uses this and runs api on host.
+#   full  → adds api inside a container with bind mounts to api/ and ../contracts/.
+#           Used by `make run-local` for devs that want everything dockerized.
+#
+# See api/docs/adr/0007-contracts-as-source.md for the link:../contracts model.
+
 services:
   db:
+    profiles: ["db", "full"]
     image: postgres:17-alpine
     environment:
       POSTGRES_USER: postgres
@@ -11,15 +23,17 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   api:
+    profiles: ["full"]
     build:
-      context: .
-      dockerfile: Dockerfile
+      # Parent context so the image can see both api/ and contracts/.
+      context: ..
+      dockerfile: api/Dockerfile.dev
     env_file:
       - .env
     environment:
@@ -27,6 +41,15 @@ services:
       DIRECT_URL: postgresql://postgres:postgres@db:5432/rocket_lease
     ports:
       - "8080:8080"
+    volumes:
+      - ./:/workspace/api
+      - ../contracts:/workspace/contracts
+      # Anonymous volumes so the host's node_modules don't shadow the
+      # container's — each side installs against its own platform.
+      - /workspace/api/node_modules
+      - /workspace/contracts/node_modules
+    working_dir: /workspace/api
+    command: sh -c "pnpm install --frozen-lockfile && pnpm exec prisma generate && pnpm start:dev"
     depends_on:
       db:
         condition: service_healthy

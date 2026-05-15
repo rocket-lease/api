@@ -1,0 +1,108 @@
+name: CI
+
+# Runs on PRs only. Post-merge commits to dev/main are not re-validated —
+# branch protection on `main` (require PR + green CI + up-to-date branch)
+# guarantees the squash commit on main is equivalent to the validated PR.
+on:
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  ci:
+    name: Typecheck + lint + tests + build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout api
+        uses: actions/checkout@v4
+        with:
+          path: api
+
+      # Pull contracts as a sibling. Try the same branch first; on miss,
+      # fall back to the PR's base ref (dev / main). See ADR-0007.
+      - name: Resolve contracts ref
+        id: contracts-ref
+        env:
+          GH_TOKEN: ${{ secrets.CONTRACTS_TOKEN }}
+          REF: ${{ github.head_ref || github.ref_name }}
+          BASE: ${{ github.base_ref || github.ref_name }}
+        run: |
+          set -euo pipefail
+          status=$(curl -fsS -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/rocket-lease/contracts/branches/${REF}" || true)
+          if [ "$status" = "200" ]; then
+            echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${BASE}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout contracts
+        uses: actions/checkout@v4
+        with:
+          repository: rocket-lease/contracts
+          ref: ${{ steps.contracts-ref.outputs.ref }}
+          token: ${{ secrets.CONTRACTS_TOKEN }}
+          path: contracts
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install pnpm
+        run: npm install -g pnpm@11.0.8
+
+      - name: Install contracts dependencies
+        working-directory: contracts
+        run: pnpm install --frozen-lockfile
+
+      - name: Install API dependencies
+        working-directory: api
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Generate Prisma client
+        working-directory: api
+        run: pnpm exec prisma generate
+
+      # Cheap checks first — fail fast before booting docker / running migrations.
+      - name: Typecheck
+        working-directory: api
+        run: pnpm tsc --noEmit
+
+      - name: Lint
+        working-directory: api
+        run: pnpm lint
+
+      - name: Start test database
+        working-directory: api
+        run: docker compose -f docker-compose.test.yml up -d --wait
+
+      - name: Apply test migrations
+        working-directory: api
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
+        run: pnpm exec prisma migrate deploy
+
+      - name: Unit tests
+        working-directory: api
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
+        run: pnpm test:unit
+
+      - name: Cucumber tests
+        working-directory: api
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
+        run: pnpm test:cucumber
+
+      - name: Build
+        working-directory: api
+        run: pnpm build
+
+      - name: Stop test database
+        if: always()
+        working-directory: api
+        run: docker compose -f docker-compose.test.yml down
