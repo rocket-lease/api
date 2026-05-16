@@ -9,7 +9,7 @@ const mapTableToDto = (rawData: any) => ({
   model: rawData['modelo'],
   color: rawData['color'],
   mileage: Number(rawData['kilometraje']),
-  basePrice: Number(rawData['precio base']),
+  basePriceCents: Number(rawData['precio base']),
   description: rawData['descripción'] || null,
   year: Number(rawData['año']) || 2024,
   passengers: Number(rawData['pasajeros']) || 5,
@@ -28,7 +28,7 @@ const COLUMN_MAP: Record<string, string> = {
   modelo: 'model',
   color: 'color',
   kilometraje: 'mileage',
-  'precio base': 'basePrice',
+  'precio base': 'basePriceCents',
   descripción: 'description',
   año: 'year',
   pasajeros: 'passengers',
@@ -46,7 +46,7 @@ const rawToUpdateDto = (rawData: Record<string, string>) => {
   if ('color' in rawData) dto.color = rawData['color'];
   if ('patente' in rawData) dto.plate = rawData['patente'];
   if ('kilometraje' in rawData) dto.mileage = Number(rawData['kilometraje']);
-  if ('precio base' in rawData) dto.basePrice = Number(rawData['precio base']);
+  if ('precio base' in rawData) dto.basePriceCents = Number(rawData['precio base']);
   if ('descripción' in rawData) dto.description = rawData['descripción'];
   if ('fotos' in rawData)
     dto.photos = rawData['fotos'].split(',').map((s: string) => s.trim());
@@ -207,7 +207,7 @@ Then('el vehículo queda actualizado', async function (this: MyWorld) {
   const expectedData = this.world.update_vehicle_dto;
 
   expect(updatedData.mileage).toBe(expectedData.mileage);
-  expect(updatedData.basePrice).toBe(expectedData.basePrice);
+  expect(updatedData.basePriceCents).toBe(expectedData.basePriceCents);
   expect(updatedData.color).toBe(expectedData.color);
   expect(updatedData.description).toBe(expectedData.description);
   expect(updatedData.plate).toBe(this.world.create_vehicle_dto.plate);

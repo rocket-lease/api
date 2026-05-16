@@ -20,7 +20,7 @@ function setReservationId(world: MyWorld, alias: string, id: string): void {
 async function ensureVehiclePublished(
   world: MyWorld,
   plate: string,
-  basePrice: number,
+  basePriceCents: number,
 ): Promise<string> {
   if (world.world.vehicle_by_plate?.[plate]) {
     return world.world.vehicle_by_plate[plate];
@@ -39,7 +39,7 @@ async function ensureVehiclePublished(
     photos: ['https://example.com/photo1.jpg'],
     color: 'Azul',
     mileage: 50000,
-    basePrice,
+    basePriceCents,
     description: null,
     province: 'B',
     city: 'CABA',
@@ -54,8 +54,8 @@ async function ensureVehiclePublished(
 
 Given(
   'que existe un vehículo publicado con patente {string} y precio base {int}',
-  async function (this: MyWorld, plate: string, basePrice: number) {
-    await ensureVehiclePublished(this, plate, basePrice);
+  async function (this: MyWorld, plate: string, basePriceCents: number) {
+    await ensureVehiclePublished(this, plate, basePriceCents);
   },
 );
 
