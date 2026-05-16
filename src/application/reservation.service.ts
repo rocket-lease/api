@@ -8,14 +8,12 @@ import {
   ConfirmReservationPaymentResponseSchema,
   type GetReservationResponse,
   GetReservationResponseSchema,
-  type ListMyReservationsResponse,
-  ListMyReservationsResponseSchema,
   type VehicleBusyRangesResponse,
   VehicleBusyRangesResponseSchema,
-  type OwnerReservation,
-  type OwnerReservationsListRequest,
-  type OwnerReservationsListResponse,
-  OwnerReservationsListResponseSchema,
+  type ReservationListItem,
+  type ReservationsListRequest,
+  type ReservationsListResponse,
+  ReservationsListResponseSchema,
 } from '@rocket-lease/contracts';
 import {
   BLOCKING_STATUSES,
@@ -179,23 +177,19 @@ export class ReservationService {
     return this.toDTO(reservation);
   }
 
-  public async listMine(
-    conductorId: string,
-  ): Promise<ListMyReservationsResponse> {
-    const items = await this.reservationRepository.findByConductorId(
-      conductorId,
-    );
-    const dtos: GetReservationResponse[] = [];
-    for (const r of items) dtos.push(await this.toDTO(r));
-    return ListMyReservationsResponseSchema.parse({ items: dtos });
-  }
-
-  public async listByRentador(
-    rentadorId: string,
-    dto: OwnerReservationsListRequest,
-  ): Promise<OwnerReservationsListResponse> {
-    const { items, total } = await this.reservationRepository.findByRentadorId(
-      rentadorId,
+  /**
+   * Lista reservas desde la perspectiva del usuario autenticado.
+   * - role='conductor': reservas que el user creó.
+   * - role='owner':     reservas sobre vehículos del user.
+   * Hidrata vehicle + conductor + rentador en 3 queries batch (no N+1).
+   */
+  public async list(
+    userId: string,
+    dto: ReservationsListRequest,
+  ): Promise<ReservationsListResponse> {
+    const { items, total } = await this.reservationRepository.findByUser(
+      userId,
+      dto.role,
       {
         status: dto.status,
         from: dto.from ? new Date(dto.from) : undefined,
@@ -205,25 +199,31 @@ export class ReservationService {
       },
     );
 
-    // Batch fetch: 1 query por vehículos + 1 query por conductores.
-    // Total fijo de 3 queries (1 reservas + 2 batch), sin importar N.
+    // Batch fetch: 1 query vehicles + 1 query users (conductores ∪ rentadores).
+    // Total: 3 queries (1 reservations + 2 batch) sin importar N.
     const vehicleIds = [...new Set(items.map((r) => r.getVehicleId()))];
-    const conductorIds = [...new Set(items.map((r) => r.getConductorId()))];
-    const [vehicles, conductors] = await Promise.all([
+    const userIds = [
+      ...new Set([
+        ...items.map((r) => r.getConductorId()),
+        ...items.map((r) => r.getRentadorId()),
+      ]),
+    ];
+    const [vehicles, users] = await Promise.all([
       this.vehicleRepository.findByIds(vehicleIds),
-      this.userRepository.getProfilesByIds(conductorIds),
+      this.userRepository.getProfilesByIds(userIds),
     ]);
     const vehicleById = new Map(vehicles.map((v) => [v.getId(), v]));
-    const conductorById = new Map(conductors.map((c) => [c.id, c]));
+    const userById = new Map(users.map((u) => [u.id, u]));
 
     const dtos = items.map((r) =>
-      this.toOwnerDTOSync(
+      this.toListItemDTO(
         r,
         vehicleById.get(r.getVehicleId()) ?? null,
-        conductorById.get(r.getConductorId()) ?? null,
+        userById.get(r.getConductorId()) ?? null,
+        userById.get(r.getRentadorId()) ?? null,
       ),
     );
-    return OwnerReservationsListResponseSchema.parse({
+    return ReservationsListResponseSchema.parse({
       items: dtos,
       page: dto.page,
       pageSize: dto.pageSize,
@@ -303,11 +303,12 @@ export class ReservationService {
     });
   }
 
-  private toOwnerDTOSync(
+  private toListItemDTO(
     r: Reservation,
     vehicle: Vehicle | null,
     conductorProfile: { name: string; avatarUrl: string | null } | null,
-  ): OwnerReservation {
+    rentadorProfile: { name: string; avatarUrl: string | null } | null,
+  ): ReservationListItem {
     return {
       id: r.getId(),
       vehicleId: r.getVehicleId(),
@@ -330,6 +331,11 @@ export class ReservationService {
         id: r.getConductorId(),
         name: conductorProfile?.name ?? 'Conductor',
         avatarUrl: conductorProfile?.avatarUrl ?? null,
+      },
+      rentador: {
+        id: r.getRentadorId(),
+        name: rentadorProfile?.name ?? 'Rentador',
+        avatarUrl: rentadorProfile?.avatarUrl ?? null,
       },
     };
   }

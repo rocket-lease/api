@@ -3,7 +3,9 @@ import {
   ReservationStatus,
 } from '../entities/reservation.entity';
 
-export interface RentadorListFilters {
+export type ReservationRole = 'conductor' | 'owner';
+
+export interface ReservationListFilters {
   status?: ReservationStatus[];
   from?: Date;
   to?: Date;
@@ -11,7 +13,7 @@ export interface RentadorListFilters {
   pageSize: number;
 }
 
-export interface RentadorListResult {
+export interface ReservationListResult {
   items: Reservation[];
   total: number;
 }
@@ -27,15 +29,19 @@ export interface ReservationRepository {
     statuses: ReservationStatus[],
   ): Promise<Reservation[]>;
   findExpiredHolds(now: Date): Promise<Reservation[]>;
-  findByConductorId(conductorId: string): Promise<Reservation[]>;
   findActiveByVehicleId(
     vehicleId: string,
     statuses: ReservationStatus[],
   ): Promise<Reservation[]>;
-  findByRentadorId(
-    rentadorId: string,
-    filters: RentadorListFilters,
-  ): Promise<RentadorListResult>;
+  /**
+   * Lista reservas desde la perspectiva de un usuario (conductor o owner).
+   * Paginado, con filtros opcionales por estado y rango de fechas (sobre `startAt`).
+   */
+  findByUser(
+    userId: string,
+    role: ReservationRole,
+    filters: ReservationListFilters,
+  ): Promise<ReservationListResult>;
 }
 
 export const RESERVATION_REPOSITORY = Symbol('ReservationRepository');

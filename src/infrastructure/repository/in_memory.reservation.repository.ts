@@ -5,8 +5,9 @@ import {
 } from '@/domain/entities/reservation.entity';
 import {
   ReservationRepository,
-  RentadorListFilters,
-  RentadorListResult,
+  ReservationListFilters,
+  ReservationListResult,
+  ReservationRole,
 } from '@/domain/repositories/reservation.repository';
 
 @Injectable()
@@ -63,12 +64,6 @@ export class InMemoryReservationRepository implements ReservationRepository {
     );
   }
 
-  async findByConductorId(conductorId: string): Promise<Reservation[]> {
-    return Array.from(this.store.values()).filter(
-      (r) => r.getConductorId() === conductorId,
-    );
-  }
-
   async findActiveByVehicleId(
     vehicleId: string,
     statuses: ReservationStatus[],
@@ -79,12 +74,17 @@ export class InMemoryReservationRepository implements ReservationRepository {
     );
   }
 
-  async findByRentadorId(
-    rentadorId: string,
-    filters: RentadorListFilters,
-  ): Promise<RentadorListResult> {
+  async findByUser(
+    userId: string,
+    role: ReservationRole,
+    filters: ReservationListFilters,
+  ): Promise<ReservationListResult> {
+    const matchesRole = (r: Reservation) =>
+      role === 'conductor'
+        ? r.getConductorId() === userId
+        : r.getRentadorId() === userId;
     const all = Array.from(this.store.values()).filter((r) => {
-      if (r.getRentadorId() !== rentadorId) return false;
+      if (!matchesRole(r)) return false;
       if (filters.status && filters.status.length > 0) {
         if (!filters.status.includes(r.getStatus())) return false;
       }

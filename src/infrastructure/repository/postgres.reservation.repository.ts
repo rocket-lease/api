@@ -6,8 +6,9 @@ import {
 } from '@/domain/entities/reservation.entity';
 import {
   ReservationRepository,
-  RentadorListFilters,
-  RentadorListResult,
+  ReservationListFilters,
+  ReservationListResult,
+  ReservationRole,
 } from '@/domain/repositories/reservation.repository';
 import { PrismaService } from '../database/prisma.service';
 
@@ -79,14 +80,6 @@ export class PostgresReservationRepository implements ReservationRepository {
     return rows.map((r) => this.toEntity(r));
   }
 
-  async findByConductorId(conductorId: string): Promise<Reservation[]> {
-    const rows = await this.prisma.reservation.findMany({
-      where: { conductorId },
-      orderBy: { createdAt: 'desc' },
-    });
-    return rows.map((r) => this.toEntity(r));
-  }
-
   async findActiveByVehicleId(
     vehicleId: string,
     statuses: ReservationStatus[],
@@ -97,11 +90,16 @@ export class PostgresReservationRepository implements ReservationRepository {
     return rows.map((r) => this.toEntity(r));
   }
 
-  async findByRentadorId(
-    rentadorId: string,
-    filters: RentadorListFilters,
-  ): Promise<RentadorListResult> {
-    const where: any = { rentadorId };
+  async findByUser(
+    userId: string,
+    role: ReservationRole,
+    filters: ReservationListFilters,
+  ): Promise<ReservationListResult> {
+    // Selecciona la columna por la que filtrar según el rol:
+    // 'conductor' → reservas que el user creó.
+    // 'owner'     → reservas sobre vehículos del user.
+    const where: any =
+      role === 'conductor' ? { conductorId: userId } : { rentadorId: userId };
     if (filters.status && filters.status.length > 0) {
       where.status = { in: filters.status as any };
     }

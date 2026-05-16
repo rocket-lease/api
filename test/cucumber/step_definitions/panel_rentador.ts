@@ -11,7 +11,7 @@ function useOwner(world: MyWorld): void {
 
 When('el rentador consulta su panel de reservas', async function (this: MyWorld) {
   useOwner(this);
-  const res = await api(this).get('/reservations/owned');
+  const res = await api(this).get('/reservations?role=owner');
   this.world.lastResponse = res;
 });
 
@@ -19,7 +19,7 @@ When(
   'el rentador filtra su panel por estado {string}',
   async function (this: MyWorld, status: string) {
     useOwner(this);
-    const res = await api(this).get(`/reservations/owned?status=${status}`);
+    const res = await api(this).get(`/reservations?role=owner&status=${status}`);
     this.world.lastResponse = res;
   },
 );
@@ -29,7 +29,7 @@ When(
   async function (this: MyWorld, page: number, pageSize: number) {
     useOwner(this);
     const res = await api(this).get(
-      `/reservations/owned?page=${page}&pageSize=${pageSize}`,
+      `/reservations?role=owner&page=${page}&pageSize=${pageSize}`,
     );
     this.world.lastResponse = res;
   },
@@ -37,7 +37,7 @@ When(
 
 When('consulto el panel del rentador sin token', async function (this: MyWorld) {
   this.world.access_token = undefined;
-  const res = await api(this).get('/reservations/owned');
+  const res = await api(this).get('/reservations?role=owner');
   this.world.lastResponse = res;
 });
 
