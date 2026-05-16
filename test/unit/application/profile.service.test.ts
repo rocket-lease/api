@@ -21,6 +21,7 @@ describe('ProfileService', () => {
       deleteById: jest.fn(),
       markPhoneVerified: jest.fn(),
       isPhoneVerified: jest.fn().mockResolvedValue(false),
+      updateAutoAccept: jest.fn(),
     };
     mediaProviderMock = {
       uploadAvatar: jest.fn(),
@@ -44,6 +45,7 @@ describe('ProfileService', () => {
         accessibility: ['movilidad-reducida'],
         maxPriceDaily: 1000000,
       },
+      autoAccept: false,
     });
 
     const profile = await service.getMyProfile('user-1');
@@ -80,6 +82,7 @@ describe('ProfileService', () => {
         accessibility: [],
         maxPriceDaily: null,
       },
+      autoAccept: false,
     });
 
     const updated = await service.updateMyProfile('user-1', {
@@ -124,6 +127,7 @@ describe('ProfileService', () => {
         accessibility: [],
         maxPriceDaily: null,
       },
+      autoAccept: false,
     });
 
     const updated = await service.updateAvatar('user-1', {
