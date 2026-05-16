@@ -50,7 +50,7 @@ Característica: Gestión de reservas del conductor
     Dado que el conductor "A" reservó el vehículo "AE987CC" desde "2026-07-01T10:00:00Z" hasta "2026-07-03T10:00:00Z" firmando el contrato
     Y el conductor "A" confirma el pago con "credit_card"
     Cuando accedo al detalle de la reserva del conductor "A"
-    Entonces veo el estado "confirmed"
+    Entonces la reserva del conductor "A" queda en estado "confirmed"
     Y veo la fecha de inicio "2026-07-01T10:00:00Z" y fin "2026-07-03T10:00:00Z"
     Y veo los datos del vehículo
     Y veo los datos del rentador

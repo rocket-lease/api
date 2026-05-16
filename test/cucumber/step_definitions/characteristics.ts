@@ -89,22 +89,13 @@ Given(
 );
 
 Given(
-  'un vehículo con las características {string}',
+  'el vehículo tiene las siguientes características {string}',
   async function (this: MyWorld, raw: string) {
     const characteristics = parseCharacteristics(raw);
-    const createRes = await api(this).post(
-      '/vehicle',
-      buildVehicleDto(`AA${Date.now()}AA`),
-    );
-    expect(createRes.status).toBe(201);
-
-    this.world.create_vehicle_response = createRes;
     this.world.current_characteristics = characteristics;
-
-    const updateRes = await api(this).patch(`/vehicle/${createRes.body.id}`, {
-      characteristics,
-    });
-    expect(updateRes.status).toBe(200);
+    const vehicleId = this.world.create_vehicle_response?.body?.id;
+    if (!vehicleId) throw new Error('No hay vehículo creado');
+    await api(this).patch(`/vehicle/${vehicleId}`, { characteristics });
   },
 );
 

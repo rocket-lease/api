@@ -156,10 +156,6 @@ When(
   },
 );
 
-Then('veo el estado {string}', function (this: MyWorld, status: string) {
-  expect(this.world.reservation_response.body.status).toBe(status);
-});
-
 Then('veo la fecha de inicio {string} y fin {string}', function (this: MyWorld, startAt: string, endAt: string) {
   expect(new Date(this.world.reservation_response.body.startAt).toISOString()).toBe(new Date(startAt).toISOString());
   expect(new Date(this.world.reservation_response.body.endAt).toISOString()).toBe(new Date(endAt).toISOString());

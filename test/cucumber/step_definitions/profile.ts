@@ -32,12 +32,12 @@ Given(
   },
 );
 
-When('solicita su perfil', async function (this: MyWorld) {
+When('solicito mi perfil', async function (this: MyWorld) {
   this.world.profile_response = await api(this).get('/profile/me');
 });
 
 When(
-  'actualiza su perfil con nombre {string}, teléfono {string}, transmisión {string}, accesibilidad {string} y precio máximo diario {int}',
+  'actualizo mi perfil con nombre {string}, teléfono {string}, transmisión {string}, accesibilidad {string} y precio máximo diario {int}',
   async function (
     this: MyWorld,
     name: string,
@@ -71,7 +71,7 @@ When(
 );
 
 When(
-  'sube una nueva foto de perfil {string}',
+  'subo una nueva foto de perfil {string}',
   async function (this: MyWorld, filename: string) {
     this.world.upload_avatar_response = await api(this).upload(
       '/profile/me/avatar',
@@ -83,7 +83,7 @@ When(
 );
 
 Then(
-  've sus datos personales, estado de verificación, nivel, score y preferencias',
+  'veo mis datos personales, estado de verificación, nivel, score y preferencias',
   function (this: MyWorld) {
     const res = this.world.profile_response;
     expect(res.status).toBe(200);
@@ -124,7 +124,7 @@ Then(
 );
 
 Then(
-  'recibe las preferencias guardadas para precargar filtros de búsqueda',
+  'recibo las preferencias guardadas para precargar filtros de búsqueda',
   function (this: MyWorld) {
     const res = this.world.profile_response;
     expect(res.status).toBe(200);

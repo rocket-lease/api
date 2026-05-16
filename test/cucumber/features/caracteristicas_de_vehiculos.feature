@@ -24,7 +24,11 @@ Característica: Caracteristicas de vehiculos
         Entonces solo aparecen vehículos con la característica "GPS"
 
     Escenario: Eliminar una caracteristica
-        Dado un vehículo con las características "GPS, techo solar"
+        Dado un vehículo con los siguientes datos:
+            | patente | marca | modelo | año  | pasajeros | baul | transmisión | accesible | color | kilometraje | precio base | descripción              | fotos               |
+            | AA001AA | Ford  | Focus  | 2023 | 5         | 450  | Manual      | No        | Gris  | 12000       | 35000000    | Hatchback para la ciudad | https://i.com/1.jpg |
+        Y el vehículo ya está publicado
+        Y el vehículo tiene las siguientes características "GPS, techo solar"
         Cuando elimino la característica "GPS"
         Entonces el vehículo no tiene la característica "GPS"
         Y el vehículo no aparece en el catálogo filtrado por "GPS"
