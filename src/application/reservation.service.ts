@@ -91,7 +91,7 @@ export class ReservationService {
     }
 
     const totalCents = computeReservationTotalCents(
-      Math.round(vehicle.getBasePrice()),
+      vehicle.getBasePriceCents(),
       startAt,
       endAt,
     );

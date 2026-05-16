@@ -55,7 +55,7 @@ model Vehicle {
   enabled      Boolean      @default(true)
   color        String
   mileage      Float
-  basePrice    Float
+  basePriceCents Int    @map("base_price_cents")
   description  String?      @db.Text
   province     String
   city         String
