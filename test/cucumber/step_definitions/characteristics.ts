@@ -44,7 +44,7 @@ const buildVehicleDto = (plate: string) => ({
   photos: ['https://example.com/photo1.jpg'],
   color: 'Gris',
   mileage: 12000,
-  basePrice: 35000000,
+  basePriceCents: 35000000,
   description: 'Vehiculo para pruebas',
   province: 'B',
   city: 'CABA',

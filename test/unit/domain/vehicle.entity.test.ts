@@ -18,7 +18,7 @@ const buildVehicle = (overrides: Partial<Record<string, any>> = {}) => {
     characteristics: [] as Array<any>,
     color: 'Red',
     mileage: 15000,
-    basePrice: 25000,
+    basePriceCents: 25000,
     description: 'A reliable sedan',
     province: 'Buenos Aires',
     city: 'La Plata',
@@ -41,7 +41,7 @@ const buildVehicle = (overrides: Partial<Record<string, any>> = {}) => {
     base.characteristics,
     base.color,
     base.mileage,
-    base.basePrice,
+    base.basePriceCents,
     base.description,
     base.province,
     base.city,
@@ -71,10 +71,10 @@ describe('Vehicle Entity', () => {
   });
 
   it('should throw if base price is zero', () => {
-    expect(() => buildVehicle({ basePrice: 0 })).toThrow('Validation error:');
+    expect(() => buildVehicle({ basePriceCents: 0 })).toThrow('Validation error:');
   });
 
   it('should throw if base price is negative', () => {
-    expect(() => buildVehicle({ basePrice: -1 })).toThrow('Validation error:');
+    expect(() => buildVehicle({ basePriceCents: -1 })).toThrow('Validation error:');
   });
 });
