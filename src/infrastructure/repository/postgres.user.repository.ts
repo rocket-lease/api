@@ -82,6 +82,14 @@ export class PostgresUserRepository implements UserRepository {
     return this.mapProfile(row);
   }
 
+  async getProfilesByIds(ids: string[]): Promise<UserProfile[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.prisma.user.findMany({
+      where: { id: { in: ids } },
+    });
+    return rows.map((r) => this.mapProfile(r));
+  }
+
   async updateProfile(
     id: string,
     profile: UpdateUserProfile,

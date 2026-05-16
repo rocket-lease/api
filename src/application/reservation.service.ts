@@ -204,10 +204,25 @@ export class ReservationService {
         pageSize: dto.pageSize,
       },
     );
-    // Paralelizar la hidratación para evitar N roundtrips serializados a la DB.
-    // Cada toOwnerDTO hace 2 queries (vehicle + user) en paralelo internamente;
-    // este Promise.all las ejecuta todas a la vez en lugar de una reserva a la vez.
-    const dtos = await Promise.all(items.map((r) => this.toOwnerDTO(r)));
+
+    // Batch fetch: 1 query por vehículos + 1 query por conductores.
+    // Total fijo de 3 queries (1 reservas + 2 batch), sin importar N.
+    const vehicleIds = [...new Set(items.map((r) => r.getVehicleId()))];
+    const conductorIds = [...new Set(items.map((r) => r.getConductorId()))];
+    const [vehicles, conductors] = await Promise.all([
+      this.vehicleRepository.findByIds(vehicleIds),
+      this.userRepository.getProfilesByIds(conductorIds),
+    ]);
+    const vehicleById = new Map(vehicles.map((v) => [v.getId(), v]));
+    const conductorById = new Map(conductors.map((c) => [c.id, c]));
+
+    const dtos = items.map((r) =>
+      this.toOwnerDTOSync(
+        r,
+        vehicleById.get(r.getVehicleId()) ?? null,
+        conductorById.get(r.getConductorId()) ?? null,
+      ),
+    );
     return OwnerReservationsListResponseSchema.parse({
       items: dtos,
       page: dto.page,
@@ -288,11 +303,11 @@ export class ReservationService {
     });
   }
 
-  private async toOwnerDTO(r: Reservation): Promise<OwnerReservation> {
-    const [vehicle, conductorProfile] = await Promise.all([
-      this.vehicleRepository.findById(r.getVehicleId()),
-      this.userRepository.getProfileById(r.getConductorId()),
-    ]);
+  private toOwnerDTOSync(
+    r: Reservation,
+    vehicle: Vehicle | null,
+    conductorProfile: { name: string; avatarUrl: string | null } | null,
+  ): OwnerReservation {
     return {
       id: r.getId(),
       vehicleId: r.getVehicleId(),

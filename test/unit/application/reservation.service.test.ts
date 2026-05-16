@@ -81,6 +81,9 @@ function makeVehicleRepo(vehicles: Vehicle[]): jest.Mocked<VehicleRepository> {
     findById: jest.fn(async (id: string) =>
       vehicles.find((v) => v.getId() === id) ?? null,
     ),
+    findByIds: jest.fn(async (ids: string[]) =>
+      vehicles.filter((v) => ids.includes(v.getId())),
+    ),
     findByPlate: jest.fn(),
     findByOwnerId: jest.fn(),
     findByCharacteristics: jest.fn(),
@@ -95,6 +98,7 @@ function makeUserRepo(): jest.Mocked<UserRepository> {
     findByEmail: jest.fn(),
     findById: jest.fn(),
     getProfileById: jest.fn(async (id: string) => makeProfile(id)),
+    getProfilesByIds: jest.fn(async (ids: string[]) => ids.map(makeProfile)),
     updateProfile: jest.fn(),
     updateAvatar: jest.fn(),
     deleteById: jest.fn(),

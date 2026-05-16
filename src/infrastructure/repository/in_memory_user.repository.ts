@@ -66,6 +66,12 @@ export class InMemoryUserRepository implements UserRepository {
     return this.profiles.get(id) ?? null;
   }
 
+  public async getProfilesByIds(ids: string[]): Promise<UserProfile[]> {
+    return ids
+      .map((id) => this.profiles.get(id))
+      .filter((p): p is UserProfile => p !== undefined);
+  }
+
   public async updateProfile(
     id: string,
     profile: UpdateUserProfile,
