@@ -6,7 +6,7 @@ import {
 } from '@/domain/exceptions/domain.exception';
 import type { VehicleRepository } from '@/domain/repositories/vehicle.repository';
 import { VEHICLE_REPOSITORY } from '@/domain/repositories/vehicle.repository';
-import type { UserRepository } from '@/domain/repositories/user.repository';
+import type { UserProfile, UserRepository } from '@/domain/repositories/user.repository';
 import { USER_REPOSITORY } from '@/domain/repositories/user.repository';
 import { Inject, Injectable } from '@nestjs/common';
 import { ReservationService } from './reservation.service';
@@ -152,12 +152,22 @@ export class VehicleService {
 
   private async toListDTO(vehicles: Vehicle[]): Promise<GetVehicleResponse[]> {
     const ownerIds = Array.from(new Set(vehicles.map((v) => v.getOwnerId())));
-    const owners = new Map<string, VehicleOwner>();
-    for (const id of ownerIds) {
-      const owner = await this.loadOwner(id);
-      if (owner) owners.set(id, owner);
-    }
+    const profiles = await this.userRepository.findProfilesByIds(ownerIds);
+    const owners = new Map<string, VehicleOwner>(
+      profiles.map((p) => [p.id, this.profileToOwner(p)]),
+    );
     return vehicles.map((v) => this.toDTO(v, owners.get(v.getOwnerId())));
+  }
+
+  private profileToOwner(profile: UserProfile): VehicleOwner {
+    return {
+      id: profile.id,
+      name: profile.name,
+      avatarUrl: profile.avatarUrl,
+      level: profile.level,
+      reputationScore: profile.reputationScore,
+      verified: profile.verificationStatus === 'verified',
+    };
   }
 
   private toDTO(vehicle: Vehicle, owner?: VehicleOwner): GetVehicleResponse {

@@ -32,6 +32,7 @@ describe('AuthService', () => {
       deleteById: jest.fn(),
       markPhoneVerified: jest.fn(),
       isPhoneVerified: jest.fn().mockResolvedValue(false),
+      findProfilesByIds: jest.fn().mockResolvedValue([]),
     };
     authProviderMock = {
       signUp: jest.fn().mockResolvedValue({ userId: 'stub-id' }),

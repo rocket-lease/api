@@ -20,6 +20,7 @@ describe('ProfileService', () => {
       deleteById: jest.fn(),
       markPhoneVerified: jest.fn(),
       isPhoneVerified: jest.fn().mockResolvedValue(false),
+      findProfilesByIds: jest.fn().mockResolvedValue([]),
     };
     mediaProviderMock = {
       uploadAvatar: jest.fn(),
