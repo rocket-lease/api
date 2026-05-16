@@ -49,7 +49,7 @@ services:
       - /workspace/api/node_modules
       - /workspace/contracts/node_modules
     working_dir: /workspace/api
-    command: sh -c "pnpm install --frozen-lockfile && (cd /workspace/contracts && pnpm install --frozen-lockfile) && pnpm exec prisma generate && pnpm start:dev"
+    command: sh -c "pnpm install --frozen-lockfile && (cd /workspace/contracts && pnpm install --frozen-lockfile) && pnpm exec prisma generate && pnpm exec prisma migrate deploy && pnpm start:dev"
     depends_on:
       db:
         condition: service_healthy
