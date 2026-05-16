@@ -4,28 +4,7 @@ import { expect } from 'expect';
 import type { MyWorld } from '../support/world';
 
 Given(
-  'que existe un usuario autenticado con email {string} y contraseña {string}',
-  async function (this: MyWorld, email: string, password: string) {
-    await api(this).post('/auth/register', {
-      name: 'Usuario Perfil',
-      email,
-      dni: '12345678',
-      phone: '1123456789',
-      password,
-    });
-
-    const loginResponse = await api(this).post('/auth/login', {
-      email,
-      password,
-    });
-
-    expect(loginResponse.status).toBe(201);
-    this.world.access_token = loginResponse.body.access_token;
-  },
-);
-
-Given(
-  'tiene preferencias de vehiculo guardadas con transmision {string}, accesibilidad {string} y precio maximo diario {int}',
+  'tiene preferencias de vehículo guardadas con transmisión {string}, accesibilidad {string} y precio máximo diario {int}',
   async function (
     this: MyWorld,
     transmission: 'automatic' | 'manual',
@@ -58,7 +37,7 @@ When('solicita su perfil', async function (this: MyWorld) {
 });
 
 When(
-  'actualiza su perfil con nombre {string}, telefono {string}, transmision {string}, accesibilidad {string} y precio maximo diario {int}',
+  'actualiza su perfil con nombre {string}, teléfono {string}, transmisión {string}, accesibilidad {string} y precio máximo diario {int}',
   async function (
     this: MyWorld,
     name: string,
@@ -104,7 +83,7 @@ When(
 );
 
 Then(
-  've sus datos personales, estado de verificacion, nivel, score y preferencias',
+  've sus datos personales, estado de verificación, nivel, score y preferencias',
   function (this: MyWorld) {
     const res = this.world.profile_response;
     expect(res.status).toBe(200);
@@ -145,7 +124,7 @@ Then(
 );
 
 Then(
-  'recibe las preferencias guardadas para precargar filtros de busqueda',
+  'recibe las preferencias guardadas para precargar filtros de búsqueda',
   function (this: MyWorld) {
     const res = this.world.profile_response;
     expect(res.status).toBe(200);

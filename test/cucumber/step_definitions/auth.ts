@@ -32,6 +32,27 @@ Given('que estoy autenticado', async function (this: MyWorld) {
   this.world.access_token = loginRes.body.access_token;
 });
 
+Given(
+  'que existe un usuario autenticado con email {string} y contraseña {string}',
+  async function (this: MyWorld, email: string, password: string) {
+    await api(this).post('/auth/register', {
+      name: 'Usuario Perfil',
+      email,
+      dni: '12345678',
+      phone: '1123456789',
+      password,
+    });
+
+    const loginResponse = await api(this).post('/auth/login', {
+      email,
+      password,
+    });
+
+    expect(loginResponse.status).toBe(201);
+    this.world.access_token = loginResponse.body.access_token;
+  },
+);
+
 Given('que no estoy autenticado', async function (this: MyWorld) {
   this.world.access_token = undefined;
   this.world.tokens_by_alias = {};

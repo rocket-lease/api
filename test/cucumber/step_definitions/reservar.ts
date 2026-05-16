@@ -2,7 +2,6 @@ import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from 'expect';
 import { api } from '../support/http-client';
 import { MyWorld } from '../support/world';
-import { ReservationService } from '@/application/reservation.service';
 
 async function registerAndLogin(
   world: MyWorld,
@@ -44,8 +43,6 @@ function setReservationId(world: MyWorld, alias: string, id: string): void {
   }
   world.world.reservations_by_alias[alias] = id;
 }
-
-
 
 Given(
   'que soy un conductor {string} autenticado',
@@ -167,21 +164,6 @@ When(
       `/reservations/${reservationId}/payment`,
       { paymentMethod },
     );
-  },
-);
-
-When(
-  'transcurren {int} minutos sin completar el pago',
-  function (this: MyWorld, minutes: number) {
-    this.clock.advanceMs(minutes * 60 * 1000);
-  },
-);
-
-When(
-  'el sistema ejecuta el job de expiración de reservas',
-  async function (this: MyWorld) {
-    const service = this.app.get(ReservationService);
-    await service.expireOverdueHolds();
   },
 );
 

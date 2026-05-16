@@ -8,7 +8,7 @@ Característica: Reservar vehículo
     Y un vehículo con los siguientes datos:
       | patente | marca | modelo | año  | pasajeros | baul | transmisión | accesible | color | kilometraje | precio base | descripción | fotos                          |
       | AE987CC | Ford  | Ranger | 2023 | 5         | 800  | Manual      | No        | Gris  | 45000       | 2400000     |             | https://example.com/photo1.jpg |
-    Y el vehiculo ya esta publicado
+    Y el vehículo ya está publicado
 
   Escenario: El sistema retiene la disponibilidad al continuar al pago
     Dado que soy un conductor "A" autenticado
