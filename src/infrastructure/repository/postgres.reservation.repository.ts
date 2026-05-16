@@ -95,9 +95,6 @@ export class PostgresReservationRepository implements ReservationRepository {
     role: ReservationRole,
     filters: ReservationListFilters,
   ): Promise<ReservationListResult> {
-    // Selecciona la columna por la que filtrar según el rol:
-    // 'conductor' → reservas que el user creó.
-    // 'owner'     → reservas sobre vehículos del user.
     const where: any =
       role === 'conductor' ? { conductorId: userId } : { rentadorId: userId };
     if (filters.status && filters.status.length > 0) {

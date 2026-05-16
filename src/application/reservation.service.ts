@@ -178,10 +178,16 @@ export class ReservationService {
   }
 
   /**
-   * Lista reservas desde la perspectiva del usuario autenticado.
-   * - role='conductor': reservas que el user creó.
-   * - role='owner':     reservas sobre vehículos del user.
-   * Hidrata vehicle + conductor + rentador en 3 queries batch (no N+1).
+   * Lista las reservas del usuario autenticado desde la perspectiva indicada.
+   *
+   * Hidrata `vehicle`, `conductor` y `rentador` en 3 queries fijas (1 reservas +
+   * 2 batch `IN (...)`) sin importar `N`, evitando N+1.
+   *
+   * @param userId - ID del usuario autenticado (extraído del JWT por el controller,
+   *   nunca del query string — garantiza que un usuario no pueda ver reservas ajenas).
+   * @param dto - Rol (`conductor` u `owner`), filtros opcionales (`status[]`, `from`,
+   *   `to`) y paginación.
+   * @returns Página paginada con `items`, `page`, `pageSize` y `total` global.
    */
   public async list(
     userId: string,
@@ -199,8 +205,6 @@ export class ReservationService {
       },
     );
 
-    // Batch fetch: 1 query vehicles + 1 query users (conductores ∪ rentadores).
-    // Total: 3 queries (1 reservations + 2 batch) sin importar N.
     const vehicleIds = [...new Set(items.map((r) => r.getVehicleId()))];
     const userIds = [
       ...new Set([

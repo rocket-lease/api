@@ -45,6 +45,17 @@ export class ReservationController {
     );
   }
 
+  /**
+   * `GET /reservations?role=conductor|owner&status[]&from&to&page&pageSize`
+   *
+   * Endpoint unificado para listar reservas desde la perspectiva del usuario
+   * autenticado. Express coerce el query string a strings (o arrays cuando se
+   * repite la key como `status[]=a&status[]=b`); este handler normaliza los
+   * casos y delega validación final al schema de Zod.
+   *
+   * @throws UnauthorizedException si no hay header `Authorization` válido.
+   * @throws BadRequestException si el query no matchea `ReservationsListRequestSchema`.
+   */
   @Get()
   async list(
     @Query() query: Record<string, string | string[]>,
