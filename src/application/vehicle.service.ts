@@ -9,6 +9,7 @@ import { VEHICLE_REPOSITORY } from '@/domain/repositories/vehicle.repository';
 import type { UserRepository } from '@/domain/repositories/user.repository';
 import { USER_REPOSITORY } from '@/domain/repositories/user.repository';
 import { Inject, Injectable } from '@nestjs/common';
+import { ReservationService } from './reservation.service';
 import { UpdateVehicleRequestSchema } from '@rocket-lease/contracts';
 import {
   CreateVehicleRequest,
@@ -28,6 +29,7 @@ export class VehicleService {
     private readonly vehicleRepository: VehicleRepository,
     @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepository,
+    private readonly reservationService: ReservationService,
   ) {}
 
   public async createVehicle(
@@ -81,10 +83,14 @@ export class VehicleService {
     if (vehicle.getOwnerId() !== ownerId) {
       throw new EntityNotFoundException('vehicle', vehicleId);
     }
+    const wasEnabled = vehicle.isEnabled();
     try {
       const parsed = UpdateVehicleRequestSchema.parse(data);
       vehicle.update(parsed);
       await this.vehicleRepository.save(vehicle);
+      if (wasEnabled && !vehicle.isEnabled()) {
+        await this.reservationService.cancelHoldsForVehicle(vehicle.getId());
+      }
     } catch (e) {
       const field = e.issues?.[0]?.keys?.[0] ?? 'desconocido';
       throw new InvalidEntityDataException(`cannot modify field '${field}'`);
@@ -127,6 +133,7 @@ export class VehicleService {
     if (vehicle.getOwnerId() !== ownerId) {
       throw new EntityNotFoundException('vehicle', vehicleId);
     }
+    await this.reservationService.cancelHoldsForVehicle(vehicleId);
     await this.vehicleRepository.delete(vehicleId);
   }
 

@@ -2,6 +2,7 @@ import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { VehicleRepository } from '@/domain/repositories/vehicle.repository';
 import { UserRepository } from '@/domain/repositories/user.repository';
 import { VehicleService } from '@/application/vehicle.service';
+import { ReservationService } from '@/application/reservation.service';
 import { CreateVehicleResponseSchema } from '@rocket-lease/contracts';
 import { randomUUID } from 'crypto';
 
@@ -81,7 +82,14 @@ describe('VehicleService', () => {
       isPhoneVerified: jest.fn().mockResolvedValue(false),
     };
 
-    service = new VehicleService(repositoryMock, userRepoMock);
+    const reservationServiceMock = {
+      cancelHoldsForVehicle: jest.fn().mockResolvedValue(0),
+    } as unknown as ReservationService;
+    service = new VehicleService(
+      repositoryMock,
+      userRepoMock,
+      reservationServiceMock,
+    );
   });
 
   it('should create a vehicle with characteristics', async () => {

@@ -16,3 +16,4 @@ coverage/
 !.vscode/settings.json
 !.vscode/extensions.json
 !.vscode/launch.json
+.pnpm-store
