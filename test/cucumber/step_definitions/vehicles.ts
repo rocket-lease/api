@@ -66,7 +66,7 @@ Given(
   },
 );
 
-Given('el vehiculo ya esta publicado', async function (this: MyWorld) {
+Given('el vehículo ya está publicado', async function (this: MyWorld) {
   if (this.world.create_vehicle_dto == null) {
     throw Error('Create vehicle data must be set');
   }
@@ -74,6 +74,11 @@ Given('el vehiculo ya esta publicado', async function (this: MyWorld) {
     '/vehicle',
     this.world.create_vehicle_dto,
   );
+  if (!this.world.vehicle_by_plate) {
+    this.world.vehicle_by_plate = {};
+  }
+  this.world.vehicle_by_plate[this.world.create_vehicle_dto.plate] =
+    this.world.create_vehicle_response.body.id;
   console.log(
     'Create vehicle response: ',
     this.world.create_vehicle_response.body,
@@ -81,7 +86,9 @@ Given('el vehiculo ya esta publicado', async function (this: MyWorld) {
   expect(this.world.create_vehicle_response.status).toBe(201);
 });
 
-Given('el vehículo esta deshabilitado', async function (this: MyWorld) {
+
+
+Given('el vehículo está deshabilitado', async function (this: MyWorld) {
   const response = await api(this).patch(
     `/vehicle/${this.world.create_vehicle_response.body.id}`,
     { enabled: false },
@@ -102,7 +109,7 @@ When(
 );
 
 When(
-  'envio el formulario de creacion de vehiculo',
+  'envío el formulario de creación de vehículo',
   async function (this: MyWorld) {
     if (this.world.create_vehicle_dto == null) {
       throw Error('Create vehicle data must be set');
@@ -162,16 +169,16 @@ Then(
   },
 );
 
-Then('el vehiculo es publicado', async function (this: MyWorld) {
-  console.log(
-    'el vehiculo es publicado: ',
+Then('el vehículo es publicado', async function (this: MyWorld) {
+    console.log(
+    'el vehículo es publicado: ',
     this.world.create_vehicle_response.body,
   );
   const response = this.world.create_vehicle_response;
   expect(response.status).toBe(201);
 });
 
-Then('el vehiculo no se publica', async function (this: MyWorld) {
+Then('el vehículo no se publica', async function (this: MyWorld) {
   const status = this.world.create_vehicle_response.status;
   expect(status).toBeGreaterThanOrEqual(400);
   expect(status).toBeLessThan(500);
@@ -188,7 +195,7 @@ Then("el vehículo aparece en 'Mis vehículos'", async function (this: MyWorld) 
   expect(vehicle_exists).toBe(true);
 });
 
-Then('el vehiculo queda actualizado', async function (this: MyWorld) {
+Then('el vehículo queda actualizado', async function (this: MyWorld) {
   const response = this.world.update_vehicle_response;
   expect(response.status).toBe(200);
 
@@ -206,7 +213,7 @@ Then('el vehiculo queda actualizado', async function (this: MyWorld) {
   expect(updatedData.plate).toBe(this.world.create_vehicle_dto.plate);
 });
 
-Then('el vehiculo no se actualiza', async function (this: MyWorld) {
+Then('el vehículo no se actualiza', async function (this: MyWorld) {
   const vehicleId = this.world.create_vehicle_response.body.id;
   const res = await api(this).get(`/vehicle/${vehicleId}`);
   expect(res.status).toBe(200);

@@ -26,7 +26,7 @@ const parseCharacteristics = (raw: string): Characteristic[] => {
   return items.map((item) => {
     const mapped = CHARACTERISTIC_MAP[item];
     if (!mapped) {
-      throw new Error(`Caracteristica no soportada: ${item}`);
+      throw new Error(`Característica no soportada: ${item}`);
     }
     return mapped;
   });
@@ -52,7 +52,7 @@ const buildVehicleDto = (plate: string) => ({
 });
 
 Given(
-  'vehiculos con las siguientes caracteristicas:',
+  'vehículos con las siguientes características:',
   async function (this: MyWorld, dataTable: DataTable) {
     const rows = dataTable.hashes();
     const created: Array<{
@@ -89,27 +89,18 @@ Given(
 );
 
 Given(
-  'un vehiculo con las caracteristicas {string}',
+  'el vehículo tiene las siguientes características {string}',
   async function (this: MyWorld, raw: string) {
     const characteristics = parseCharacteristics(raw);
-    const createRes = await api(this).post(
-      '/vehicle',
-      buildVehicleDto(`AA${Date.now()}AA`),
-    );
-    expect(createRes.status).toBe(201);
-
-    this.world.create_vehicle_response = createRes;
     this.world.current_characteristics = characteristics;
-
-    const updateRes = await api(this).patch(`/vehicle/${createRes.body.id}`, {
-      characteristics,
-    });
-    expect(updateRes.status).toBe(200);
+    const vehicleId = this.world.create_vehicle_response?.body?.id;
+    if (!vehicleId) throw new Error('No hay vehículo creado');
+    await api(this).patch(`/vehicle/${vehicleId}`, { characteristics });
   },
 );
 
 When(
-  'actualizo las caracteristicas del vehiculo a {string}',
+  'actualizo las características del vehículo a {string}',
   async function (this: MyWorld, raw: string) {
     const characteristics = parseCharacteristics(raw);
     this.world.current_characteristics = characteristics;
@@ -124,7 +115,7 @@ When(
 );
 
 When(
-  'elimino la caracteristica {string}',
+  'elimino la característica {string}',
   async function (this: MyWorld, raw: string) {
     const toRemove = parseCharacteristics(raw)[0];
     const vehicleId = this.world.create_vehicle_response.body.id;
@@ -142,7 +133,7 @@ When(
 );
 
 When(
-  'filtro vehiculos por {string}',
+  'filtro vehículos por {string}',
   async function (this: MyWorld, raw: string) {
     const characteristic = parseCharacteristics(raw)[0];
     this.world.filter_characteristic = characteristic;
@@ -153,7 +144,7 @@ When(
 );
 
 Then(
-  'el vehiculo queda con las caracteristicas {string}',
+  'el vehículo queda con las características {string}',
   async function (this: MyWorld, raw: string) {
     expect(this.world.update_vehicle_response.status).toBe(200);
     const expected = parseCharacteristics(raw);
@@ -166,7 +157,7 @@ Then(
 );
 
 Then(
-  'solo aparecen vehiculos con la caracteristica {string}',
+  'solo aparecen vehículos con la característica {string}',
   function (this: MyWorld, raw: string) {
     const expectedCharacteristic = parseCharacteristics(raw)[0];
     const response = this.world.filter_response;
@@ -189,7 +180,7 @@ Then(
 );
 
 Then(
-  'el vehiculo no tiene la caracteristica {string}',
+  'el vehículo no tiene la característica {string}',
   async function (this: MyWorld, raw: string) {
     const removed = parseCharacteristics(raw)[0];
     const vehicleId = this.world.create_vehicle_response.body.id;
@@ -201,7 +192,7 @@ Then(
 );
 
 Then(
-  'el vehiculo no aparece en el catalogo filtrado por {string}',
+  'el vehículo no aparece en el catálogo filtrado por {string}',
   async function (this: MyWorld, raw: string) {
     const characteristic = parseCharacteristics(raw)[0];
     const res = await api(this).get(
