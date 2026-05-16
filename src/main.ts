@@ -8,6 +8,7 @@ async function bootstrap() {
   app.enableCors({
     origin: process.env.CORS_ORIGIN?.split(',') ?? [
       'https://rocket-lease.vercel.app',
+      'https://rocketlease.qzz.io',
       'http://localhost:5173',
       'http://localhost:4173',
     ],
