@@ -26,7 +26,7 @@ describe('VerificationService', () => {
       findByEmail: jest.fn(),
       findById: jest.fn(),
       getProfileById: jest.fn(),
-      getProfilesByIds: jest.fn().mockResolvedValue([]),
+      findProfilesByIds: jest.fn().mockResolvedValue([]),
       updateProfile: jest.fn(),
       updateAvatar: jest.fn(),
       updateBasicInfo: jest.fn(),

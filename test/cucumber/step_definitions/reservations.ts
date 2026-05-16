@@ -1,4 +1,4 @@
-import { Given, Then, DataTable } from '@cucumber/cucumber';
+import { Given, When, Then, DataTable } from '@cucumber/cucumber';
 import { expect } from 'expect';
 import { MyWorld } from '../support/world';
 import { api } from '../support/http-client';
@@ -106,6 +106,100 @@ Then('el sistema cancela las reservas', async function (this: MyWorld) {
     expect(row!.status).toBe('cancelled');
   }
 });
+
+// -- Step definitions for US-28: Ver y gestionar reservas (conductor) --
+
+When('accedo a {string}', async function (this: MyWorld, section: string) {
+  if (section === 'Mis reservas') {
+    this.world.reservation_response = await api(this).get(
+      '/reservations?role=conductor&pageSize=100',
+    );
+  } else {
+    throw new Error(`unknown section: ${section}`);
+  }
+});
+
+Then('veo {int} reservas listadas', function (this: MyWorld, count: number) {
+  const items = this.world.reservation_response.body.items;
+  expect(items).toHaveLength(count);
+});
+
+Then('la primera reserva muestra el estado {string}', function (this: MyWorld, status: string) {
+  const first = this.world.reservation_response.body.items[0];
+  expect(first.status).toBe(status);
+});
+
+Then('la primera reserva incluye fechas, vehículo e importe', function (this: MyWorld) {
+  const first = this.world.reservation_response.body.items[0];
+  expect(first.startAt).toBeDefined();
+  expect(first.endAt).toBeDefined();
+  expect(first.vehicle).toBeDefined();
+  expect(first.vehicle.brand).toBeDefined();
+  expect(first.vehicle.model).toBeDefined();
+  expect(first.totalCents).toBeDefined();
+  expect(first.currency).toBe('ARS');
+});
+
+Then('la lista de reservas está vacía', function (this: MyWorld) {
+  const items = this.world.reservation_response.body.items;
+  expect(items).toHaveLength(0);
+});
+
+Then('recibo un error de autenticación', function (this: MyWorld) {
+  expect(this.world.reservation_response.status).toBe(401);
+});
+
+When(
+  'accedo al detalle de la reserva del conductor {string}',
+  async function (this: MyWorld, alias: string) {
+    const reservationId = this.world.reservations_by_alias?.[alias];
+    if (!reservationId) throw new Error(`no reservation found for alias ${alias}`);
+    this.world.reservation_response = await api(this).get(`/reservations/${reservationId}`);
+  },
+);
+
+Then('veo la fecha de inicio {string} y fin {string}', function (this: MyWorld, startAt: string, endAt: string) {
+  expect(new Date(this.world.reservation_response.body.startAt).toISOString()).toBe(new Date(startAt).toISOString());
+  expect(new Date(this.world.reservation_response.body.endAt).toISOString()).toBe(new Date(endAt).toISOString());
+});
+
+Then('veo los datos del vehículo', function (this: MyWorld) {
+  const dto = this.world.reservation_response.body;
+  expect(dto.vehicle).toBeDefined();
+  expect(dto.vehicle.brand).toBeDefined();
+  expect(dto.vehicle.model).toBeDefined();
+  expect(dto.vehicle.photo).toBeDefined();
+});
+
+Then('veo los datos del rentador', function (this: MyWorld) {
+  const dto = this.world.reservation_response.body;
+  expect(dto.rentador).toBeDefined();
+  expect(dto.rentador.name).toBeDefined();
+  expect(dto.rentador.avatarUrl).toBeDefined();
+});
+
+Then('veo el importe total', function (this: MyWorld) {
+  const dto = this.world.reservation_response.body;
+  expect(dto.totalCents).toBeDefined();
+  expect(typeof dto.totalCents).toBe('number');
+  expect(dto.totalCents).toBeGreaterThan(0);
+  expect(dto.currency).toBe('ARS');
+});
+
+Then('veo que el contrato fue aceptado', function (this: MyWorld) {
+  const dto = this.world.reservation_response.body;
+  expect(dto.contractAcceptedAt).toBeDefined();
+  expect(dto.contractAcceptedAt).not.toBeNull();
+});
+
+When(
+  'cancelo la reserva del conductor {string}',
+  async function (this: MyWorld, alias: string) {
+    const reservationId = this.world.reservations_by_alias?.[alias];
+    if (!reservationId) throw new Error(`no reservation found for alias ${alias}`);
+    this.world.reservation_response = await api(this).post(`/reservations/${reservationId}/cancel`);
+  },
+);
 
 Then('no afecta reservas ya confirmadas', async function (this: MyWorld) {
   const prisma = this.app.get(PrismaService);

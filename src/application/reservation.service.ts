@@ -1,5 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
+  type CancelReservationResponse,
+  CancelReservationResponseSchema,
   type CreateReservationRequest,
   type CreateReservationResponse,
   CreateReservationResponseSchema,
@@ -214,7 +216,7 @@ export class ReservationService {
     ];
     const [vehicles, users] = await Promise.all([
       this.vehicleRepository.findByIds(vehicleIds),
-      this.userRepository.getProfilesByIds(userIds),
+      this.userRepository.findProfilesByIds(userIds),
     ]);
     const vehicleById = new Map(vehicles.map((v) => [v.getId(), v]));
     const userById = new Map(users.map((u) => [u.id, u]));
@@ -258,6 +260,27 @@ export class ReservationService {
       await this.reservationRepository.update(r);
     }
     return expired.length;
+  }
+
+  public async cancelReservation(
+    conductorId: string,
+    reservationId: string,
+  ): Promise<CancelReservationResponse> {
+    const reservation =
+      await this.reservationRepository.findById(reservationId);
+    if (!reservation) throw new ReservationNotFoundException(reservationId);
+    if (!reservation.isOwnedByConductor(conductorId)) {
+      throw new ReservationForbiddenException();
+    }
+
+    const now = this.clock.now();
+    reservation.cancelHold(now);
+    const saved = await this.reservationRepository.update(reservation);
+
+    return CancelReservationResponseSchema.parse({
+      id: saved.getId(),
+      status: 'cancelled',
+    });
   }
 
   public async cancelHoldsForVehicle(vehicleId: string): Promise<number> {

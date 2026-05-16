@@ -9,7 +9,7 @@ Característica: Gestión de favoritos
     Y un vehículo con los siguientes datos:
       | patente | marca | modelo | año | pasajeros | baul | transmisión | accesible | color | kilometraje | precio base | descripción | fotos | provincia | ciudad | disponible desde |
       | FAV-000 | CocheFavorito | Z | 2024 | 5 | 400 | Manual | No | Rojo | 100 | 50000 | Vehículo test favoritos | https://i.com/fav.jpg | B | CABA | 2026-06-01 |
-    Y el vehiculo ya esta publicado
+    Y el vehículo ya está publicado
 
   Escenario: Agregar un vehículo a favoritos
     Cuando agrego el vehículo a favoritos

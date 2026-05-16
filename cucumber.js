@@ -11,6 +11,6 @@ module.exports = {
     paths: ['test/cucumber/features/**/*.feature'],
     publishQuiet: true,
     backtrace: true,
-    format: ['summary']
+    format: ['summary', 'html:reports/cucumber-report.html']
   }
 }

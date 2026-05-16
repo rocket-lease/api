@@ -4,13 +4,17 @@ Característica: Reservar vehículo
   para asegurar su disponibilidad en las fechas que necesito
 
   Antecedentes:
-    Dado que existe un vehículo publicado con patente "AE987CC" y precio base 2400000
+    Dado que estoy autenticado
+    Y un vehículo con los siguientes datos:
+      | patente | marca | modelo | año  | pasajeros | baul | transmisión | accesible | color | kilometraje | precio base | descripción | fotos                          |
+      | AE987CC | Ford  | Ranger | 2023 | 5         | 800  | Manual      | No        | Gris  | 45000       | 2400000     |             | https://example.com/photo1.jpg |
+    Y el vehículo ya está publicado
 
   Escenario: El sistema retiene la disponibilidad al continuar al pago
     Dado que soy un conductor "A" autenticado
     Y firmo el contrato digital
     Cuando creo una reserva del vehículo "AE987CC" desde "2026-07-01T10:00:00Z" hasta "2026-07-03T10:00:00Z"
-    Entonces la reserva queda en estado "pending_payment"
+    Entonces la reserva del conductor "A" queda en estado "pending_payment"
     Y la reserva tiene una fecha de expiración a 10 minutos
 
   Escenario: Dos conductores compiten por las mismas fechas

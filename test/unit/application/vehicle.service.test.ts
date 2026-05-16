@@ -75,7 +75,7 @@ describe('VehicleService', () => {
       findByEmail: jest.fn().mockResolvedValue(null),
       findById: jest.fn().mockResolvedValue(null),
       getProfileById: jest.fn().mockResolvedValue(null),
-      getProfilesByIds: jest.fn().mockResolvedValue([]),
+      findProfilesByIds: jest.fn().mockResolvedValue([]),
       updateProfile: jest.fn(),
       updateAvatar: jest.fn(),
       updateBasicInfo: jest.fn(),
@@ -135,6 +135,26 @@ describe('VehicleService', () => {
       enabledA.getId(),
       enabledB.getId(),
     ]);
+  });
+
+  it('debería hacer exactamente 1 query de users para hidratar owners en el listado', async () => {
+    const owner1 = randomUUID();
+    const owner2 = randomUUID();
+    const vehicles = [
+      buildVehicle({ ownerId: owner1 }),
+      buildVehicle({ ownerId: owner2 }),
+      buildVehicle({ ownerId: owner1 }),
+    ];
+    repositoryMock.fetchAll.mockResolvedValue(vehicles);
+    userRepoMock.findProfilesByIds.mockResolvedValue([]);
+
+    await service.getAll();
+
+    expect(userRepoMock.findProfilesByIds).toHaveBeenCalledTimes(1);
+    expect(userRepoMock.findProfilesByIds).toHaveBeenCalledWith(
+      expect.arrayContaining([owner1, owner2]),
+    );
+    expect(userRepoMock.getProfileById).not.toHaveBeenCalled();
   });
 
   it('should reject delete by non-owner', async () => {

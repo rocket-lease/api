@@ -8,7 +8,7 @@ Característica: Cancelación en cascada de reservas al deshabilitar un vehícul
     Y un vehículo con los siguientes datos:
       | patente | marca | modelo | año  | pasajeros | baul | transmisión | accesible | color | kilometraje | precio base | descripción     | fotos                |
       | AE987CC | Ford  | Ranger | 2023 | 5         | 800  | Manual      | No        | Gris  | 45000       | 2400000     | Pick-up         | https://i.com/1.jpg  |
-    Y el vehiculo ya esta publicado
+    Y el vehículo ya está publicado
 
   Escenario: Cancelación de holds al deshabilitar el vehículo
     Dado el vehículo tiene las siguientes reservas:

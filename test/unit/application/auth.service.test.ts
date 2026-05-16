@@ -26,7 +26,7 @@ describe('AuthService', () => {
       findByEmail: jest.fn().mockResolvedValue(null),
       findById: jest.fn().mockResolvedValue(null),
       getProfileById: jest.fn().mockResolvedValue(null),
-      getProfilesByIds: jest.fn().mockResolvedValue([]),
+      findProfilesByIds: jest.fn().mockResolvedValue([]),
       updateProfile: jest.fn(),
       updateAvatar: jest.fn(),
       updateBasicInfo: jest.fn(),

@@ -98,7 +98,7 @@ function makeUserRepo(): jest.Mocked<UserRepository> {
     findByEmail: jest.fn(),
     findById: jest.fn(),
     getProfileById: jest.fn(async (id: string) => makeProfile(id)),
-    getProfilesByIds: jest.fn(async (ids: string[]) => ids.map(makeProfile)),
+    findProfilesByIds: jest.fn(async (ids: string[]) => ids.map(makeProfile)),
     updateProfile: jest.fn(),
     updateAvatar: jest.fn(),
     deleteById: jest.fn(),
@@ -423,13 +423,13 @@ describe('ReservationService', () => {
       await seedReservations(3);
       vehicleRepo.findByIds.mockClear();
       vehicleRepo.findById.mockClear();
-      userRepo.getProfilesByIds.mockClear();
+      userRepo.findProfilesByIds.mockClear();
       userRepo.getProfileById.mockClear();
 
       await service.list(ownerId, { role: 'owner', page: 1, pageSize: 20 });
 
       expect(vehicleRepo.findByIds).toHaveBeenCalledTimes(1);
-      expect(userRepo.getProfilesByIds).toHaveBeenCalledTimes(1);
+      expect(userRepo.findProfilesByIds).toHaveBeenCalledTimes(1);
       expect(vehicleRepo.findById).not.toHaveBeenCalled();
       expect(userRepo.getProfileById).not.toHaveBeenCalled();
     });

@@ -45,6 +45,15 @@ export class ReservationController {
     );
   }
 
+  @Post(':id/cancel')
+  async cancel(
+    @Param('id') id: string,
+    @Req() req: Request,
+  ): Promise<Contracts.CancelReservationResponse> {
+    const conductorId = await this.requireUserId(req);
+    return await this.reservationService.cancelReservation(conductorId, id);
+  }
+
   /**
    * `GET /reservations?role=conductor|owner&status[]&from&to&page&pageSize`
    *

@@ -37,7 +37,7 @@ export interface UserRepository {
   findByEmail(email: string): Promise<User | null>;
   findById(id: string): Promise<User | null>;
   getProfileById(id: string): Promise<UserProfile | null>;
-  getProfilesByIds(ids: string[]): Promise<UserProfile[]>;
+  findProfilesByIds(ids: string[]): Promise<UserProfile[]>;
   updateProfile(id: string, profile: UpdateUserProfile): Promise<UserProfile>;
   updateAvatar(id: string, avatarUrl: string): Promise<UserProfile>;
   deleteById(id: string): Promise<void>;
