@@ -54,7 +54,7 @@ async function ensureVehiclePublished(
     return world.world.vehicle_by_plate[plate];
   }
   // Publish as a separate "owner" account so conductors can reserve it.
-  const ownerToken = await registerAndLogin(world, '__owner__');
+  await registerAndLogin(world, '__owner__');
   useAlias(world, '__owner__');
   const res = await api(world).post('/vehicle', {
     plate,

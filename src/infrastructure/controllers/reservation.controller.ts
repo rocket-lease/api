@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   Req,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -50,6 +51,30 @@ export class ReservationController {
   ): Promise<Contracts.ListMyReservationsResponse> {
     const conductorId = await this.requireUserId(req);
     return await this.reservationService.listMine(conductorId);
+  }
+
+  @Get('owned')
+  async listOwned(
+    @Query() query: Record<string, string | string[]>,
+    @Req() req: Request,
+  ): Promise<Contracts.OwnerReservationsListResponse> {
+    const rentadorId = await this.requireUserId(req);
+    const statusRaw = query.status;
+    const status =
+      statusRaw === undefined
+        ? undefined
+        : Array.isArray(statusRaw)
+          ? statusRaw
+          : [statusRaw];
+    const parsed = Contracts.OwnerReservationsListRequestSchema.parse({
+      status,
+      from: typeof query.from === 'string' ? query.from : undefined,
+      to: typeof query.to === 'string' ? query.to : undefined,
+      page: typeof query.page === 'string' ? Number(query.page) : undefined,
+      pageSize:
+        typeof query.pageSize === 'string' ? Number(query.pageSize) : undefined,
+    });
+    return await this.reservationService.listByRentador(rentadorId, parsed);
   }
 
   @Get('vehicle/:vehicleId/busy-ranges')

@@ -3,6 +3,19 @@ import {
   ReservationStatus,
 } from '../entities/reservation.entity';
 
+export interface RentadorListFilters {
+  status?: ReservationStatus[];
+  from?: Date;
+  to?: Date;
+  page: number;
+  pageSize: number;
+}
+
+export interface RentadorListResult {
+  items: Reservation[];
+  total: number;
+}
+
 export interface ReservationRepository {
   save(reservation: Reservation): Promise<Reservation>;
   update(reservation: Reservation): Promise<Reservation>;
@@ -19,6 +32,10 @@ export interface ReservationRepository {
     vehicleId: string,
     statuses: ReservationStatus[],
   ): Promise<Reservation[]>;
+  findByRentadorId(
+    rentadorId: string,
+    filters: RentadorListFilters,
+  ): Promise<RentadorListResult>;
 }
 
 export const RESERVATION_REPOSITORY = Symbol('ReservationRepository');

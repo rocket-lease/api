@@ -85,7 +85,7 @@ function makeVehicleRepo(vehicles: Vehicle[]): jest.Mocked<VehicleRepository> {
     findByOwnerId: jest.fn(),
     findByCharacteristics: jest.fn(),
     delete: jest.fn(),
-  } as unknown as jest.Mocked<VehicleRepository>;
+  };
 }
 
 function makeUserRepo(): jest.Mocked<UserRepository> {
@@ -100,7 +100,7 @@ function makeUserRepo(): jest.Mocked<UserRepository> {
     deleteById: jest.fn(),
     markPhoneVerified: jest.fn(),
     isPhoneVerified: jest.fn(),
-  } as unknown as jest.Mocked<UserRepository>;
+  };
 }
 
 describe('ReservationService', () => {
@@ -144,7 +144,7 @@ describe('ReservationService', () => {
         vehicleId: vehicle.getId(),
         startAt: start,
         endAt: end,
-        contractAccepted: false as unknown as true,
+        contractAccepted: false,
       }),
     ).rejects.toThrow(ContractNotAcceptedException);
   });

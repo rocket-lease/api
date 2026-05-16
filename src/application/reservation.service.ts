@@ -12,6 +12,10 @@ import {
   ListMyReservationsResponseSchema,
   type VehicleBusyRangesResponse,
   VehicleBusyRangesResponseSchema,
+  type OwnerReservation,
+  type OwnerReservationsListRequest,
+  type OwnerReservationsListResponse,
+  OwnerReservationsListResponseSchema,
 } from '@rocket-lease/contracts';
 import {
   BLOCKING_STATUSES,
@@ -186,6 +190,30 @@ export class ReservationService {
     return ListMyReservationsResponseSchema.parse({ items: dtos });
   }
 
+  public async listByRentador(
+    rentadorId: string,
+    dto: OwnerReservationsListRequest,
+  ): Promise<OwnerReservationsListResponse> {
+    const { items, total } = await this.reservationRepository.findByRentadorId(
+      rentadorId,
+      {
+        status: dto.status,
+        from: dto.from ? new Date(dto.from) : undefined,
+        to: dto.to ? new Date(dto.to) : undefined,
+        page: dto.page,
+        pageSize: dto.pageSize,
+      },
+    );
+    const dtos: OwnerReservation[] = [];
+    for (const r of items) dtos.push(await this.toOwnerDTO(r));
+    return OwnerReservationsListResponseSchema.parse({
+      items: dtos,
+      page: dto.page,
+      pageSize: dto.pageSize,
+      total,
+    });
+  }
+
   public async getBusyRangesForVehicle(
     vehicleId: string,
   ): Promise<VehicleBusyRangesResponse> {
@@ -256,6 +284,34 @@ export class ReservationService {
         avatarUrl: rentadorProfile?.avatarUrl ?? null,
       },
     });
+  }
+
+  private async toOwnerDTO(r: Reservation): Promise<OwnerReservation> {
+    const [vehicle, conductorProfile] = await Promise.all([
+      this.vehicleRepository.findById(r.getVehicleId()),
+      this.userRepository.getProfileById(r.getConductorId()),
+    ]);
+    return {
+      id: r.getId(),
+      vehicleId: r.getVehicleId(),
+      conductorId: r.getConductorId(),
+      rentadorId: r.getRentadorId(),
+      status: r.getStatus(),
+      startAt: r.getStartAt().toISOString(),
+      endAt: r.getEndAt().toISOString(),
+      totalCents: r.getTotalCents(),
+      currency: r.getCurrency(),
+      paymentMethod: r.getPaymentMethod(),
+      paidAt: r.getPaidAt() ? r.getPaidAt()!.toISOString() : null,
+      createdAt: r.getCreatedAt().toISOString(),
+      updatedAt: r.getUpdatedAt().toISOString(),
+      vehicle: this.vehicleSummary(vehicle, r.getVehicleId()),
+      conductor: {
+        id: r.getConductorId(),
+        name: conductorProfile?.name ?? 'Conductor',
+        avatarUrl: conductorProfile?.avatarUrl ?? null,
+      },
+    };
   }
 
   private vehicleSummary(vehicle: Vehicle | null, vehicleId: string) {
