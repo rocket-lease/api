@@ -328,4 +328,137 @@ describe('ReservationService', () => {
       expect((await repo.findById(b.id))?.getStatus()).toBe('cancelled');
     });
   });
+
+  describe('listByRentador', () => {
+    const rentadorId = randomUUID();
+
+    async function seedReservations(count: number): Promise<void> {
+      const created: Vehicle[] = [];
+      for (let i = 0; i < count; i++) {
+        const v = new Vehicle(
+          randomUUID(),
+          rentadorId,
+          `AE${String(100 + i).padStart(3, '0')}AA`,
+          'Ford',
+          'Ranger',
+          2023,
+          5,
+          400,
+          'Manual',
+          false,
+          true,
+          ['https://i.com/1.jpg'],
+          [],
+          'Azul',
+          50000,
+          24000,
+          null,
+          'B',
+          'CABA',
+          '2026-06-01',
+        );
+        created.push(v);
+        // Necesitamos que findById funcione durante createReservation, y
+        // findByIds durante listByRentador. Ambos buscan en la lista acumulada.
+        vehicleRepo.findById.mockImplementation(async (id: string) =>
+          created.find((x) => x.getId() === id) ?? null,
+        );
+        vehicleRepo.findByIds.mockImplementation(async (ids: string[]) =>
+          created.filter((x) => ids.includes(x.getId())),
+        );
+        await service.createReservation(randomUUID(), {
+          vehicleId: v.getId(),
+          startAt: new Date(Date.UTC(2026, 6, i * 3 + 1, 10)).toISOString(),
+          endAt: new Date(Date.UTC(2026, 6, i * 3 + 2, 10)).toISOString(),
+          contractAccepted: true,
+        });
+      }
+    }
+
+    it('devuelve lista vacía con total=0 cuando no hay reservas', async () => {
+      const result = await service.listByRentador(rentadorId, {
+        page: 1,
+        pageSize: 20,
+      });
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
+      expect(result.page).toBe(1);
+      expect(result.pageSize).toBe(20);
+    });
+
+    it('hidrata vehicle + conductor en cada item', async () => {
+      await seedReservations(2);
+      const result = await service.listByRentador(rentadorId, {
+        page: 1,
+        pageSize: 20,
+      });
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0].vehicle).toBeDefined();
+      expect(result.items[0].vehicle.brand).toBe('Ford');
+      expect(result.items[0].conductor).toBeDefined();
+      expect(result.items[0].conductor.name).toBe('Owner');
+    });
+
+    it('usa batch findByIds — no llama findById por cada item (no N+1)', async () => {
+      await seedReservations(3);
+      vehicleRepo.findByIds.mockClear();
+      vehicleRepo.findById.mockClear();
+      userRepo.getProfilesByIds.mockClear();
+      userRepo.getProfileById.mockClear();
+
+      await service.listByRentador(rentadorId, { page: 1, pageSize: 20 });
+
+      // Garantía clave del fix de N+1: una sola llamada batch por tipo.
+      expect(vehicleRepo.findByIds).toHaveBeenCalledTimes(1);
+      expect(userRepo.getProfilesByIds).toHaveBeenCalledTimes(1);
+      expect(vehicleRepo.findById).not.toHaveBeenCalled();
+      expect(userRepo.getProfileById).not.toHaveBeenCalled();
+    });
+
+    it('propaga filtro de status al repository', async () => {
+      const spy = jest.spyOn(repo, 'findByRentadorId');
+      await service.listByRentador(rentadorId, {
+        status: ['confirmed', 'in_progress'],
+        page: 1,
+        pageSize: 20,
+      });
+      expect(spy).toHaveBeenCalledWith(
+        rentadorId,
+        expect.objectContaining({ status: ['confirmed', 'in_progress'] }),
+      );
+    });
+
+    it('propaga filtros de fecha al repository convertidos a Date', async () => {
+      const spy = jest.spyOn(repo, 'findByRentadorId');
+      await service.listByRentador(rentadorId, {
+        from: '2026-05-01T00:00:00.000Z',
+        to: '2026-05-31T23:59:59.000Z',
+        page: 1,
+        pageSize: 20,
+      });
+      const call = spy.mock.calls[0][1];
+      expect(call.from).toBeInstanceOf(Date);
+      expect(call.to).toBeInstanceOf(Date);
+      expect(call.from?.toISOString()).toBe('2026-05-01T00:00:00.000Z');
+      expect(call.to?.toISOString()).toBe('2026-05-31T23:59:59.000Z');
+    });
+
+    it('respeta paginación: page=2 pageSize=10 → skip=10, take=10 (vía repo)', async () => {
+      const spy = jest.spyOn(repo, 'findByRentadorId');
+      await service.listByRentador(rentadorId, { page: 2, pageSize: 10 });
+      expect(spy).toHaveBeenCalledWith(
+        rentadorId,
+        expect.objectContaining({ page: 2, pageSize: 10 }),
+      );
+    });
+
+    it('devuelve page y pageSize tal como vinieron en el request', async () => {
+      const result = await service.listByRentador(rentadorId, {
+        page: 3,
+        pageSize: 5,
+      });
+      expect(result.page).toBe(3);
+      expect(result.pageSize).toBe(5);
+    });
+  });
 });
