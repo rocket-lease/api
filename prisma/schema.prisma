@@ -25,6 +25,7 @@ model User {
   phoneVerifiedAt       DateTime?  @map("phone_verified_at")
   favorites             Favorite[]
   vehicles              Vehicle[]
+  reservations          Reservation[] @relation("conductor_reservations")
 
   @@map("users")
 }
@@ -62,13 +63,38 @@ model Vehicle {
   
   ownerId      String       
   owner        User         @relation(fields: [ownerId], references: [id])
-  photos       Photo[]      
+  photos       Photo[]
   characteristics VehicleCharacteristic[]
+  reservations    Reservation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("vehicles")
+}
+
+model Reservation {
+  id                  String             @id @default(uuid())
+  vehicleId           String             @map("vehicle_id")
+  vehicle             Vehicle            @relation(fields: [vehicleId], references: [id])
+  conductorId         String             @map("conductor_id")
+  conductor           User               @relation("conductor_reservations", fields: [conductorId], references: [id])
+  rentadorId          String             @map("rentador_id")
+  status              ReservationStatus  @default(pending_payment)
+  startAt             DateTime           @map("start_at") @db.Timestamptz(6)
+  endAt               DateTime           @map("end_at") @db.Timestamptz(6)
+  holdExpiresAt       DateTime?          @map("hold_expires_at") @db.Timestamptz(6)
+  totalCents          Int                @map("total_cents")
+  currency            String             @default("ARS")
+  paymentMethod       PaymentMethod?     @map("payment_method")
+  contractAcceptedAt  DateTime?          @map("contract_accepted_at") @db.Timestamptz(6)
+  paidAt              DateTime?          @map("paid_at") @db.Timestamptz(6)
+  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([vehicleId, status])
+  @@index([conductorId])
+  @@map("reservations")
 }
 
 model Photo {
@@ -96,6 +122,22 @@ enum Transmission {
   Manual
   Automatico
   Semiautomatico
+}
+
+enum ReservationStatus {
+  pending_payment
+  confirmed
+  in_progress
+  completed
+  cancelled
+  rejected
+  expired
+}
+
+enum PaymentMethod {
+  credit_card
+  debit_card
+  bank_transfer
 }
 
 enum Characteristic {

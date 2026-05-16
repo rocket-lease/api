@@ -12,10 +12,13 @@ import { USER_REPOSITORY } from '@/domain/repositories/user.repository';
 import { PostgresUserRepository } from '@/infrastructure/repository/postgres.user.repository';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 import { MEDIA_PROVIDER } from '@/domain/providers/media.provider';
+import { CLOCK } from '@/domain/providers/clock.provider';
 import { StubMediaProvider } from './stub.media.provider';
+import { FakeClock } from './fake-clock';
 
 interface GlobalContext {
   access_token?: any;
+  tokens_by_alias?: Record<string, string>;
   enable_vehicle_response?: any;
   update_vehicle_dto?: any;
   update_vehicle_response?: any;
@@ -43,11 +46,16 @@ interface GlobalContext {
   current_characteristics?: Characteristic[];
   filter_response?: any;
   filter_characteristic?: Characteristic;
+  vehicle_by_plate?: Record<string, string>;
+  reservation_response?: any;
+  reservations_by_alias?: Record<string, string>;
+  pre_made_reservations?: Array<{ alias: string; status: string }>;
 }
 
 export interface MyWorld extends World {
   app: INestApplication;
   world: GlobalContext;
+  clock: FakeClock;
   initNest(): Promise<void>;
   cleanDb(): Promise<void>;
 }
@@ -55,10 +63,12 @@ export interface MyWorld extends World {
 class CustomWorld extends World implements MyWorld {
   app: INestApplication;
   world: any;
+  clock: FakeClock;
 
   constructor(options: IWorldOptions) {
     super(options);
     this.world = {};
+    this.clock = new FakeClock();
   }
 
   async initNest() {
@@ -69,16 +79,21 @@ class CustomWorld extends World implements MyWorld {
       .useClass(StubAuthProvider)
       .overrideProvider(MEDIA_PROVIDER)
       .useClass(StubMediaProvider)
+      .overrideProvider(CLOCK)
+      .useValue(this.clock)
       .compile();
 
     this.app = moduleFixture.createNestApplication();
     this.app.useGlobalFilters(new DomainExceptionFilter());
     await this.app.init();
+    this.clock.set(new Date('2026-06-01T09:00:00Z'));
   }
 
   async cleanDb() {
+    const prisma = this.app.get<PrismaService>(PrismaService);
+    await prisma.reservation.deleteMany();
     const repo = this.app.get<PostgresUserRepository>(USER_REPOSITORY);
-    await this.app.get<PrismaService>(PrismaService).vehicle.deleteMany();
+    await prisma.vehicle.deleteMany();
     await repo.clean();
   }
 }

@@ -10,7 +10,7 @@
     "private": true,
     "license": "UNLICENSED",
     "scripts": {
-        "preinstall": "npx only-allow pnpm && node scripts/check-sibling.cjs",
+        "preinstall": "pnpm dlx only-allow pnpm && node scripts/check-sibling.cjs",
         "build": "nest build --webpack",
         "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
         "start": "nest start",
@@ -31,6 +31,7 @@
         "@nestjs/common": "^11.1.19",
         "@nestjs/core": "^11.1.19",
         "@nestjs/platform-express": "^11.1.19",
+        "@nestjs/schedule": "^4.1.2",
         "@prisma/client": "^6.19.3",
         "@rocket-lease/contracts": "link:../contracts",
         "@supabase/supabase-js": "^2.105.4",
