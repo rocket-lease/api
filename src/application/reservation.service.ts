@@ -204,8 +204,10 @@ export class ReservationService {
         pageSize: dto.pageSize,
       },
     );
-    const dtos: OwnerReservation[] = [];
-    for (const r of items) dtos.push(await this.toOwnerDTO(r));
+    // Paralelizar la hidratación para evitar N roundtrips serializados a la DB.
+    // Cada toOwnerDTO hace 2 queries (vehicle + user) en paralelo internamente;
+    // este Promise.all las ejecuta todas a la vez en lugar de una reserva a la vez.
+    const dtos = await Promise.all(items.map((r) => this.toOwnerDTO(r)));
     return OwnerReservationsListResponseSchema.parse({
       items: dtos,
       page: dto.page,
@@ -299,6 +301,9 @@ export class ReservationService {
       status: r.getStatus(),
       startAt: r.getStartAt().toISOString(),
       endAt: r.getEndAt().toISOString(),
+      holdExpiresAt: r.getHoldExpiresAt()
+        ? r.getHoldExpiresAt()!.toISOString()
+        : null,
       totalCents: r.getTotalCents(),
       currency: r.getCurrency(),
       paymentMethod: r.getPaymentMethod(),
