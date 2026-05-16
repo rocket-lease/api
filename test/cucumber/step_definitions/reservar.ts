@@ -45,49 +45,7 @@ function setReservationId(world: MyWorld, alias: string, id: string): void {
   world.world.reservations_by_alias[alias] = id;
 }
 
-async function ensureVehiclePublished(
-  world: MyWorld,
-  plate: string,
-  basePrice: number,
-): Promise<string> {
-  if (world.world.vehicle_by_plate?.[plate]) {
-    return world.world.vehicle_by_plate[plate];
-  }
-  // Publish as a separate "owner" account so conductors can reserve it.
-  const ownerToken = await registerAndLogin(world, '__owner__');
-  useAlias(world, '__owner__');
-  const res = await api(world).post('/vehicle', {
-    plate,
-    brand: 'Ford',
-    model: 'Ranger',
-    year: 2023,
-    passengers: 5,
-    trunkLiters: 400,
-    transmission: 'Manual',
-    isAccessible: false,
-    photos: ['https://example.com/photo1.jpg'],
-    color: 'Azul',
-    mileage: 50000,
-    basePrice,
-    description: null,
-    province: 'B',
-    city: 'CABA',
-    availableFrom: '2026-06-01',
-  });
-  expect(res.status).toBe(201);
-  if (!world.world.vehicle_by_plate) world.world.vehicle_by_plate = {};
-  world.world.vehicle_by_plate[plate] = res.body.id;
-  world.world.access_token = undefined;
-  // Drop the owner token from active use; tokens map keeps it for vehicle ops if needed.
-  return res.body.id;
-}
 
-Given(
-  'que existe un vehículo publicado con patente {string} y precio base {int}',
-  async function (this: MyWorld, plate: string, basePrice: number) {
-    await ensureVehiclePublished(this, plate, basePrice);
-  },
-);
 
 Given(
   'que soy un conductor {string} autenticado',

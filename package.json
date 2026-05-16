@@ -80,7 +80,10 @@
             "@prisma/engines",
             "prisma",
             "unrs-resolver"
-        ]
+        ],
+        "overrides": {
+            "@rocket-lease/contracts": "link:../contracts"
+        }
     },
     "jest": {
         "moduleFileExtensions": [

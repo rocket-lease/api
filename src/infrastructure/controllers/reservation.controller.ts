@@ -44,6 +44,15 @@ export class ReservationController {
     );
   }
 
+  @Post(':id/cancel')
+  async cancel(
+    @Param('id') id: string,
+    @Req() req: Request,
+  ): Promise<Contracts.CancelReservationResponse> {
+    const conductorId = await this.requireUserId(req);
+    return await this.reservationService.cancelReservation(conductorId, id);
+  }
+
   @Get('mine')
   async listMine(
     @Req() req: Request,

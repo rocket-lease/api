@@ -81,6 +81,8 @@ Given('el vehiculo ya esta publicado', async function (this: MyWorld) {
   expect(this.world.create_vehicle_response.status).toBe(201);
 });
 
+
+
 Given('el vehículo esta deshabilitado', async function (this: MyWorld) {
   const response = await api(this).patch(
     `/vehicle/${this.world.create_vehicle_response.body.id}`,

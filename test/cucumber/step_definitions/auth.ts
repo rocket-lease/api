@@ -32,6 +32,11 @@ Given('que estoy autenticado', async function (this: MyWorld) {
   this.world.access_token = loginRes.body.access_token;
 });
 
+Given('que no estoy autenticado', async function (this: MyWorld) {
+  this.world.access_token = undefined;
+  this.world.tokens_by_alias = {};
+});
+
 When(
   'el usuario intenta iniciar sesión con email {string} y contraseña {string}',
   async function (this: MyWorld, email: string, password: string) {

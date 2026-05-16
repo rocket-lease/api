@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@rocket-lease/contracts': link:../contracts
+
 importers:
 
   .:
