@@ -30,6 +30,7 @@ export class InMemoryUserRepository implements UserRepository {
         accessibility: [],
         maxPriceDaily: null,
       },
+      autoAccept: user.getAutoAccept(),
     });
   }
 
@@ -88,10 +89,17 @@ export class InMemoryUserRepository implements UserRepository {
       phone: profile.phone,
       avatarUrl: profile.avatarUrl,
       preferences: profile.preferences,
+      autoAccept:
+        profile.autoAccept !== undefined ? profile.autoAccept : existing.autoAccept,
     };
 
     this.profiles.set(id, nextProfile);
     return nextProfile;
+  }
+
+  public async updateAutoAccept(id: string, value: boolean): Promise<void> {
+    const profile = this.profiles.get(id);
+    if (profile) this.profiles.set(id, { ...profile, autoAccept: value });
   }
 
   public async updateAvatar(

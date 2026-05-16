@@ -7,6 +7,7 @@ import {
 } from '../exceptions/reservation.exception';
 
 const ReservationStatusEnum = z.enum([
+  'pending_approval',
   'pending_payment',
   'confirmed',
   'in_progress',
@@ -36,6 +37,7 @@ const reservationSchema = z.object({
   paymentMethod: PaymentMethodEnum.nullable(),
   contractAcceptedAt: z.date().nullable(),
   paidAt: z.date().nullable(),
+  rejectionReason: z.string().max(280).nullable(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
@@ -50,6 +52,10 @@ export const BLOCKING_STATUSES: ReservationStatus[] = [
 ];
 
 export const HOLD_TTL_MS = 10 * 60 * 1000;
+export const APPROVAL_TTL_MS = 24 * 60 * 60 * 1000;
+
+export const CASCADE_REJECTION_REASON =
+  'El vehículo fue reservado por otro conductor para fechas que se solapan.';
 
 export interface ReservationProps {
   id?: string;
@@ -65,6 +71,7 @@ export interface ReservationProps {
   paymentMethod?: PaymentMethod | null;
   contractAcceptedAt: Date | null;
   paidAt?: Date | null;
+  rejectionReason?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -83,6 +90,7 @@ export class Reservation {
   private paymentMethod: PaymentMethod | null;
   private contractAcceptedAt: Date | null;
   private paidAt: Date | null;
+  private rejectionReason: string | null;
   private readonly createdAt: Date;
   private updatedAt: Date;
 
@@ -100,6 +108,7 @@ export class Reservation {
     this.paymentMethod = props.paymentMethod ?? null;
     this.contractAcceptedAt = props.contractAcceptedAt;
     this.paidAt = props.paidAt ?? null;
+    this.rejectionReason = props.rejectionReason ?? null;
     this.createdAt = props.createdAt ?? new Date();
     this.updatedAt = props.updatedAt ?? this.createdAt;
     this.validate();
@@ -147,6 +156,9 @@ export class Reservation {
   public getPaidAt() {
     return this.paidAt;
   }
+  public getRejectionReason() {
+    return this.rejectionReason;
+  }
   public getCreatedAt() {
     return this.createdAt;
   }
@@ -156,6 +168,10 @@ export class Reservation {
 
   public isOwnedByConductor(conductorId: string): boolean {
     return this.conductorId === conductorId;
+  }
+
+  public isOwnedByRentador(rentadorId: string): boolean {
+    return this.rentadorId === rentadorId;
   }
 
   public isHoldExpired(now: Date): boolean {
@@ -187,6 +203,69 @@ export class Reservation {
     this.updatedAt = now;
   }
 
+  /**
+   * Acepta la solicitud del conductor: transiciona `pending_approval → pending_payment`
+   * y abre el hold de 10 minutos para que pague.
+   */
+  public approve(now: Date): void {
+    if (this.status !== 'pending_approval') {
+      throw new InvalidReservationTransitionException(
+        this.status,
+        'pending_payment',
+      );
+    }
+    this.status = 'pending_payment';
+    this.holdExpiresAt = new Date(now.getTime() + HOLD_TTL_MS);
+    this.updatedAt = now;
+  }
+
+  /**
+   * Rechaza una solicitud `pending_approval` con razón opcional (max 280 chars).
+   * Se persiste la razón en `rejectionReason` para que el conductor la vea en el detalle.
+   */
+  public reject(reason: string | null, now: Date): void {
+    if (this.status !== 'pending_approval') {
+      throw new InvalidReservationTransitionException(this.status, 'rejected');
+    }
+    this.status = 'rejected';
+    this.rejectionReason = reason && reason.length > 0 ? reason : null;
+    this.holdExpiresAt = null;
+    this.updatedAt = now;
+  }
+
+  /**
+   * Marca como expirada una solicitud `pending_approval` cuyo TTL (24h) venció
+   * sin respuesta del rentador. Libera el slot.
+   */
+  public markApprovalExpired(now: Date): void {
+    if (this.status !== 'pending_approval') {
+      throw new InvalidReservationTransitionException(this.status, 'expired');
+    }
+    this.status = 'expired';
+    this.holdExpiresAt = null;
+    this.updatedAt = now;
+  }
+
+  /**
+   * Cancela una reserva que todavía no fue confirmada (incluye `pending_payment`
+   * y `pending_approval`). Se usa cuando el conductor desiste/retira la solicitud.
+   */
+  public cancel(now: Date): void {
+    if (
+      this.status !== 'pending_payment' &&
+      this.status !== 'pending_approval'
+    ) {
+      throw new InvalidReservationTransitionException(this.status, 'cancelled');
+    }
+    this.status = 'cancelled';
+    this.holdExpiresAt = null;
+    this.updatedAt = now;
+  }
+
+  /**
+   * @deprecated Usar `cancel(now)` que también acepta `pending_approval`.
+   * Se mantiene para no romper callers que solo trabajan con holds de pago.
+   */
   public cancelHold(now: Date): void {
     if (this.status !== 'pending_payment') {
       throw new InvalidReservationTransitionException(this.status, 'cancelled');
@@ -211,6 +290,7 @@ export class Reservation {
       paymentMethod: this.paymentMethod,
       contractAcceptedAt: this.contractAcceptedAt,
       paidAt: this.paidAt,
+      rejectionReason: this.rejectionReason,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     });

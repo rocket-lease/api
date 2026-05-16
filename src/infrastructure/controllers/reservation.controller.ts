@@ -54,6 +54,30 @@ export class ReservationController {
     return await this.reservationService.cancelReservation(conductorId, id);
   }
 
+  @Post(':id/approve')
+  async approve(
+    @Param('id') id: string,
+    @Req() req: Request,
+  ): Promise<Contracts.ApproveReservationResponse> {
+    const rentadorId = await this.requireUserId(req);
+    return await this.reservationService.approve(rentadorId, id);
+  }
+
+  @Post(':id/reject')
+  async reject(
+    @Param('id') id: string,
+    @Body() dto: Contracts.RejectReservationRequest,
+    @Req() req: Request,
+  ): Promise<Contracts.RejectReservationResponse> {
+    const rentadorId = await this.requireUserId(req);
+    const parsed = Contracts.RejectReservationRequestSchema.parse(dto ?? {});
+    return await this.reservationService.reject(
+      rentadorId,
+      id,
+      parsed.reason ?? null,
+    );
+  }
+
   /**
    * `GET /reservations?role=conductor|owner&status[]&from&to&page&pageSize`
    *

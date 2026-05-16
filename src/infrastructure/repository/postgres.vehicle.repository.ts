@@ -25,6 +25,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
           province: vehicle.getProvince(),
           city: vehicle.getCity(),
           availableFrom: vehicle.getAvailableFrom(),
+          autoAccept: vehicle.getAutoAccept(),
           photos: {
             deleteMany: {},
             create: vehicle.getPhotos().map((url) => ({ url })),
@@ -48,6 +49,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
           province: vehicle.getProvince(),
           city: vehicle.getCity(),
           availableFrom: vehicle.getAvailableFrom(),
+          autoAccept: vehicle.getAutoAccept(),
           photos: {
             create: vehicle.getPhotos().map((url) => ({ url })),
           },
@@ -164,6 +166,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
       raw.province,
       raw.city,
       raw.availableFrom,
+      raw.autoAccept ?? null,
     );
   }
 }
