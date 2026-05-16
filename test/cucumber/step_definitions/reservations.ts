@@ -111,7 +111,9 @@ Then('el sistema cancela las reservas', async function (this: MyWorld) {
 
 When('accedo a {string}', async function (this: MyWorld, section: string) {
   if (section === 'Mis reservas') {
-    this.world.reservation_response = await api(this).get('/reservations/mine');
+    this.world.reservation_response = await api(this).get(
+      '/reservations?role=conductor&pageSize=100',
+    );
   } else {
     throw new Error(`unknown section: ${section}`);
   }

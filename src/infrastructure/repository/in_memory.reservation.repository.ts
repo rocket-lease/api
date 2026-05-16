@@ -3,7 +3,12 @@ import {
   Reservation,
   ReservationStatus,
 } from '@/domain/entities/reservation.entity';
-import { ReservationRepository } from '@/domain/repositories/reservation.repository';
+import {
+  ReservationRepository,
+  ReservationListFilters,
+  ReservationListResult,
+  ReservationRole,
+} from '@/domain/repositories/reservation.repository';
 
 @Injectable()
 export class InMemoryReservationRepository implements ReservationRepository {
@@ -59,12 +64,6 @@ export class InMemoryReservationRepository implements ReservationRepository {
     );
   }
 
-  async findByConductorId(conductorId: string): Promise<Reservation[]> {
-    return Array.from(this.store.values()).filter(
-      (r) => r.getConductorId() === conductorId,
-    );
-  }
-
   async findActiveByVehicleId(
     vehicleId: string,
     statuses: ReservationStatus[],
@@ -73,6 +72,36 @@ export class InMemoryReservationRepository implements ReservationRepository {
       (r) =>
         r.getVehicleId() === vehicleId && statuses.includes(r.getStatus()),
     );
+  }
+
+  async findByUser(
+    userId: string,
+    role: ReservationRole,
+    filters: ReservationListFilters,
+  ): Promise<ReservationListResult> {
+    const matchesRole = (r: Reservation) =>
+      role === 'conductor'
+        ? r.getConductorId() === userId
+        : r.getRentadorId() === userId;
+    const all = Array.from(this.store.values()).filter((r) => {
+      if (!matchesRole(r)) return false;
+      if (filters.status && filters.status.length > 0) {
+        if (!filters.status.includes(r.getStatus())) return false;
+      }
+      if (filters.from && r.getStartAt().getTime() < filters.from.getTime()) {
+        return false;
+      }
+      if (filters.to && r.getStartAt().getTime() > filters.to.getTime()) {
+        return false;
+      }
+      return true;
+    });
+    all.sort((a, b) => b.getCreatedAt().getTime() - a.getCreatedAt().getTime());
+    const start = (filters.page - 1) * filters.pageSize;
+    return {
+      items: all.slice(start, start + filters.pageSize),
+      total: all.length,
+    };
   }
 
   // test helper

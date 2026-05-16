@@ -26,13 +26,13 @@ describe('VerificationService', () => {
       findByEmail: jest.fn(),
       findById: jest.fn(),
       getProfileById: jest.fn(),
+      findProfilesByIds: jest.fn().mockResolvedValue([]),
       updateProfile: jest.fn(),
       updateAvatar: jest.fn(),
       updateBasicInfo: jest.fn(),
       deleteById: jest.fn(),
       markPhoneVerified: jest.fn().mockResolvedValue(undefined),
       isPhoneVerified: jest.fn().mockResolvedValue(false),
-      findProfilesByIds: jest.fn().mockResolvedValue([]),
     };
     service = new VerificationService(authProviderMock, userRepoMock);
   });

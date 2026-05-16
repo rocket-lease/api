@@ -81,11 +81,14 @@ function makeVehicleRepo(vehicles: Vehicle[]): jest.Mocked<VehicleRepository> {
     findById: jest.fn(async (id: string) =>
       vehicles.find((v) => v.getId() === id) ?? null,
     ),
+    findByIds: jest.fn(async (ids: string[]) =>
+      vehicles.filter((v) => ids.includes(v.getId())),
+    ),
     findByPlate: jest.fn(),
     findByOwnerId: jest.fn(),
     findByCharacteristics: jest.fn(),
     delete: jest.fn(),
-  } as unknown as jest.Mocked<VehicleRepository>;
+  };
 }
 
 function makeUserRepo(): jest.Mocked<UserRepository> {
@@ -95,12 +98,13 @@ function makeUserRepo(): jest.Mocked<UserRepository> {
     findByEmail: jest.fn(),
     findById: jest.fn(),
     getProfileById: jest.fn(async (id: string) => makeProfile(id)),
+    findProfilesByIds: jest.fn(async (ids: string[]) => ids.map(makeProfile)),
     updateProfile: jest.fn(),
     updateAvatar: jest.fn(),
     deleteById: jest.fn(),
     markPhoneVerified: jest.fn(),
     isPhoneVerified: jest.fn(),
-  } as unknown as jest.Mocked<UserRepository>;
+  };
 }
 
 describe('ReservationService', () => {
@@ -144,7 +148,7 @@ describe('ReservationService', () => {
         vehicleId: vehicle.getId(),
         startAt: start,
         endAt: end,
-        contractAccepted: false as unknown as true,
+        contractAccepted: false,
       }),
     ).rejects.toThrow(ContractNotAcceptedException);
   });
@@ -322,6 +326,163 @@ describe('ReservationService', () => {
       expect(cancelled).toBe(1);
       expect((await repo.findById(a.id))?.getStatus()).toBe('confirmed');
       expect((await repo.findById(b.id))?.getStatus()).toBe('cancelled');
+    });
+  });
+
+  describe('list (endpoint unificado GET /reservations)', () => {
+    const ownerId = randomUUID();
+
+    async function seedReservations(count: number): Promise<void> {
+      const created: Vehicle[] = [];
+      for (let i = 0; i < count; i++) {
+        const v = new Vehicle(
+          randomUUID(),
+          ownerId,
+          `AE${String(100 + i).padStart(3, '0')}AA`,
+          'Ford',
+          'Ranger',
+          2023,
+          5,
+          400,
+          'Manual',
+          false,
+          true,
+          ['https://i.com/1.jpg'],
+          [],
+          'Azul',
+          50000,
+          24000,
+          null,
+          'B',
+          'CABA',
+          '2026-06-01',
+        );
+        created.push(v);
+        vehicleRepo.findById.mockImplementation(async (id: string) =>
+          created.find((x) => x.getId() === id) ?? null,
+        );
+        vehicleRepo.findByIds.mockImplementation(async (ids: string[]) =>
+          created.filter((x) => ids.includes(x.getId())),
+        );
+        await service.createReservation(randomUUID(), {
+          vehicleId: v.getId(),
+          startAt: new Date(Date.UTC(2026, 6, i * 3 + 1, 10)).toISOString(),
+          endAt: new Date(Date.UTC(2026, 6, i * 3 + 2, 10)).toISOString(),
+          contractAccepted: true,
+        });
+      }
+    }
+
+    it('role=owner: lista vacía con total=0 cuando no hay reservas', async () => {
+      const result = await service.list(ownerId, {
+        role: 'owner',
+        page: 1,
+        pageSize: 20,
+      });
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
+      expect(result.page).toBe(1);
+      expect(result.pageSize).toBe(20);
+    });
+
+    it('role=owner: hidrata vehicle + conductor + rentador', async () => {
+      await seedReservations(2);
+      const result = await service.list(ownerId, {
+        role: 'owner',
+        page: 1,
+        pageSize: 20,
+      });
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0].vehicle.brand).toBe('Ford');
+      expect(result.items[0].conductor).toBeDefined();
+      expect(result.items[0].rentador).toBeDefined();
+    });
+
+    it('role=conductor: filtra por conductor_id (no por rentador_id)', async () => {
+      const spy = jest.spyOn(repo, 'findByUser');
+      const conductorId = randomUUID();
+      await service.list(conductorId, {
+        role: 'conductor',
+        page: 1,
+        pageSize: 20,
+      });
+      expect(spy).toHaveBeenCalledWith(
+        conductorId,
+        'conductor',
+        expect.anything(),
+      );
+    });
+
+    it('role=owner: filtra por rentador_id', async () => {
+      const spy = jest.spyOn(repo, 'findByUser');
+      await service.list(ownerId, { role: 'owner', page: 1, pageSize: 20 });
+      expect(spy).toHaveBeenCalledWith(ownerId, 'owner', expect.anything());
+    });
+
+    it('usa batch — no llama findById por item (no N+1)', async () => {
+      await seedReservations(3);
+      vehicleRepo.findByIds.mockClear();
+      vehicleRepo.findById.mockClear();
+      userRepo.findProfilesByIds.mockClear();
+      userRepo.getProfileById.mockClear();
+
+      await service.list(ownerId, { role: 'owner', page: 1, pageSize: 20 });
+
+      expect(vehicleRepo.findByIds).toHaveBeenCalledTimes(1);
+      expect(userRepo.findProfilesByIds).toHaveBeenCalledTimes(1);
+      expect(vehicleRepo.findById).not.toHaveBeenCalled();
+      expect(userRepo.getProfileById).not.toHaveBeenCalled();
+    });
+
+    it('propaga filtro de status al repository', async () => {
+      const spy = jest.spyOn(repo, 'findByUser');
+      await service.list(ownerId, {
+        role: 'owner',
+        status: ['confirmed', 'in_progress'],
+        page: 1,
+        pageSize: 20,
+      });
+      expect(spy).toHaveBeenCalledWith(
+        ownerId,
+        'owner',
+        expect.objectContaining({ status: ['confirmed', 'in_progress'] }),
+      );
+    });
+
+    it('propaga filtros de fecha al repository convertidos a Date', async () => {
+      const spy = jest.spyOn(repo, 'findByUser');
+      await service.list(ownerId, {
+        role: 'owner',
+        from: '2026-05-01T00:00:00.000Z',
+        to: '2026-05-31T23:59:59.000Z',
+        page: 1,
+        pageSize: 20,
+      });
+      const call = spy.mock.calls[0][2];
+      expect(call.from).toBeInstanceOf(Date);
+      expect(call.to).toBeInstanceOf(Date);
+      expect(call.from?.toISOString()).toBe('2026-05-01T00:00:00.000Z');
+      expect(call.to?.toISOString()).toBe('2026-05-31T23:59:59.000Z');
+    });
+
+    it('respeta paginación', async () => {
+      const spy = jest.spyOn(repo, 'findByUser');
+      await service.list(ownerId, { role: 'owner', page: 2, pageSize: 10 });
+      expect(spy).toHaveBeenCalledWith(
+        ownerId,
+        'owner',
+        expect.objectContaining({ page: 2, pageSize: 10 }),
+      );
+    });
+
+    it('devuelve page y pageSize tal como vinieron en el request', async () => {
+      const result = await service.list(ownerId, {
+        role: 'owner',
+        page: 3,
+        pageSize: 5,
+      });
+      expect(result.page).toBe(3);
+      expect(result.pageSize).toBe(5);
     });
   });
 });

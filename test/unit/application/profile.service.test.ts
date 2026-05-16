@@ -14,13 +14,13 @@ describe('ProfileService', () => {
       findByEmail: jest.fn().mockResolvedValue(null),
       findById: jest.fn().mockResolvedValue(null),
       getProfileById: jest.fn().mockResolvedValue(null),
+      findProfilesByIds: jest.fn().mockResolvedValue([]),
       updateProfile: jest.fn(),
       updateAvatar: jest.fn(),
       updateBasicInfo: jest.fn(),
       deleteById: jest.fn(),
       markPhoneVerified: jest.fn(),
       isPhoneVerified: jest.fn().mockResolvedValue(false),
-      findProfilesByIds: jest.fn().mockResolvedValue([]),
     };
     mediaProviderMock = {
       uploadAvatar: jest.fn(),

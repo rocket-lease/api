@@ -10,10 +10,12 @@ import {
   ConfirmReservationPaymentResponseSchema,
   type GetReservationResponse,
   GetReservationResponseSchema,
-  type ListMyReservationsResponse,
-  ListMyReservationsResponseSchema,
   type VehicleBusyRangesResponse,
   VehicleBusyRangesResponseSchema,
+  type ReservationListItem,
+  type ReservationsListRequest,
+  type ReservationsListResponse,
+  ReservationsListResponseSchema,
 } from '@rocket-lease/contracts';
 import {
   BLOCKING_STATUSES,
@@ -177,15 +179,62 @@ export class ReservationService {
     return this.toDTO(reservation);
   }
 
-  public async listMine(
-    conductorId: string,
-  ): Promise<ListMyReservationsResponse> {
-    const items = await this.reservationRepository.findByConductorId(
-      conductorId,
+  /**
+   * Lista las reservas del usuario autenticado desde la perspectiva indicada.
+   *
+   * Hidrata `vehicle`, `conductor` y `rentador` en 3 queries fijas (1 reservas +
+   * 2 batch `IN (...)`) sin importar `N`, evitando N+1.
+   *
+   * @param userId - ID del usuario autenticado (extraído del JWT por el controller,
+   *   nunca del query string — garantiza que un usuario no pueda ver reservas ajenas).
+   * @param dto - Rol (`conductor` u `owner`), filtros opcionales (`status[]`, `from`,
+   *   `to`) y paginación.
+   * @returns Página paginada con `items`, `page`, `pageSize` y `total` global.
+   */
+  public async list(
+    userId: string,
+    dto: ReservationsListRequest,
+  ): Promise<ReservationsListResponse> {
+    const { items, total } = await this.reservationRepository.findByUser(
+      userId,
+      dto.role,
+      {
+        status: dto.status,
+        from: dto.from ? new Date(dto.from) : undefined,
+        to: dto.to ? new Date(dto.to) : undefined,
+        page: dto.page,
+        pageSize: dto.pageSize,
+      },
     );
-    const dtos: GetReservationResponse[] = [];
-    for (const r of items) dtos.push(await this.toDTO(r));
-    return ListMyReservationsResponseSchema.parse({ items: dtos });
+
+    const vehicleIds = [...new Set(items.map((r) => r.getVehicleId()))];
+    const userIds = [
+      ...new Set([
+        ...items.map((r) => r.getConductorId()),
+        ...items.map((r) => r.getRentadorId()),
+      ]),
+    ];
+    const [vehicles, users] = await Promise.all([
+      this.vehicleRepository.findByIds(vehicleIds),
+      this.userRepository.findProfilesByIds(userIds),
+    ]);
+    const vehicleById = new Map(vehicles.map((v) => [v.getId(), v]));
+    const userById = new Map(users.map((u) => [u.id, u]));
+
+    const dtos = items.map((r) =>
+      this.toListItemDTO(
+        r,
+        vehicleById.get(r.getVehicleId()) ?? null,
+        userById.get(r.getConductorId()) ?? null,
+        userById.get(r.getRentadorId()) ?? null,
+      ),
+    );
+    return ReservationsListResponseSchema.parse({
+      items: dtos,
+      page: dto.page,
+      pageSize: dto.pageSize,
+      total,
+    });
   }
 
   public async getBusyRangesForVehicle(
@@ -279,6 +328,43 @@ export class ReservationService {
         avatarUrl: rentadorProfile?.avatarUrl ?? null,
       },
     });
+  }
+
+  private toListItemDTO(
+    r: Reservation,
+    vehicle: Vehicle | null,
+    conductorProfile: { name: string; avatarUrl: string | null } | null,
+    rentadorProfile: { name: string; avatarUrl: string | null } | null,
+  ): ReservationListItem {
+    return {
+      id: r.getId(),
+      vehicleId: r.getVehicleId(),
+      conductorId: r.getConductorId(),
+      rentadorId: r.getRentadorId(),
+      status: r.getStatus(),
+      startAt: r.getStartAt().toISOString(),
+      endAt: r.getEndAt().toISOString(),
+      holdExpiresAt: r.getHoldExpiresAt()
+        ? r.getHoldExpiresAt()!.toISOString()
+        : null,
+      totalCents: r.getTotalCents(),
+      currency: r.getCurrency(),
+      paymentMethod: r.getPaymentMethod(),
+      paidAt: r.getPaidAt() ? r.getPaidAt()!.toISOString() : null,
+      createdAt: r.getCreatedAt().toISOString(),
+      updatedAt: r.getUpdatedAt().toISOString(),
+      vehicle: this.vehicleSummary(vehicle, r.getVehicleId()),
+      conductor: {
+        id: r.getConductorId(),
+        name: conductorProfile?.name ?? 'Conductor',
+        avatarUrl: conductorProfile?.avatarUrl ?? null,
+      },
+      rentador: {
+        id: r.getRentadorId(),
+        name: rentadorProfile?.name ?? 'Rentador',
+        avatarUrl: rentadorProfile?.avatarUrl ?? null,
+      },
+    };
   }
 
   private vehicleSummary(vehicle: Vehicle | null, vehicleId: string) {

@@ -64,6 +64,7 @@ describe('VehicleService', () => {
       save: jest.fn(),
       fetchAll: jest.fn().mockResolvedValue([]),
       findById: jest.fn().mockResolvedValue(null),
+      findByIds: jest.fn().mockResolvedValue([]),
       findByPlate: jest.fn().mockResolvedValue(null),
       findByOwnerId: jest.fn().mockResolvedValue([]),
       findByCharacteristics: jest.fn().mockResolvedValue([]),
@@ -74,13 +75,13 @@ describe('VehicleService', () => {
       findByEmail: jest.fn().mockResolvedValue(null),
       findById: jest.fn().mockResolvedValue(null),
       getProfileById: jest.fn().mockResolvedValue(null),
+      findProfilesByIds: jest.fn().mockResolvedValue([]),
       updateProfile: jest.fn(),
       updateAvatar: jest.fn(),
       updateBasicInfo: jest.fn(),
       deleteById: jest.fn(),
       markPhoneVerified: jest.fn(),
       isPhoneVerified: jest.fn().mockResolvedValue(false),
-      findProfilesByIds: jest.fn().mockResolvedValue([]),
     };
 
     const reservationServiceMock = {

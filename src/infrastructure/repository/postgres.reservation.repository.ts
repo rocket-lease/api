@@ -4,7 +4,12 @@ import {
   ReservationStatus,
   PaymentMethod,
 } from '@/domain/entities/reservation.entity';
-import { ReservationRepository } from '@/domain/repositories/reservation.repository';
+import {
+  ReservationRepository,
+  ReservationListFilters,
+  ReservationListResult,
+  ReservationRole,
+} from '@/domain/repositories/reservation.repository';
 import { PrismaService } from '../database/prisma.service';
 
 type Row = {
@@ -46,7 +51,7 @@ export class PostgresReservationRepository implements ReservationRepository {
 
   async findById(id: string): Promise<Reservation | null> {
     const row = await this.prisma.reservation.findUnique({ where: { id } });
-    return row ? this.toEntity(row as unknown as Row) : null;
+    return row ? this.toEntity(row) : null;
   }
 
   async findOverlapping(
@@ -62,7 +67,7 @@ export class PostgresReservationRepository implements ReservationRepository {
         AND: [{ startAt: { lt: endAt } }, { endAt: { gt: startAt } }],
       },
     });
-    return rows.map((r) => this.toEntity(r as unknown as Row));
+    return rows.map((r) => this.toEntity(r));
   }
 
   async findExpiredHolds(now: Date): Promise<Reservation[]> {
@@ -72,15 +77,7 @@ export class PostgresReservationRepository implements ReservationRepository {
         holdExpiresAt: { lte: now },
       },
     });
-    return rows.map((r) => this.toEntity(r as unknown as Row));
-  }
-
-  async findByConductorId(conductorId: string): Promise<Reservation[]> {
-    const rows = await this.prisma.reservation.findMany({
-      where: { conductorId },
-      orderBy: { createdAt: 'desc' },
-    });
-    return rows.map((r) => this.toEntity(r as unknown as Row));
+    return rows.map((r) => this.toEntity(r));
   }
 
   async findActiveByVehicleId(
@@ -90,7 +87,37 @@ export class PostgresReservationRepository implements ReservationRepository {
     const rows = await this.prisma.reservation.findMany({
       where: { vehicleId, status: { in: statuses as any } },
     });
-    return rows.map((r) => this.toEntity(r as unknown as Row));
+    return rows.map((r) => this.toEntity(r));
+  }
+
+  async findByUser(
+    userId: string,
+    role: ReservationRole,
+    filters: ReservationListFilters,
+  ): Promise<ReservationListResult> {
+    const where: any =
+      role === 'conductor' ? { conductorId: userId } : { rentadorId: userId };
+    if (filters.status && filters.status.length > 0) {
+      where.status = { in: filters.status as any };
+    }
+    if (filters.from || filters.to) {
+      where.startAt = {};
+      if (filters.from) where.startAt.gte = filters.from;
+      if (filters.to) where.startAt.lte = filters.to;
+    }
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.reservation.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (filters.page - 1) * filters.pageSize,
+        take: filters.pageSize,
+      }),
+      this.prisma.reservation.count({ where }),
+    ]);
+    return {
+      items: rows.map((r) => this.toEntity(r)),
+      total,
+    };
   }
 
   private toRow(r: Reservation) {

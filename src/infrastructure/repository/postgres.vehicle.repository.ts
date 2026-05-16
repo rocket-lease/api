@@ -82,6 +82,15 @@ export class PostgresVehicleRepository implements VehicleRepository {
     return this.mapToDomain(raw);
   }
 
+  async findByIds(ids: string[]): Promise<Vehicle[]> {
+    if (ids.length === 0) return [];
+    const raws = await this.prisma.vehicle.findMany({
+      where: { id: { in: ids } },
+      include: { photos: true, characteristics: true },
+    });
+    return raws.map((r) => this.mapToDomain(r));
+  }
+
   async findByPlate(plate: string): Promise<Vehicle | null> {
     const raw = await this.prisma.vehicle.findUnique({
       where: { plate },

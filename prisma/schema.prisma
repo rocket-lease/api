@@ -94,6 +94,7 @@ model Reservation {
 
   @@index([vehicleId, status])
   @@index([conductorId])
+  @@index([rentadorId, status])
   @@map("reservations")
 }
 
