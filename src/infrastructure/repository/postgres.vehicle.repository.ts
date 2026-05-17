@@ -4,6 +4,11 @@ import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Characteristic } from '@rocket-lease/contracts';
+import type { Prisma } from '@prisma/client';
+
+type VehicleWithRelations = Prisma.VehicleGetPayload<{
+  include: { photos: true; characteristics: true };
+}>;
 
 @Injectable()
 export class PostgresVehicleRepository implements VehicleRepository {
@@ -144,7 +149,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
     await this.prisma.vehicle.delete({ where: { id } });
   }
 
-  private mapToDomain(raw: any): Vehicle {
+  private mapToDomain(raw: VehicleWithRelations): Vehicle {
     return new Vehicle(
       raw.id,
       raw.ownerId,
@@ -157,8 +162,8 @@ export class PostgresVehicleRepository implements VehicleRepository {
       raw.transmission,
       raw.isAccessible,
       raw.enabled,
-      raw.photos.map((p: any) => p.url),
-      raw.characteristics?.map((c: any) => c.characteristic) ?? [],
+      raw.photos.map((p) => p.url),
+      raw.characteristics.map((c) => c.characteristic),
       raw.color,
       raw.mileage,
       raw.basePriceCents,
@@ -166,7 +171,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
       raw.province,
       raw.city,
       raw.availableFrom,
-      raw.autoAccept ?? null,
+      raw.autoAccept,
     );
   }
 }
