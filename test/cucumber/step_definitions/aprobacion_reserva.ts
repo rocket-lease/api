@@ -194,7 +194,7 @@ When(
 );
 
 Then('la reserva pasa a {string}', async function (this: MyWorld, status: string) {
-  expect([200, 201]).toContain(this.world.reservation_response.status);
+  expect(this.world.reservation_response.status).toBe(200);
   expect(this.world.reservation_response.body.status).toBe(status);
 });
 
@@ -275,7 +275,7 @@ Given('el rentador rechazó la solicitud', async function (this: MyWorld) {
   useAlias(this, RENTADOR_ALIAS);
   const id = this.world.reservation_response.body.id;
   const res = await api(this).post(`/reservations/${id}/reject`, {});
-  expect(res.status).toBe(201);
+  expect(res.status).toBe(200);
   this.world.reservation_response = res;
 });
 

@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Post,
   Query,
@@ -31,6 +33,7 @@ export class ReservationController {
   }
 
   @Post(':id/payment')
+  @HttpCode(HttpStatus.OK)
   async confirmPayment(
     @Param('id') id: string,
     @Body() dto: Contracts.ConfirmReservationPaymentRequest,
@@ -46,6 +49,7 @@ export class ReservationController {
   }
 
   @Post(':id/cancel')
+  @HttpCode(HttpStatus.OK)
   async cancel(
     @Param('id') id: string,
     @Req() req: Request,
@@ -55,6 +59,7 @@ export class ReservationController {
   }
 
   @Post(':id/approve')
+  @HttpCode(HttpStatus.OK)
   async approve(
     @Param('id') id: string,
     @Req() req: Request,
@@ -64,6 +69,7 @@ export class ReservationController {
   }
 
   @Post(':id/reject')
+  @HttpCode(HttpStatus.OK)
   async reject(
     @Param('id') id: string,
     @Body() dto: Contracts.RejectReservationRequest,
