@@ -100,11 +100,10 @@ export class InMemoryReservationRepository implements ReservationRepository {
     approved: Reservation,
     cascadedRejections: Reservation[],
   ): Promise<void> {
-    /**
-     * El EXCLUDE constraint de Postgres rechaza overlaps contra otras reservas
-     * `pending_payment`/`confirmed`/`in_progress`. Aquí lo simulamos antes de
-     * persistir nada para preservar la atomicidad del approveWithCascade.
-     */
+    // Emulación del EXCLUDE constraint de Postgres: la implementación real lo
+    // delega a la DB, pero este Map no tiene constraints, así que el fake debe
+    // chequear el conflicto manualmente para mantener paridad de comportamiento
+    // con `PostgresReservationRepository` (mismo error code 23P01).
     const wouldConflict = (await this.findOverlapping(
       approved.getVehicleId(),
       approved.getStartAt(),

@@ -86,7 +86,7 @@ describe('VehicleService', () => {
     };
 
     const reservationServiceMock = {
-      cancelHoldsForVehicle: jest.fn().mockResolvedValue(0),
+      cancelPendingByVehicle: jest.fn().mockResolvedValue(0),
     } as unknown as ReservationService;
     service = new VehicleService(
       repositoryMock,

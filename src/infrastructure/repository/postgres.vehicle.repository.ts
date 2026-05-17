@@ -6,8 +6,13 @@ import { randomUUID } from 'node:crypto';
 import { Characteristic } from '@rocket-lease/contracts';
 import type { Prisma } from '@prisma/client';
 
+const VEHICLE_INCLUDE = {
+  photos: true,
+  characteristics: true,
+} as const satisfies Prisma.VehicleInclude;
+
 type VehicleWithRelations = Prisma.VehicleGetPayload<{
-  include: { photos: true; characteristics: true };
+  include: typeof VEHICLE_INCLUDE;
 }>;
 
 @Injectable()
@@ -81,7 +86,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
   async findById(id: string): Promise<Vehicle | null> {
     const raw = await this.prisma.vehicle.findUnique({
       where: { id },
-      include: { photos: true, characteristics: true },
+      include: VEHICLE_INCLUDE,
     });
 
     if (!raw) return null;
@@ -93,7 +98,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
     if (ids.length === 0) return [];
     const raws = await this.prisma.vehicle.findMany({
       where: { id: { in: ids } },
-      include: { photos: true, characteristics: true },
+      include: VEHICLE_INCLUDE,
     });
     return raws.map((r) => this.mapToDomain(r));
   }
@@ -101,7 +106,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
   async findByPlate(plate: string): Promise<Vehicle | null> {
     const raw = await this.prisma.vehicle.findUnique({
       where: { plate },
-      include: { photos: true, characteristics: true },
+      include: VEHICLE_INCLUDE,
     });
 
     if (!raw) return null;
@@ -111,7 +116,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
   async findByOwnerId(ownerId: string): Promise<Vehicle[]> {
     const raws = await this.prisma.vehicle.findMany({
       where: { ownerId },
-      include: { photos: true, characteristics: true },
+      include: VEHICLE_INCLUDE,
     });
     return raws.map((raw) => this.mapToDomain(raw));
   }
@@ -119,7 +124,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
   async fetchAll(): Promise<Vehicle[]> {
     const raws = await this.prisma.vehicle.findMany({
       where: { enabled: true },
-      include: { photos: true, characteristics: true },
+      include: VEHICLE_INCLUDE,
     });
     return raws.map((raw) => this.mapToDomain(raw));
   }
@@ -140,7 +145,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
         enabled: true,
         AND: filters,
       },
-      include: { photos: true, characteristics: true },
+      include: VEHICLE_INCLUDE,
     });
     return raws.map((raw) => this.mapToDomain(raw));
   }

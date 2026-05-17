@@ -90,7 +90,7 @@ export class VehicleService {
       vehicle.update(parsed);
       await this.vehicleRepository.save(vehicle);
       if (wasEnabled && !vehicle.isEnabled()) {
-        await this.reservationService.cancelHoldsForVehicle(vehicle.getId());
+        await this.reservationService.cancelPendingByVehicle(vehicle.getId());
       }
     } catch (e) {
       const field = e.issues?.[0]?.keys?.[0] ?? 'desconocido';
@@ -134,7 +134,7 @@ export class VehicleService {
     if (vehicle.getOwnerId() !== ownerId) {
       throw new EntityNotFoundException('vehicle', vehicleId);
     }
-    await this.reservationService.cancelHoldsForVehicle(vehicleId);
+    await this.reservationService.cancelPendingByVehicle(vehicleId);
     await this.vehicleRepository.delete(vehicleId);
   }
 
