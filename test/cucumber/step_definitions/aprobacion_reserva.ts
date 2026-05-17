@@ -31,7 +31,7 @@ async function ensureRentadorWithVehicle(
     photos: ['https://example.com/photo1.jpg'],
     color: 'Azul',
     mileage: 50000,
-    basePrice: 24000,
+    basePriceCents: 2400000,
     description: null,
     province: 'B',
     city: 'CABA',
