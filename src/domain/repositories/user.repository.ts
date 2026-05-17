@@ -46,8 +46,11 @@ export interface UserRepository {
   markPhoneVerified(id: string, verifiedAt: Date): Promise<void>;
   isPhoneVerified(id: string): Promise<boolean>;
   /**
-   * Actualiza el flag global de auto-aceptación de reservas del usuario rentador.
-   * No toca el resto del perfil — atomic per US-40 (US-46 fue manual approval por default).
+   * Actualiza el flag global de auto-aceptación (per-usuario). Existe también un
+   * override per-vehículo en `Vehicle.autoAccept`; ver `VehicleRepository.update`.
+   *
+   * @param id - ID del usuario.
+   * @param value - Nuevo valor del flag.
    */
   updateAutoAccept(id: string, value: boolean): Promise<void>;
 }

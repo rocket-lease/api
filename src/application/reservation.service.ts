@@ -70,7 +70,14 @@ export class ReservationService {
    * Crea una reserva. Si el vehículo (o, por herencia, su owner) tiene
    * `autoAccept = true`, la reserva entra directo a `pending_payment` con hold
    * de 10 min para pagar. Si no, entra a `pending_approval` con TTL de 24h para
-   * que el rentador decida (US-40).
+   * que el rentador decida.
+   *
+   * @param conductorId - ID del conductor autenticado (extraído del JWT por el
+   *   controller, nunca del body — el conductor no puede crear reservas a nombre
+   *   de otro).
+   * @param dto - Payload validado: vehicleId, startAt, endAt, contractAccepted.
+   * @returns Resumen con id, status inicial (`pending_payment` o `pending_approval`),
+   *   `holdExpiresAt` (10 min o 24h según el flujo) y total cents.
    */
   public async createReservation(
     conductorId: string,
@@ -105,8 +112,8 @@ export class ReservationService {
     const ownerProfile = await this.userRepository.getProfileById(
       vehicle.getOwnerId(),
     );
-    const ownerAutoAccept = ownerProfile?.autoAccept ?? false;
-    const effectiveAutoAccept = vehicle.getEffectiveAutoAccept(ownerAutoAccept);
+    const effectiveAutoAccept =
+      vehicle.getAutoAccept() ?? ownerProfile?.autoAccept ?? false;
 
     const totalCents = computeReservationTotalCents(
       vehicle.getBasePriceCents(),
@@ -188,8 +195,14 @@ export class ReservationService {
    * El rentador aprueba una solicitud `pending_approval`. La reserva pasa a
    * `pending_payment` (hold de 10 min) y, en la misma transacción, las demás
    * solicitudes `pending_approval` del mismo vehículo cuyas fechas se solapan
-   * quedan auto-rechazadas con una razón autogenerada (concurrencia permisiva,
-   * US-40).
+   * quedan auto-rechazadas con una razón autogenerada (concurrencia permisiva:
+   * el `pending_approval` no consume el EXCLUDE constraint, así que aprobar es
+   * lo que materializa la decisión).
+   *
+   * @param rentadorId - ID del rentador autenticado (extraído del JWT por el
+   *   controller). Se valida que sea el dueño del vehículo: si no, 403.
+   * @param reservationId - ID de la reserva a aprobar.
+   * @returns Resumen con id, status (`pending_payment`) y nuevo `holdExpiresAt`.
    */
   public async approve(
     rentadorId: string,
@@ -239,6 +252,12 @@ export class ReservationService {
    * El rentador rechaza explícitamente una solicitud `pending_approval`. La
    * razón (opcional, max 280 chars validados en el contract) se persiste en
    * `rejectionReason`.
+   *
+   * @param rentadorId - ID del rentador autenticado (extraído del JWT). Se valida
+   *   que sea el dueño del vehículo: si no, 403.
+   * @param reservationId - ID de la reserva a rechazar.
+   * @param reason - Motivo opcional. `null` o vacío se persiste como `null`.
+   * @returns Resumen con id, status (`rejected`) y la razón persistida.
    */
   public async reject(
     rentadorId: string,
@@ -381,18 +400,14 @@ export class ReservationService {
   }
 
   /**
-   * @deprecated Usar `expireOverdueReservations` que también incluye
-   *   `pending_approval` vencidos (US-40). Se mantiene como alias para no romper
-   *   callers existentes (`reservation-expiry.job.ts`).
-   */
-  public async expireOverdueHolds(): Promise<number> {
-    return this.expireOverdueReservations();
-  }
-
-  /**
    * Cancela una reserva pendiente del conductor. Acepta tanto `pending_payment`
    * (hold de pago activo) como `pending_approval` (solicitud sin respuesta del
-   * rentador — el conductor la retira, US-40).
+   * rentador — el conductor la retira).
+   *
+   * @param conductorId - ID del conductor autenticado (extraído del JWT). Se valida
+   *   que sea el dueño de la reserva: si no, 403.
+   * @param reservationId - ID de la reserva a cancelar.
+   * @returns Resumen con id y status (`cancelled`).
    */
   public async cancelReservation(
     conductorId: string,
@@ -415,7 +430,16 @@ export class ReservationService {
     });
   }
 
-  public async cancelHoldsForVehicle(vehicleId: string): Promise<number> {
+  /**
+   * Cancela en cascada todas las reservas pendientes (`pending_payment` y
+   * `pending_approval`) de un vehículo. Se usa al deshabilitar o eliminar el
+   * vehículo: las reservas confirmadas no se tocan (ya hay dinero y compromiso),
+   * solo las que todavía no se materializaron.
+   *
+   * @param vehicleId - ID del vehículo cuyas reservas pendientes se cancelan.
+   * @returns Cantidad de reservas canceladas en esta corrida.
+   */
+  public async cancelPendingByVehicle(vehicleId: string): Promise<number> {
     const now = this.clock.now();
     const pending = await this.reservationRepository.findActiveByVehicleId(
       vehicleId,

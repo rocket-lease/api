@@ -11,12 +11,12 @@ export class ReservationExpiryJob {
   @Cron(CronExpression.EVERY_MINUTE)
   async handleExpiry(): Promise<void> {
     try {
-      const expired = await this.reservationService.expireOverdueHolds();
+      const expired = await this.reservationService.expireOverdueReservations();
       if (expired > 0) {
-        this.logger.log(`Expired ${expired} reservation hold(s)`);
+        this.logger.log(`Expired ${expired} overdue reservation(s)`);
       }
     } catch (e) {
-      this.logger.error('Failed to expire reservation holds', e as Error);
+      this.logger.error('Failed to expire overdue reservations', e as Error);
     }
   }
 }
