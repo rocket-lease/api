@@ -90,11 +90,41 @@ class CustomWorld extends World implements MyWorld {
   }
 
   async cleanDb() {
+    assertSafeToCleanDb();
     const prisma = this.app.get<PrismaService>(PrismaService);
     await prisma.reservation.deleteMany();
     const repo = this.app.get<PostgresUserRepository>(USER_REPOSITORY);
     await prisma.vehicle.deleteMany();
     await repo.clean();
+  }
+}
+
+/**
+ * Doble guard contra el foot-gun de correr `pnpm test:cucumber` directo (sin
+ * `scripts/test-cucumber.sh`): el `.env` apunta a Supabase prod y `cleanDb()`
+ * borra reservations + vehicles + users en cascada.
+ *
+ * Chequeos independientes (defense in depth):
+ *  1. `CLEANDB_ALLOW=1` debe estar seteado (solo lo setea el safe script).
+ *  2. `DATABASE_URL` no debe contener "supabase" (backstop por si alguien
+ *     setea el env var manualmente con una URL apuntando a prod).
+ *
+ * Si cualquiera de los dos falla, abort antes de ejecutar el primer DELETE.
+ */
+function assertSafeToCleanDb(): void {
+  if (process.env.CLEANDB_ALLOW !== '1') {
+    throw new Error(
+      'cleanDb() requiere CLEANDB_ALLOW=1. Usá `bash scripts/test-cucumber.sh` ' +
+        'en lugar de `pnpm test:cucumber` directo (este último apunta al .env ' +
+        'de prod y borra toda la data).',
+    );
+  }
+  const url = process.env.DATABASE_URL ?? '';
+  if (/supabase/i.test(url)) {
+    throw new Error(
+      'cleanDb() detectó DATABASE_URL apuntando a Supabase. ' +
+        'Refuse a correr para proteger la data de prod.',
+    );
   }
 }
 

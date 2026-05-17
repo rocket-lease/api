@@ -2,6 +2,10 @@
 export DATABASE_URL="postgresql://postgres:postgres@localhost:5435/rocket_lease_test"
 export DIRECT_URL="postgresql://postgres:postgres@localhost:5435/rocket_lease_test"
 
+# Opt-in explícito que cleanDb() exige antes de hacer DELETEs.
+# Ver test/cucumber/support/world.ts assertSafeToCleanDb().
+export CLEANDB_ALLOW=1
+
 EXTRA_ARGS="$@"
 
 cleanup() {

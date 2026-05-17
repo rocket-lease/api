@@ -96,7 +96,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
           DIRECT_URL: postgresql://postgres:postgres@localhost:5435/rocket_lease_test
-        run: pnpm test:cucumber
+        run: pnpm test:cucumber:ci
 
       - name: Build
         working-directory: api

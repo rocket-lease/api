@@ -25,7 +25,8 @@
         "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
         "test:integration": "jest test/infrastructure",
         "test:e2e": "jest --config ./test/jest-e2e.json",
-        "test:cucumber": "cucumber-js"
+        "test:cucumber": "bash scripts/test-cucumber.sh",
+        "test:cucumber:ci": "CLEANDB_ALLOW=1 cucumber-js"
     },
     "dependencies": {
         "@nestjs/common": "^11.1.19",
