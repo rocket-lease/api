@@ -4,7 +4,7 @@ Característica: Panel de reservas del rentador
   para gestionar mi operación diaria
 
   Antecedentes:
-    Dado que existe un vehículo publicado con patente "RT123AA" y precio base 1000000
+    Dado que existe un vehículo publicado con patente "RT123AA", precio base 1000000 y auto-aceptación activada
 
   Escenario: El rentador ve sus reservas
     Dado que el conductor "A" reservó el vehículo "RT123AA" desde "2026-08-01T10:00:00Z" hasta "2026-08-03T10:00:00Z" firmando el contrato

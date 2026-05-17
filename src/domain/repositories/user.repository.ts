@@ -19,6 +19,7 @@ export interface UserProfile {
   level: UserLevel;
   reputationScore: number;
   preferences: VehiclePreferences;
+  autoAccept: boolean;
 }
 
 export interface UpdateUserProfile {
@@ -26,6 +27,7 @@ export interface UpdateUserProfile {
   phone: string;
   avatarUrl: string | null;
   preferences: VehiclePreferences;
+  autoAccept?: boolean;
 }
 
 export interface UserRepository {
@@ -43,6 +45,11 @@ export interface UserRepository {
   deleteById(id: string): Promise<void>;
   markPhoneVerified(id: string, verifiedAt: Date): Promise<void>;
   isPhoneVerified(id: string): Promise<boolean>;
+  /**
+   * Actualiza el flag global de auto-aceptación de reservas del usuario rentador.
+   * No toca el resto del perfil — atomic per US-40 (US-46 fue manual approval por default).
+   */
+  updateAutoAccept(id: string, value: boolean): Promise<void>;
 }
 
 export const USER_REPOSITORY = Symbol('UserRepository');

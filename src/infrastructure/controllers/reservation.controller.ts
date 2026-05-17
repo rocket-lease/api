@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Post,
   Query,
@@ -31,6 +33,7 @@ export class ReservationController {
   }
 
   @Post(':id/payment')
+  @HttpCode(HttpStatus.OK)
   async confirmPayment(
     @Param('id') id: string,
     @Body() dto: Contracts.ConfirmReservationPaymentRequest,
@@ -46,12 +49,39 @@ export class ReservationController {
   }
 
   @Post(':id/cancel')
+  @HttpCode(HttpStatus.OK)
   async cancel(
     @Param('id') id: string,
     @Req() req: Request,
   ): Promise<Contracts.CancelReservationResponse> {
     const conductorId = await this.requireUserId(req);
     return await this.reservationService.cancelReservation(conductorId, id);
+  }
+
+  @Post(':id/approve')
+  @HttpCode(HttpStatus.OK)
+  async approve(
+    @Param('id') id: string,
+    @Req() req: Request,
+  ): Promise<Contracts.ApproveReservationResponse> {
+    const rentadorId = await this.requireUserId(req);
+    return await this.reservationService.approve(rentadorId, id);
+  }
+
+  @Post(':id/reject')
+  @HttpCode(HttpStatus.OK)
+  async reject(
+    @Param('id') id: string,
+    @Body() dto: Contracts.RejectReservationRequest,
+    @Req() req: Request,
+  ): Promise<Contracts.RejectReservationResponse> {
+    const rentadorId = await this.requireUserId(req);
+    const parsed = Contracts.RejectReservationRequestSchema.parse(dto ?? {});
+    return await this.reservationService.reject(
+      rentadorId,
+      id,
+      parsed.reason ?? null,
+    );
   }
 
   /**

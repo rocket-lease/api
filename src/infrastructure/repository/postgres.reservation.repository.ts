@@ -26,6 +26,7 @@ type Row = {
   paymentMethod: PaymentMethod | null;
   contractAcceptedAt: Date | null;
   paidAt: Date | null;
+  rejectionReason: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -78,6 +79,53 @@ export class PostgresReservationRepository implements ReservationRepository {
       },
     });
     return rows.map((r) => this.toEntity(r));
+  }
+
+  async findApprovalExpiredBefore(cutoff: Date): Promise<Reservation[]> {
+    const rows = await this.prisma.reservation.findMany({
+      where: {
+        status: 'pending_approval',
+        createdAt: { lte: cutoff },
+      },
+    });
+    return rows.map((r) => this.toEntity(r));
+  }
+
+  async findOverlappingPendingApproval(
+    vehicleId: string,
+    startAt: Date,
+    endAt: Date,
+    excludeId: string,
+  ): Promise<Reservation[]> {
+    const rows = await this.prisma.reservation.findMany({
+      where: {
+        vehicleId,
+        status: 'pending_approval',
+        id: { not: excludeId },
+        AND: [{ startAt: { lt: endAt } }, { endAt: { gt: startAt } }],
+      },
+    });
+    return rows.map((r) => this.toEntity(r));
+  }
+
+  async approveWithCascade(
+    approved: Reservation,
+    cascadedRejections: Reservation[],
+  ): Promise<void> {
+    const approvedData = this.toRow(approved);
+    const ops = [
+      this.prisma.reservation.update({
+        where: { id: approved.getId() },
+        data: approvedData,
+      }),
+      ...cascadedRejections.map((r) =>
+        this.prisma.reservation.update({
+          where: { id: r.getId() },
+          data: this.toRow(r),
+        }),
+      ),
+    ];
+    await this.prisma.$transaction(ops);
   }
 
   async findActiveByVehicleId(
@@ -135,6 +183,7 @@ export class PostgresReservationRepository implements ReservationRepository {
       paymentMethod: r.getPaymentMethod() as any,
       contractAcceptedAt: r.getContractAcceptedAt(),
       paidAt: r.getPaidAt(),
+      rejectionReason: r.getRejectionReason(),
       createdAt: r.getCreatedAt(),
       updatedAt: r.getUpdatedAt(),
     };
@@ -155,6 +204,7 @@ export class PostgresReservationRepository implements ReservationRepository {
       paymentMethod: row.paymentMethod,
       contractAcceptedAt: row.contractAcceptedAt,
       paidAt: row.paidAt,
+      rejectionReason: row.rejectionReason,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });

@@ -21,6 +21,7 @@ async function ensureVehiclePublished(
   world: MyWorld,
   plate: string,
   basePriceCents: number,
+  autoAccept: boolean | null = null,
 ): Promise<string> {
   if (world.world.vehicle_by_plate?.[plate]) {
     return world.world.vehicle_by_plate[plate];
@@ -44,6 +45,7 @@ async function ensureVehiclePublished(
     province: 'B',
     city: 'CABA',
     availableFrom: '2026-06-01',
+    autoAccept,
   });
   expect(res.status).toBe(201);
   if (!world.world.vehicle_by_plate) world.world.vehicle_by_plate = {};
@@ -56,6 +58,13 @@ Given(
   'que existe un vehículo publicado con patente {string} y precio base {int}',
   async function (this: MyWorld, plate: string, basePriceCents: number) {
     await ensureVehiclePublished(this, plate, basePriceCents);
+  },
+);
+
+Given(
+  'que existe un vehículo publicado con patente {string}, precio base {int} y auto-aceptación activada',
+  async function (this: MyWorld, plate: string, basePriceCents: number) {
+    await ensureVehiclePublished(this, plate, basePriceCents, true);
   },
 );
 

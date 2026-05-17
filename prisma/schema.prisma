@@ -21,6 +21,7 @@ model User {
   preferredTransmission String?    @map("preferred_transmission")
   preferredAccessibility String[]  @default([]) @map("preferred_accessibility")
   preferredMaxPriceDaily Int?      @map("preferred_max_price_daily")
+  autoAccept            Boolean    @default(false) @map("auto_accept")
   createdAt             DateTime   @default(now()) @map("created_at")
   phoneVerifiedAt       DateTime?  @map("phone_verified_at")
   favorites             Favorite[]
@@ -60,8 +61,9 @@ model Vehicle {
   province     String
   city         String
   availableFrom String      @map("available_from")
-  
-  ownerId      String       
+  autoAccept   Boolean?     @map("auto_accept")
+
+  ownerId      String
   owner        User         @relation(fields: [ownerId], references: [id])
   photos       Photo[]
   characteristics VehicleCharacteristic[]
@@ -89,12 +91,14 @@ model Reservation {
   paymentMethod       PaymentMethod?     @map("payment_method")
   contractAcceptedAt  DateTime?          @map("contract_accepted_at") @db.Timestamptz(6)
   paidAt              DateTime?          @map("paid_at") @db.Timestamptz(6)
+  rejectionReason     String?            @map("rejection_reason") @db.VarChar(280)
   createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([vehicleId, status])
   @@index([conductorId])
   @@index([rentadorId, status])
+  @@index([status, createdAt])
   @@map("reservations")
 }
 
@@ -126,6 +130,7 @@ enum Transmission {
 }
 
 enum ReservationStatus {
+  pending_approval
   pending_payment
   confirmed
   in_progress

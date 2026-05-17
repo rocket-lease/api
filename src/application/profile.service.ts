@@ -51,6 +51,7 @@ export class ProfileService {
       phone: dto.phone,
       avatarUrl: dto.avatarUrl,
       preferences: dto.preferences,
+      autoAccept: dto.autoAccept,
     });
 
     return UpdateMyProfileResponseSchema.parse(updated);

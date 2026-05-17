@@ -82,6 +82,7 @@ describe('VehicleService', () => {
       deleteById: jest.fn(),
       markPhoneVerified: jest.fn(),
       isPhoneVerified: jest.fn().mockResolvedValue(false),
+      updateAutoAccept: jest.fn(),
     };
 
     const reservationServiceMock = {

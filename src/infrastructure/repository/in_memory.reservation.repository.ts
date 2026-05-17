@@ -15,17 +15,25 @@ export class InMemoryReservationRepository implements ReservationRepository {
   private readonly store = new Map<string, Reservation>();
 
   async save(reservation: Reservation): Promise<Reservation> {
-    const overlapping = await this.findOverlapping(
-      reservation.getVehicleId(),
-      reservation.getStartAt(),
-      reservation.getEndAt(),
-      ['pending_payment', 'confirmed', 'in_progress'],
-    );
-    const conflicting = overlapping.find((r) => r.getId() !== reservation.getId());
-    if (conflicting) {
-      const err = new Error('reservations_no_overlap');
-      (err as { code?: string }).code = '23P01';
-      throw err;
+    if (
+      reservation.getStatus() === 'pending_payment' ||
+      reservation.getStatus() === 'confirmed' ||
+      reservation.getStatus() === 'in_progress'
+    ) {
+      const overlapping = await this.findOverlapping(
+        reservation.getVehicleId(),
+        reservation.getStartAt(),
+        reservation.getEndAt(),
+        ['pending_payment', 'confirmed', 'in_progress'],
+      );
+      const conflicting = overlapping.find(
+        (r) => r.getId() !== reservation.getId(),
+      );
+      if (conflicting) {
+        const err = new Error('reservations_no_overlap');
+        (err as { code?: string }).code = '23P01';
+        throw err;
+      }
     }
     this.store.set(reservation.getId(), reservation);
     return reservation;
@@ -62,6 +70,56 @@ export class InMemoryReservationRepository implements ReservationRepository {
         r.getHoldExpiresAt() !== null &&
         r.getHoldExpiresAt()!.getTime() <= now.getTime(),
     );
+  }
+
+  async findApprovalExpiredBefore(cutoff: Date): Promise<Reservation[]> {
+    return Array.from(this.store.values()).filter(
+      (r) =>
+        r.getStatus() === 'pending_approval' &&
+        r.getCreatedAt().getTime() <= cutoff.getTime(),
+    );
+  }
+
+  async findOverlappingPendingApproval(
+    vehicleId: string,
+    startAt: Date,
+    endAt: Date,
+    excludeId: string,
+  ): Promise<Reservation[]> {
+    return Array.from(this.store.values()).filter(
+      (r) =>
+        r.getVehicleId() === vehicleId &&
+        r.getStatus() === 'pending_approval' &&
+        r.getId() !== excludeId &&
+        r.getStartAt().getTime() < endAt.getTime() &&
+        r.getEndAt().getTime() > startAt.getTime(),
+    );
+  }
+
+  async approveWithCascade(
+    approved: Reservation,
+    cascadedRejections: Reservation[],
+  ): Promise<void> {
+    /**
+     * El EXCLUDE constraint de Postgres rechaza overlaps contra otras reservas
+     * `pending_payment`/`confirmed`/`in_progress`. Aquí lo simulamos antes de
+     * persistir nada para preservar la atomicidad del approveWithCascade.
+     */
+    const wouldConflict = (await this.findOverlapping(
+      approved.getVehicleId(),
+      approved.getStartAt(),
+      approved.getEndAt(),
+      ['pending_payment', 'confirmed', 'in_progress'],
+    )).find((r) => r.getId() !== approved.getId());
+    if (wouldConflict) {
+      const err = new Error('reservations_no_overlap');
+      (err as { code?: string }).code = '23P01';
+      throw err;
+    }
+    this.store.set(approved.getId(), approved);
+    for (const r of cascadedRejections) {
+      this.store.set(r.getId(), r);
+    }
   }
 
   async findActiveByVehicleId(

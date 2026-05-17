@@ -70,7 +70,7 @@ Given(
           `/reservations/${reservationId}/payment`,
           { paymentMethod: 'credit_card' },
         );
-        expect(payRes.status).toBe(201);
+        expect(payRes.status).toBe(200);
       }
 
       if (!this.world.pre_made_reservations) {

@@ -33,6 +33,7 @@ const vehicleSchema = z.object({
   province: z.string().min(1, 'Province is required'),
   city: z.string().min(1, 'City is required'),
   availableFrom: z.string().date('Invalid date format'),
+  autoAccept: z.boolean().nullable(),
   characteristics: z.array(
     z.enum([
       'GPS',
@@ -78,6 +79,7 @@ export class Vehicle {
     private province: string,
     private city: string,
     private availableFrom: string,
+    private autoAccept: boolean | null = null,
   ) {
     this.validate();
   }
@@ -148,9 +150,26 @@ export class Vehicle {
   public getAvailableFrom(): string {
     return this.availableFrom;
   }
+  public getAutoAccept(): boolean | null {
+    return this.autoAccept;
+  }
 
   public isEnabled(): boolean {
     return this.enabled;
+  }
+
+  /**
+   * Resuelve la política efectiva de auto-aceptación para este vehículo.
+   *
+   * El override por vehículo (`autoAccept` no nulo) tiene precedencia sobre la
+   * configuración global del owner. Si el vehículo no tiene override, se hereda
+   * el flag del rentador.
+   *
+   * @param ownerAutoAccept - Flag global del owner del vehículo.
+   * @returns `true` si la próxima reserva debe entrar directamente a `pending_payment`.
+   */
+  public getEffectiveAutoAccept(ownerAutoAccept: boolean): boolean {
+    return this.autoAccept ?? ownerAutoAccept;
   }
 
   public updateMileage(newMileage: number): void {
@@ -182,6 +201,7 @@ export class Vehicle {
     if (data.city !== undefined) this.city = data.city;
     if (data.availableFrom !== undefined)
       this.availableFrom = data.availableFrom;
+    if (data.autoAccept !== undefined) this.autoAccept = data.autoAccept;
     this.validate();
   }
 
@@ -206,6 +226,7 @@ export class Vehicle {
       province: this.province,
       city: this.city,
       availableFrom: this.availableFrom,
+      autoAccept: this.autoAccept,
       characteristics: this.characteristics,
     });
 

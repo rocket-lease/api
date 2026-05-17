@@ -1,5 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
+  type ApproveReservationResponse,
+  ApproveReservationResponseSchema,
   type CancelReservationResponse,
   CancelReservationResponseSchema,
   type CreateReservationRequest,
@@ -10,6 +12,8 @@ import {
   ConfirmReservationPaymentResponseSchema,
   type GetReservationResponse,
   GetReservationResponseSchema,
+  type RejectReservationResponse,
+  RejectReservationResponseSchema,
   type VehicleBusyRangesResponse,
   VehicleBusyRangesResponseSchema,
   type ReservationListItem,
@@ -18,7 +22,9 @@ import {
   ReservationsListResponseSchema,
 } from '@rocket-lease/contracts';
 import {
+  APPROVAL_TTL_MS,
   BLOCKING_STATUSES,
+  CASCADE_REJECTION_REASON,
   HOLD_TTL_MS,
   Reservation,
 } from '@/domain/entities/reservation.entity';
@@ -60,6 +66,12 @@ export class ReservationService {
     private readonly clock: Clock,
   ) {}
 
+  /**
+   * Crea una reserva. Si el vehículo (o, por herencia, su owner) tiene
+   * `autoAccept = true`, la reserva entra directo a `pending_payment` con hold
+   * de 10 min para pagar. Si no, entra a `pending_approval` con TTL de 24h para
+   * que el rentador decida (US-40).
+   */
   public async createReservation(
     conductorId: string,
     dto: CreateReservationRequest,
@@ -90,20 +102,29 @@ export class ReservationService {
       throw new VehicleNotAvailableException(vehicle.getId());
     }
 
+    const ownerProfile = await this.userRepository.getProfileById(
+      vehicle.getOwnerId(),
+    );
+    const ownerAutoAccept = ownerProfile?.autoAccept ?? false;
+    const effectiveAutoAccept = vehicle.getEffectiveAutoAccept(ownerAutoAccept);
+
     const totalCents = computeReservationTotalCents(
       vehicle.getBasePriceCents(),
       startAt,
       endAt,
     );
 
+    const status = effectiveAutoAccept ? 'pending_payment' : 'pending_approval';
+    const ttlMs = effectiveAutoAccept ? HOLD_TTL_MS : APPROVAL_TTL_MS;
+
     const reservation = new Reservation({
       vehicleId: vehicle.getId(),
       conductorId,
       rentadorId: vehicle.getOwnerId(),
-      status: 'pending_payment',
+      status,
       startAt,
       endAt,
-      holdExpiresAt: new Date(now.getTime() + HOLD_TTL_MS),
+      holdExpiresAt: new Date(now.getTime() + ttlMs),
       totalCents,
       currency: 'ARS',
       paymentMethod: null,
@@ -125,7 +146,7 @@ export class ReservationService {
 
     return CreateReservationResponseSchema.parse({
       id: saved.getId(),
-      status: 'pending_payment',
+      status: saved.getStatus(),
       holdExpiresAt: saved.getHoldExpiresAt()!.toISOString(),
       totalCents: saved.getTotalCents(),
       currency: 'ARS',
@@ -160,6 +181,85 @@ export class ReservationService {
       id: saved.getId(),
       status: 'confirmed',
       paidAt: saved.getPaidAt()!.toISOString(),
+    });
+  }
+
+  /**
+   * El rentador aprueba una solicitud `pending_approval`. La reserva pasa a
+   * `pending_payment` (hold de 10 min) y, en la misma transacción, las demás
+   * solicitudes `pending_approval` del mismo vehículo cuyas fechas se solapan
+   * quedan auto-rechazadas con una razón autogenerada (concurrencia permisiva,
+   * US-40).
+   */
+  public async approve(
+    rentadorId: string,
+    reservationId: string,
+  ): Promise<ApproveReservationResponse> {
+    const reservation =
+      await this.reservationRepository.findById(reservationId);
+    if (!reservation) throw new ReservationNotFoundException(reservationId);
+    if (!reservation.isOwnedByRentador(rentadorId)) {
+      throw new ReservationForbiddenException();
+    }
+
+    const now = this.clock.now();
+    reservation.approve(now);
+
+    const overlapping =
+      await this.reservationRepository.findOverlappingPendingApproval(
+        reservation.getVehicleId(),
+        reservation.getStartAt(),
+        reservation.getEndAt(),
+        reservation.getId(),
+      );
+    for (const r of overlapping) {
+      r.reject(CASCADE_REJECTION_REASON, now);
+    }
+
+    try {
+      await this.reservationRepository.approveWithCascade(
+        reservation,
+        overlapping,
+      );
+    } catch (e) {
+      if (isExclusionViolation(e)) {
+        throw new VehicleNotAvailableException(reservation.getVehicleId());
+      }
+      throw e;
+    }
+
+    return ApproveReservationResponseSchema.parse({
+      id: reservation.getId(),
+      status: 'pending_payment',
+      holdExpiresAt: reservation.getHoldExpiresAt()!.toISOString(),
+    });
+  }
+
+  /**
+   * El rentador rechaza explícitamente una solicitud `pending_approval`. La
+   * razón (opcional, max 280 chars validados en el contract) se persiste en
+   * `rejectionReason`.
+   */
+  public async reject(
+    rentadorId: string,
+    reservationId: string,
+    reason: string | null,
+  ): Promise<RejectReservationResponse> {
+    const reservation =
+      await this.reservationRepository.findById(reservationId);
+    if (!reservation) throw new ReservationNotFoundException(reservationId);
+    if (!reservation.isOwnedByRentador(rentadorId)) {
+      throw new ReservationForbiddenException();
+    }
+
+    const now = this.clock.now();
+    reservation.reject(reason && reason.length > 0 ? reason : null, now);
+    const saved = await this.reservationRepository.update(reservation);
+
+    return RejectReservationResponseSchema.parse({
+      id: saved.getId(),
+      status: 'rejected',
+      rejectionReason: saved.getRejectionReason(),
     });
   }
 
@@ -252,16 +352,48 @@ export class ReservationService {
     return VehicleBusyRangesResponseSchema.parse({ items });
   }
 
-  public async expireOverdueHolds(): Promise<number> {
+  /**
+   * Job de expiración periódico. Cubre dos casos:
+   *  - holds de pago vencidos (`pending_payment` con `holdExpiresAt <= now`)
+   *  - solicitudes `pending_approval` sin respuesta (>= 24h desde createdAt)
+   *
+   * Ambos pasan a `expired` y liberan el slot del vehículo.
+   *
+   * @returns Número total de reservas expiradas en esta corrida.
+   */
+  public async expireOverdueReservations(): Promise<number> {
     const now = this.clock.now();
-    const expired = await this.reservationRepository.findExpiredHolds(now);
-    for (const r of expired) {
+    const expiredHolds = await this.reservationRepository.findExpiredHolds(now);
+    for (const r of expiredHolds) {
       r.markExpired(now);
       await this.reservationRepository.update(r);
     }
-    return expired.length;
+
+    const cutoff = new Date(now.getTime() - APPROVAL_TTL_MS);
+    const expiredApprovals =
+      await this.reservationRepository.findApprovalExpiredBefore(cutoff);
+    for (const r of expiredApprovals) {
+      r.markApprovalExpired(now);
+      await this.reservationRepository.update(r);
+    }
+
+    return expiredHolds.length + expiredApprovals.length;
   }
 
+  /**
+   * @deprecated Usar `expireOverdueReservations` que también incluye
+   *   `pending_approval` vencidos (US-40). Se mantiene como alias para no romper
+   *   callers existentes (`reservation-expiry.job.ts`).
+   */
+  public async expireOverdueHolds(): Promise<number> {
+    return this.expireOverdueReservations();
+  }
+
+  /**
+   * Cancela una reserva pendiente del conductor. Acepta tanto `pending_payment`
+   * (hold de pago activo) como `pending_approval` (solicitud sin respuesta del
+   * rentador — el conductor la retira, US-40).
+   */
   public async cancelReservation(
     conductorId: string,
     reservationId: string,
@@ -274,7 +406,7 @@ export class ReservationService {
     }
 
     const now = this.clock.now();
-    reservation.cancelHold(now);
+    reservation.cancel(now);
     const saved = await this.reservationRepository.update(reservation);
 
     return CancelReservationResponseSchema.parse({
@@ -287,10 +419,10 @@ export class ReservationService {
     const now = this.clock.now();
     const pending = await this.reservationRepository.findActiveByVehicleId(
       vehicleId,
-      ['pending_payment'],
+      ['pending_payment', 'pending_approval'],
     );
     for (const r of pending) {
-      r.cancelHold(now);
+      r.cancel(now);
       await this.reservationRepository.update(r);
     }
     return pending.length;
@@ -319,6 +451,7 @@ export class ReservationService {
         ? r.getContractAcceptedAt()!.toISOString()
         : null,
       paidAt: r.getPaidAt() ? r.getPaidAt()!.toISOString() : null,
+      rejectionReason: r.getRejectionReason(),
       createdAt: r.getCreatedAt().toISOString(),
       updatedAt: r.getUpdatedAt().toISOString(),
       vehicle: this.vehicleSummary(vehicle, r.getVehicleId()),
@@ -351,6 +484,7 @@ export class ReservationService {
       currency: r.getCurrency(),
       paymentMethod: r.getPaymentMethod(),
       paidAt: r.getPaidAt() ? r.getPaidAt()!.toISOString() : null,
+      rejectionReason: r.getRejectionReason(),
       createdAt: r.getCreatedAt().toISOString(),
       updatedAt: r.getUpdatedAt().toISOString(),
       vehicle: this.vehicleSummary(vehicle, r.getVehicleId()),

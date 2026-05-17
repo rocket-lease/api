@@ -15,6 +15,7 @@ export class User {
     private readonly email: string,
     private readonly dni: string,
     private readonly phone: string,
+    private readonly autoAccept: boolean = false,
   ) {
     this.validate();
   }
@@ -46,5 +47,8 @@ export class User {
   }
   public getPhone(): string {
     return this.phone;
+  }
+  public getAutoAccept(): boolean {
+    return this.autoAccept;
   }
 }

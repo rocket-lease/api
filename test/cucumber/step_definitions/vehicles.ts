@@ -88,6 +88,25 @@ Given('el vehículo ya está publicado', async function (this: MyWorld) {
 
 
 
+Given(
+  'el vehículo ya está publicado con auto-aceptación activada',
+  async function (this: MyWorld) {
+    if (this.world.create_vehicle_dto == null) {
+      throw Error('Create vehicle data must be set');
+    }
+    this.world.create_vehicle_response = await api(this).post('/vehicle', {
+      ...this.world.create_vehicle_dto,
+      autoAccept: true,
+    });
+    if (!this.world.vehicle_by_plate) {
+      this.world.vehicle_by_plate = {};
+    }
+    this.world.vehicle_by_plate[this.world.create_vehicle_dto.plate] =
+      this.world.create_vehicle_response.body.id;
+    expect(this.world.create_vehicle_response.status).toBe(201);
+  },
+);
+
 Given('el vehículo está deshabilitado', async function (this: MyWorld) {
   const response = await api(this).patch(
     `/vehicle/${this.world.create_vehicle_response.body.id}`,
