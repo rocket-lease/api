@@ -158,20 +158,6 @@ export class Vehicle {
     return this.enabled;
   }
 
-  /**
-   * Resuelve la política efectiva de auto-aceptación para este vehículo.
-   *
-   * El override por vehículo (`autoAccept` no nulo) tiene precedencia sobre la
-   * configuración global del owner. Si el vehículo no tiene override, se hereda
-   * el flag del rentador.
-   *
-   * @param ownerAutoAccept - Flag global del owner del vehículo.
-   * @returns `true` si la próxima reserva debe entrar directamente a `pending_payment`.
-   */
-  public getEffectiveAutoAccept(ownerAutoAccept: boolean): boolean {
-    return this.autoAccept ?? ownerAutoAccept;
-  }
-
   public updateMileage(newMileage: number): void {
     if (newMileage < this.mileage) {
       throw new InvalidEntityDataException(

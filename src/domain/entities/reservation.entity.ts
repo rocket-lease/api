@@ -206,6 +206,8 @@ export class Reservation {
   /**
    * Acepta la solicitud del conductor: transiciona `pending_approval → pending_payment`
    * y abre el hold de 10 minutos para que pague.
+   *
+   * @param now - Instante actual usado para calcular `holdExpiresAt` y `updatedAt`.
    */
   public approve(now: Date): void {
     if (this.status !== 'pending_approval') {
@@ -222,6 +224,10 @@ export class Reservation {
   /**
    * Rechaza una solicitud `pending_approval` con razón opcional (max 280 chars).
    * Se persiste la razón en `rejectionReason` para que el conductor la vea en el detalle.
+   *
+   * @param reason - Motivo del rechazo. `null` o string vacío se normalizan a `null`.
+   *   El límite de 280 chars se valida en el contract (Zod) antes de llegar acá.
+   * @param now - Instante actual usado para `updatedAt`.
    */
   public reject(reason: string | null, now: Date): void {
     if (this.status !== 'pending_approval') {
@@ -236,6 +242,8 @@ export class Reservation {
   /**
    * Marca como expirada una solicitud `pending_approval` cuyo TTL (24h) venció
    * sin respuesta del rentador. Libera el slot.
+   *
+   * @param now - Instante actual usado para `updatedAt`.
    */
   public markApprovalExpired(now: Date): void {
     if (this.status !== 'pending_approval') {
@@ -248,26 +256,16 @@ export class Reservation {
 
   /**
    * Cancela una reserva que todavía no fue confirmada (incluye `pending_payment`
-   * y `pending_approval`). Se usa cuando el conductor desiste/retira la solicitud.
+   * y `pending_approval`). Se usa cuando el conductor desiste/retira la solicitud,
+   * o cuando el rentador deshabilita el vehículo (cascade).
+   *
+   * @param now - Instante actual usado para `updatedAt`.
    */
   public cancel(now: Date): void {
     if (
       this.status !== 'pending_payment' &&
       this.status !== 'pending_approval'
     ) {
-      throw new InvalidReservationTransitionException(this.status, 'cancelled');
-    }
-    this.status = 'cancelled';
-    this.holdExpiresAt = null;
-    this.updatedAt = now;
-  }
-
-  /**
-   * @deprecated Usar `cancel(now)` que también acepta `pending_approval`.
-   * Se mantiene para no romper callers que solo trabajan con holds de pago.
-   */
-  public cancelHold(now: Date): void {
-    if (this.status !== 'pending_payment') {
       throw new InvalidReservationTransitionException(this.status, 'cancelled');
     }
     this.status = 'cancelled';

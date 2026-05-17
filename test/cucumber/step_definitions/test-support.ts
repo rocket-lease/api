@@ -13,6 +13,6 @@ When(
   'el sistema ejecuta el job de expiración de reservas',
   async function (this: MyWorld) {
     const service = this.app.get(ReservationService);
-    await service.expireOverdueHolds();
+    await service.expireOverdueReservations();
   },
 );

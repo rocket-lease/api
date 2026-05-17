@@ -290,7 +290,7 @@ describe('ReservationService', () => {
     });
   });
 
-  describe('expireOverdueHolds', () => {
+  describe('expireOverdueReservations', () => {
     it('marks overdue holds as expired and frees the vehicle', async () => {
       const created = await service.createReservation(conductorA, {
         vehicleId: vehicle.getId(),
@@ -299,7 +299,7 @@ describe('ReservationService', () => {
         contractAccepted: true,
       });
       clock.advanceMs(11 * 60 * 1000);
-      const expired = await service.expireOverdueHolds();
+      const expired = await service.expireOverdueReservations();
       expect(expired).toBe(1);
       const r = await repo.findById(created.id);
       expect(r?.getStatus()).toBe('expired');
@@ -314,7 +314,7 @@ describe('ReservationService', () => {
     });
   });
 
-  describe('cancelHoldsForVehicle', () => {
+  describe('cancelPendingByVehicle', () => {
     it('cancels pending holds and leaves confirmed intact', async () => {
       const a = await service.createReservation(conductorA, {
         vehicleId: vehicle.getId(),
@@ -331,7 +331,7 @@ describe('ReservationService', () => {
         endAt: '2026-06-12T10:00:00.000Z',
         contractAccepted: true,
       });
-      const cancelled = await service.cancelHoldsForVehicle(vehicle.getId());
+      const cancelled = await service.cancelPendingByVehicle(vehicle.getId());
       expect(cancelled).toBe(1);
       expect((await repo.findById(a.id))?.getStatus()).toBe('confirmed');
       expect((await repo.findById(b.id))?.getStatus()).toBe('cancelled');
