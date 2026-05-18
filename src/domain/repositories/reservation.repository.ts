@@ -98,6 +98,8 @@ export interface ReservationRepository {
     statuses: ReservationStatus[],
   ): Promise<Reservation[]>;
 
+  findExpiredTransfers(now: Date): Promise<Reservation[]>;
+
   /**
    * Busca otras solicitudes `pending_approval` del mismo vehículo cuyas fechas
    * se solapan con el rango dado. Se usa para el auto-rechazo en cascada al

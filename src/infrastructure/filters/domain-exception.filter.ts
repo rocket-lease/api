@@ -15,6 +15,7 @@ import {
   ReservationForbiddenException,
   ReservationNotFoundException,
   VehicleNotAvailableException,
+  TransferExpiredException,
 } from '@/domain/exceptions/reservation.exception';
 import {
   ExceptionFilter,
@@ -25,6 +26,7 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { ErrorCodes } from '@rocket-lease/contracts';
+import { ZodIssue } from 'zod/v3';
 
 function isZodError(
   error: Error,
@@ -84,6 +86,9 @@ export class DomainExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof ReservationForbiddenException) {
       status = HttpStatus.FORBIDDEN;
       code = ErrorCodes.RESERVATION_FORBIDDEN;
+    } else if (exception instanceof TransferExpiredException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.RESERVATION_TRANSFER_EXPIRED;
     } else if (exception instanceof EmailNotVerifiedException) {
       status = HttpStatus.FORBIDDEN;
     } else if (exception instanceof InvalidEntityDataException) {
@@ -92,7 +97,12 @@ export class DomainExceptionFilter implements ExceptionFilter {
     } else if (isZodError(exception)) {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.INVALID_ENTITY_DATA;
-      message = exception.issues.map((i) => i.message).join('; ');
+      message = exception.issues
+        .map((i: ZodIssue) => {
+          const field = i.path.join('.');
+          return field ? `${field}: ${i.message.toLowerCase()}` : i.message;
+        })
+        .join('; ');
     }
 
     response.status(status).json({

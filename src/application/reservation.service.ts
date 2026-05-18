@@ -20,6 +20,12 @@ import {
   type ReservationsListRequest,
   type ReservationsListResponse,
   ReservationsListResponseSchema,
+  type PaymentMethodsResponse,
+  PaymentMethodsResponseSchema,
+  type InitiateTransferResponse,
+  InitiateTransferResponseSchema,
+  type ConfirmTransferResponse,
+  ConfirmTransferResponseSchema,
 } from '@rocket-lease/contracts';
 import {
   APPROVAL_TTL_MS,
@@ -27,6 +33,7 @@ import {
   CASCADE_REJECTION_REASON,
   HOLD_TTL_MS,
   Reservation,
+  PaymentMethod,
 } from '@/domain/entities/reservation.entity';
 import {
   RESERVATION_REPOSITORY,
@@ -49,9 +56,27 @@ import {
   ReservationNotFoundException,
   VehicleNotAvailableException,
 } from '@/domain/exceptions/reservation.exception';
+import {
+  VOUCHER_PROVIDER,
+  type VoucherProvider,
+} from '@/domain/providers/voucher.provider';
+import {
+  NOTIFICATION_PROVIDER,
+  type NotificationProvider,
+} from '@/domain/providers/notification.provider';
+import {
+  PAYMENT_GATEWAY_PROVIDER,
+  type PaymentGatewayProvider,
+} from '@/domain/providers/payment-gateway.provider';
 import { CLOCK, type Clock } from '@/domain/providers/clock.provider';
 import { computeReservationTotalCents } from './helpers/pricing';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
+
+const INSTANT_METHODS: PaymentMethod[] = [
+  'credit_card',
+  'debit_card',
+  'digital_wallet',
+];
 
 @Injectable()
 export class ReservationService {
@@ -64,6 +89,12 @@ export class ReservationService {
     private readonly userRepository: UserRepository,
     @Inject(CLOCK)
     private readonly clock: Clock,
+    @Inject(VOUCHER_PROVIDER)
+    private readonly voucherProvider: VoucherProvider,
+    @Inject(NOTIFICATION_PROVIDER)
+    private readonly notificationProvider: NotificationProvider,
+    @Inject(PAYMENT_GATEWAY_PROVIDER)
+    private readonly paymentGateway: PaymentGatewayProvider,
   ) {}
 
   /**
@@ -160,6 +191,12 @@ export class ReservationService {
     });
   }
 
+  public async getPaymentMethods(): Promise<PaymentMethodsResponse> {
+    return PaymentMethodsResponseSchema.parse({
+      methods: ['credit_card', 'debit_card', 'bank_transfer', 'digital_wallet'],
+    });
+  }
+
   public async confirmPayment(
     conductorId: string,
     reservationId: string,
@@ -173,7 +210,10 @@ export class ReservationService {
     }
 
     const now = this.clock.now();
-    if (reservation.isHoldExpired(now) || reservation.getStatus() === 'expired') {
+    if (
+      reservation.isHoldExpired(now) ||
+      reservation.getStatus() === 'expired'
+    ) {
       if (reservation.getStatus() === 'pending_payment') {
         reservation.markExpired(now);
         await this.reservationRepository.update(reservation);
@@ -181,13 +221,111 @@ export class ReservationService {
       throw new HoldExpiredException(reservationId);
     }
 
-    reservation.confirmPayment(dto.paymentMethod, now);
+    // Validate digital_wallet requires walletProvider
+    if (
+      dto.paymentMethod === 'digital_wallet' &&
+      !dto.walletProvider
+    ) {
+      throw new Error('walletProvider is required for digital_wallet');
+    }
+
+    reservation.confirmPayment(
+      dto.paymentMethod,
+      now,
+      dto.walletProvider as any,
+    );
     const saved = await this.reservationRepository.update(reservation);
+
+    // Generate voucher and send notifications
+    const voucher = await this.voucherProvider.generateVoucher(saved.getId());
+
+    await this.notificationProvider.notify(
+      saved.getConductorId(),
+      'Reserva confirmada',
+      `Tu reserva ${saved.getId().slice(0, 8)} fue confirmada.`,
+    );
+    await this.notificationProvider.notify(
+      saved.getRentadorId(),
+      'Nueva reserva confirmada',
+      `Tenés una nueva reserva confirmada para el vehículo.`,
+    );
 
     return ConfirmReservationPaymentResponseSchema.parse({
       id: saved.getId(),
       status: 'confirmed',
       paidAt: saved.getPaidAt()!.toISOString(),
+      voucher: { qrCode: voucher.qrCode },
+      notified: true,
+    });
+  }
+
+  public async initiateBankTransfer(
+    conductorId: string,
+    reservationId: string,
+  ): Promise<InitiateTransferResponse> {
+    const reservation =
+      await this.reservationRepository.findById(reservationId);
+    if (!reservation) throw new ReservationNotFoundException(reservationId);
+    if (!reservation.isOwnedByConductor(conductorId)) {
+      throw new ReservationForbiddenException();
+    }
+
+    const now = this.clock.now();
+    if (
+      reservation.isHoldExpired(now) ||
+      reservation.getStatus() === 'expired'
+    ) {
+      if (reservation.getStatus() === 'pending_payment') {
+        reservation.markExpired(now);
+        await this.reservationRepository.update(reservation);
+      }
+      throw new HoldExpiredException(reservationId);
+    }
+
+    const transferCode =
+      await this.paymentGateway.generateTransferCode();
+    reservation.initiateBankTransfer(now, transferCode);
+    const saved = await this.reservationRepository.update(reservation);
+
+    return InitiateTransferResponseSchema.parse({
+      id: saved.getId(),
+      status: 'pending_approval',
+      transferCode: saved.getTransferCode()!,
+      transferExpiresAt: saved.getTransferExpiresAt()!.toISOString(),
+      totalCents: saved.getTotalCents(),
+      currency: 'ARS',
+    });
+  }
+
+  public async confirmTransferPayment(
+    conductorId: string,
+    reservationId: string,
+  ): Promise<ConfirmTransferResponse> {
+    const reservation =
+      await this.reservationRepository.findById(reservationId);
+    if (!reservation) throw new ReservationNotFoundException(reservationId);
+    if (!reservation.isOwnedByConductor(conductorId)) {
+      throw new ReservationForbiddenException();
+    }
+
+    const now = this.clock.now();
+    reservation.confirmTransferPayment(now);
+    const saved = await this.reservationRepository.update(reservation);
+
+    const voucher = await this.voucherProvider.generateVoucher(saved.getId());
+
+    await this.notificationProvider.notify(
+      saved.getConductorId(),
+      'Transferencia acreditada',
+      `Tu transferencia fue acreditada. Reserva ${saved.getId().slice(0, 8)} confirmada.`,
+    );
+
+    return ConfirmTransferResponseSchema.parse({
+      id: saved.getId(),
+      status: 'confirmed',
+      paidAt: saved.getPaidAt()!.toISOString(),
+      voucher: { qrCode: voucher.qrCode },
+      notified: true,
     });
   }
 
@@ -298,18 +436,6 @@ export class ReservationService {
     return this.toDTO(reservation);
   }
 
-  /**
-   * Lista las reservas del usuario autenticado desde la perspectiva indicada.
-   *
-   * Hidrata `vehicle`, `conductor` y `rentador` en 3 queries fijas (1 reservas +
-   * 2 batch `IN (...)`) sin importar `N`, evitando N+1.
-   *
-   * @param userId - ID del usuario autenticado (extraído del JWT por el controller,
-   *   nunca del query string — garantiza que un usuario no pueda ver reservas ajenas).
-   * @param dto - Rol (`conductor` u `owner`), filtros opcionales (`status[]`, `from`,
-   *   `to`) y paginación.
-   * @returns Página paginada con `items`, `page`, `pageSize` y `total` global.
-   */
   public async list(
     userId: string,
     dto: ReservationsListRequest,
@@ -430,6 +556,16 @@ export class ReservationService {
     });
   }
 
+  public async expireOverdueTransfers(): Promise<number> {
+    const now = this.clock.now();
+    const expired = await this.reservationRepository.findExpiredTransfers(now);
+    for (const r of expired) {
+      r.expireTransfer(now);
+      await this.reservationRepository.update(r);
+    }
+    return expired.length;
+  }
+
   /**
    * Cancela en cascada todas las reservas pendientes (`pending_payment` y
    * `pending_approval`) de un vehículo. Se usa al deshabilitar o eliminar el
@@ -471,11 +607,16 @@ export class ReservationService {
       totalCents: r.getTotalCents(),
       currency: r.getCurrency(),
       paymentMethod: r.getPaymentMethod(),
+      walletProvider: r.getWalletProvider(),
       contractAcceptedAt: r.getContractAcceptedAt()
         ? r.getContractAcceptedAt()!.toISOString()
         : null,
       paidAt: r.getPaidAt() ? r.getPaidAt()!.toISOString() : null,
       rejectionReason: r.getRejectionReason(),
+      transferExpiresAt: r.getTransferExpiresAt()
+        ? r.getTransferExpiresAt()!.toISOString()
+        : null,
+      transferCode: r.getTransferCode(),
       createdAt: r.getCreatedAt().toISOString(),
       updatedAt: r.getUpdatedAt().toISOString(),
       vehicle: this.vehicleSummary(vehicle, r.getVehicleId()),

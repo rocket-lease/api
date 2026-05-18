@@ -1,11 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { Favorite } from '@/domain/entities/favorite.entity';
 import type { FavoriteRepository } from '@/domain/repositories/favorite.repository';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 
 @Injectable()
 export class PostgresFavoriteRepository implements FavoriteRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   private reconstitute(row: {
     id: string;

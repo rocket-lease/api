@@ -7,6 +7,9 @@ import type {
   UserProfile,
 } from '@/domain/repositories/user.repository';
 import { Clock } from '@/domain/providers/clock.provider';
+import type { VoucherProvider } from '@/domain/providers/voucher.provider';
+import type { NotificationProvider } from '@/domain/providers/notification.provider';
+import type { PaymentGatewayProvider } from '@/domain/providers/payment-gateway.provider';
 import { randomUUID } from 'node:crypto';
 import {
   ContractNotAcceptedException,
@@ -99,6 +102,25 @@ function makeVehicleRepo(vehicles: Vehicle[]): jest.Mocked<VehicleRepository> {
   };
 }
 
+function makeVoucherProvider(): jest.Mocked<VoucherProvider> {
+  return {
+    generateVoucher: jest.fn().mockResolvedValue({ qrCode: 'QR-test' }),
+  };
+}
+
+function makeNotificationProvider(): jest.Mocked<NotificationProvider> {
+  return {
+    notify: jest.fn().mockResolvedValue(undefined),
+  };
+}
+
+function makePaymentGatewayProvider(): jest.Mocked<PaymentGatewayProvider> {
+  return {
+    processPayment: jest.fn().mockResolvedValue({ success: true, transactionId: 'txn-test' }),
+    generateTransferCode: jest.fn().mockResolvedValue('CBU-test-code'),
+  };
+}
+
 function makeUserRepo(): jest.Mocked<UserRepository> {
   return {
     save: jest.fn(),
@@ -121,6 +143,9 @@ describe('ReservationService', () => {
   let vehicleRepo: jest.Mocked<VehicleRepository>;
   let userRepo: jest.Mocked<UserRepository>;
   let clock: FakeClock;
+  let voucherProvider: jest.Mocked<VoucherProvider>;
+  let notificationProvider: jest.Mocked<NotificationProvider>;
+  let paymentGateway: jest.Mocked<PaymentGatewayProvider>;
   let service: ReservationService;
   let vehicle: Vehicle;
   const conductorA = randomUUID();
@@ -134,7 +159,18 @@ describe('ReservationService', () => {
     vehicleRepo = makeVehicleRepo([vehicle]);
     userRepo = makeUserRepo();
     clock = new FakeClock(new Date('2026-06-01T10:00:00Z'));
-    service = new ReservationService(repo, vehicleRepo, userRepo, clock);
+    voucherProvider = makeVoucherProvider();
+    notificationProvider = makeNotificationProvider();
+    paymentGateway = makePaymentGatewayProvider();
+    service = new ReservationService(
+      repo,
+      vehicleRepo,
+      userRepo,
+      clock,
+      voucherProvider,
+      notificationProvider,
+      paymentGateway,
+    );
   });
 
   it('creates a hold for valid request', async () => {
@@ -175,8 +211,8 @@ describe('ReservationService', () => {
 
   it('rejects when conductor is the owner', async () => {
     const ownedByA = makeVehicle({ ownerId: conductorA });
-    vehicleRepo = makeVehicleRepo([ownedByA]);
-    service = new ReservationService(repo, vehicleRepo, userRepo, clock);
+      vehicleRepo = makeVehicleRepo([ownedByA]);
+      service = new ReservationService(repo, vehicleRepo, userRepo, clock, voucherProvider, notificationProvider, paymentGateway);
     await expect(
       service.createReservation(conductorA, {
         vehicleId: ownedByA.getId(),
@@ -189,8 +225,8 @@ describe('ReservationService', () => {
 
   it('rejects when vehicle is disabled', async () => {
     const disabled = makeVehicle({ enabled: false });
-    vehicleRepo = makeVehicleRepo([disabled]);
-    service = new ReservationService(repo, vehicleRepo, userRepo, clock);
+      vehicleRepo = makeVehicleRepo([disabled]);
+      service = new ReservationService(repo, vehicleRepo, userRepo, clock, voucherProvider, notificationProvider, paymentGateway);
     await expect(
       service.createReservation(conductorA, {
         vehicleId: disabled.getId(),

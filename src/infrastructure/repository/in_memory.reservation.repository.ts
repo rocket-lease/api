@@ -121,6 +121,15 @@ export class InMemoryReservationRepository implements ReservationRepository {
     }
   }
 
+  async findExpiredTransfers(now: Date): Promise<Reservation[]> {
+    return Array.from(this.store.values()).filter(
+      (r) =>
+        r.getStatus() === 'pending_approval' &&
+        r.getTransferExpiresAt() !== null &&
+        r.getTransferExpiresAt()!.getTime() <= now.getTime(),
+    );
+  }
+
   async findActiveByVehicleId(
     vehicleId: string,
     statuses: ReservationStatus[],
