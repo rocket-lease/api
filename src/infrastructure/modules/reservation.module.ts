@@ -25,6 +25,8 @@ import { ReservationExpiryJob } from '@/infrastructure/jobs/reservation-expiry.j
 import { AuthModule } from './auth.module';
 import { EMAIL_PROVIDER } from '@/domain/providers/email.provider';
 import { StubEmailProvider } from '@/infrastructure/providers/stub.email.provider';
+import { ResendEmailProvider } from '@/infrastructure/providers/resend.email.provider';
+import { SmtpEmailProvider } from '@/infrastructure/providers/smtp.email.provider';
 
 @Module({
   imports: [AuthModule],
@@ -63,7 +65,12 @@ import { StubEmailProvider } from '@/infrastructure/providers/stub.email.provide
     },
     {
       provide: EMAIL_PROVIDER,
-      useClass: StubEmailProvider,
+      useClass:
+        process.env.EMAIL_PROVIDER === 'smtp'
+          ? SmtpEmailProvider
+          : process.env.EMAIL_PROVIDER === 'resend'
+            ? ResendEmailProvider
+            : StubEmailProvider,
     },
   ],
   exports: [

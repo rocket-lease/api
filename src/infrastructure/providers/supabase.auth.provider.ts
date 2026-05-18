@@ -24,7 +24,7 @@ export class SupabaseAuthProvider implements AuthProvider {
     const { data, error } = await this.supabase.auth.admin.createUser({
       email,
       password,
-      email_confirm: true,
+      email_confirm: false,
     });
     if (error) throw new InvalidEntityDataException(error.message);
 

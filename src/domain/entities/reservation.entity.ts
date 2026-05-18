@@ -387,7 +387,8 @@ export class Reservation {
   public cancel(now: Date): void {
     if (
       this.status !== 'pending_payment' &&
-      this.status !== 'pending_approval'
+      this.status !== 'pending_approval' &&
+      this.status !== 'confirmed'
     ) {
       throw new InvalidReservationTransitionException(this.status, 'cancelled');
     }
