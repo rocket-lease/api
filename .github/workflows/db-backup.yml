@@ -1,0 +1,34 @@
+name: Database Backup
+
+on:
+  schedule:
+    - cron: '0 6 * * *' # 3 AM ART (UTC-3)
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set timestamp
+        run: echo "TIMESTAMP=$(date +%Y%m%d_%H%M%S)" >> "$GITHUB_ENV"
+
+      - name: Install postgresql-client
+        run: sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Run pg_dump
+        run: |
+          pg_dump \
+            --no-password \
+            --format=plain \
+            --no-owner \
+            --no-acl \
+            "${{ secrets.DATABASE_URL }}" \
+            | gzip > "backup_${{ env.TIMESTAMP }}.sql.gz"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-${{ env.TIMESTAMP }}
+          path: backup_${{ env.TIMESTAMP }}.sql.gz
+          retention-days: 30
