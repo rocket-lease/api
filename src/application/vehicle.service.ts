@@ -20,6 +20,7 @@ import {
   UpdateVehicleRequest,
   VehicleOwner,
 } from '@rocket-lease/contracts';
+import { ReservationRuleSetService } from './reservation-rule-set.service';
 
 @Injectable()
 export class VehicleService {
@@ -28,6 +29,7 @@ export class VehicleService {
     private readonly vehicleRepository: VehicleRepository,
     @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepository,
+    private readonly reservationRuleSetService: ReservationRuleSetService,
   ) {}
 
   public async createVehicle(
@@ -69,7 +71,7 @@ export class VehicleService {
     const vehicle = await this.vehicleRepository.findById(vehicleId);
     if (!vehicle) throw new EntityNotFoundException('vehicle', vehicleId);
     const owner = await this.loadOwner(vehicle.getOwnerId());
-    return this.toDTO(vehicle, owner);
+    return this.toDTO(vehicle, owner, true);
   }
 
   public async updateVehicle(
@@ -86,8 +88,8 @@ export class VehicleService {
       const parsed = UpdateVehicleRequestSchema.parse(data);
       vehicle.update(parsed);
       await this.vehicleRepository.save(vehicle);
-    } catch (e) {
-      const field = e.issues?.[0]?.keys?.[0] ?? 'desconocido';
+    } catch (e: any) {
+      const field = e?.issues?.[0]?.keys?.[0] ?? 'desconocido';
       throw new InvalidEntityDataException(`cannot modify field '${field}'`);
     }
   }
@@ -151,10 +153,26 @@ export class VehicleService {
       const owner = await this.loadOwner(id);
       if (owner) owners.set(id, owner);
     }
-    return vehicles.map((v) => this.toDTO(v, owners.get(v.getOwnerId())));
+    return Promise.all(vehicles.map((v) => this.toDTO(v, owners.get(v.getOwnerId()))));
   }
 
-  private toDTO(vehicle: Vehicle, owner?: VehicleOwner): GetVehicleResponse {
+  private async loadReservationRuleSet(ruleSetId: string | null) {
+    if (!ruleSetId) {
+      return null;
+    }
+
+    return this.reservationRuleSetService.getPublicRuleSet(ruleSetId);
+  }
+
+  private async toDTO(
+    vehicle: Vehicle,
+    owner?: VehicleOwner,
+    includeReservationRuleSet = false,
+  ): Promise<GetVehicleResponse> {
+    const reservationRuleSet = includeReservationRuleSet
+      ? await this.loadReservationRuleSet(vehicle.getReservationRuleSetId())
+      : undefined;
+
     return GetVehicleResponseSchema.parse({
       id: vehicle.getId(),
       ownerId: vehicle.getOwnerId(),
@@ -177,6 +195,7 @@ export class VehicleService {
       city: vehicle.getCity(),
       availableFrom: vehicle.getAvailableFrom(),
       reservationRuleSetId: vehicle.getReservationRuleSetId(),
+      reservationRuleSet,
       owner,
     });
   }

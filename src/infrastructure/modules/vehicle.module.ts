@@ -4,9 +4,10 @@ import { VEHICLE_REPOSITORY } from '@/domain/repositories/vehicle.repository';
 import { VehicleService } from '@/application/vehicle.service';
 import { PostgresVehicleRepository } from '../repository/postgres.vehicle.repository';
 import { AuthModule } from './auth.module';
+import { ReservationRuleSetModule } from './reservation-rule-set.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, ReservationRuleSetModule],
   controllers: [VehicleController],
   providers: [
     VehicleService,

@@ -4,6 +4,7 @@ import {
   CreateReservationRuleSetRequestSchema,
   CreateReservationRuleSetResponseSchema,
   ReservationRuleSetSchema,
+  ReservationRuleSetPublicSchema,
   UpdateReservationRuleSetRequest,
   UpdateReservationRuleSetRequestSchema,
 } from '@rocket-lease/contracts';
@@ -75,6 +76,24 @@ export class ReservationRuleSetService {
     return this.toDTO(ruleSet);
   }
 
+  public async getRuleSetDetails(ruleSetId: string) {
+    const ruleSet = await this.reservationRuleSetRepository.findById(ruleSetId);
+    if (!ruleSet) {
+      return null;
+    }
+
+    return this.toDTO(ruleSet);
+  }
+
+  /**
+   * Devuelve la representación pública del set de reglas (sin campos privados).
+   */
+  public async getPublicRuleSet(ruleSetId: string) {
+    const ruleSet = await this.reservationRuleSetRepository.findById(ruleSetId);
+    if (!ruleSet) return null;
+    return this.toPublicDTO(ruleSet);
+  }
+
   public async deleteRuleSet(ownerId: string, ruleSetId: string): Promise<void> {
     const ruleSet = await this.reservationRuleSetRepository.findById(ruleSetId);
     if (!ruleSet || ruleSet.getRentalorId() !== ownerId) {
@@ -96,6 +115,17 @@ export class ReservationRuleSetService {
       vehicleCount: ruleSet.getVehicleCount(),
       createdAt: ruleSet.getCreatedAt().toISOString(),
       updatedAt: ruleSet.getUpdatedAt().toISOString(),
+    });
+  }
+
+  private toPublicDTO(ruleSet: ReservationRuleSet) {
+    return ReservationRuleSetPublicSchema.parse({
+      id: ruleSet.getId(),
+      rentalorId: ruleSet.getRentalorId(),
+      cancellationPolicy: ruleSet.getCancellationPolicy(),
+      deposit: ruleSet.getDeposit(),
+      maxKilometrage: ruleSet.getMaxKilometrage(),
+      rentalTimeConstraints: ruleSet.getRentalTimeConstraints(),
     });
   }
 }

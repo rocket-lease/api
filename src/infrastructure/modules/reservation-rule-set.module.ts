@@ -15,5 +15,6 @@ import { PostgresReservationRuleSetRepository } from '@/infrastructure/repositor
       useClass: PostgresReservationRuleSetRepository,
     },
   ],
+  exports: [ReservationRuleSetService],
 })
 export class ReservationRuleSetModule {}
