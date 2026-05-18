@@ -22,6 +22,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
           description: vehicle.getDescription(),
           isAccessible: vehicle.getIsAccessible(),
           enabled: vehicle.isEnabled(),
+          reservationRuleSetId: vehicle.getReservationRuleSetId(),
           province: vehicle.getProvince(),
           city: vehicle.getCity(),
           availableFrom: vehicle.getAvailableFrom(),
@@ -45,6 +46,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
           color: vehicle.getColor(),
           basePrice: vehicle.getBasePrice(),
           description: vehicle.getDescription(),
+          reservationRuleSetId: vehicle.getReservationRuleSetId(),
           province: vehicle.getProvince(),
           city: vehicle.getCity(),
           availableFrom: vehicle.getAvailableFrom(),
@@ -155,6 +157,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
       raw.province,
       raw.city,
       raw.availableFrom,
+      raw.reservationRuleSetId,
     );
   }
 }

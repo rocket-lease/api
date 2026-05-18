@@ -58,6 +58,7 @@ export class VehicleService {
       data.province,
       data.city,
       data.availableFrom,
+      null,
     );
 
     const savedVehicle = await this.vehicleRepository.save(vehicle);
@@ -175,6 +176,7 @@ export class VehicleService {
       province: vehicle.getProvince(),
       city: vehicle.getCity(),
       availableFrom: vehicle.getAvailableFrom(),
+      reservationRuleSetId: vehicle.getReservationRuleSetId(),
       owner,
     });
   }

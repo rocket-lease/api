@@ -5,6 +5,7 @@ import { InvalidEntityDataException } from '../exceptions/domain.exception';
 const vehicleSchema = z.object({
   id: z.string().uuid('Invalid ID format'),
   ownerId: z.string().uuid('Invalid ID format'),
+  reservationRuleSetId: z.string().uuid('Invalid ID format').nullable().optional(),
   plate: z.string().trim().min(1, 'Plate cannot be empty'),
   brand: z.string().min(1, 'Brand is required'),
   model: z.string().min(1, 'Model is required'),
@@ -78,6 +79,7 @@ export class Vehicle {
     private province: string,
     private city: string,
     private availableFrom: string,
+    private reservationRuleSetId: string | null = null,
   ) {
     this.validate();
   }
@@ -87,6 +89,9 @@ export class Vehicle {
   }
   public getOwnerId(): string {
     return this.ownerId;
+  }
+  public getReservationRuleSetId(): string | null {
+    return this.reservationRuleSetId;
   }
   public getPlate(): string {
     return this.plate;
@@ -170,6 +175,9 @@ export class Vehicle {
   public update(data: any): void {
     if (data.mileage !== undefined) this.updateMileage(data.mileage);
     if (data.photos) this.photos = data.photos;
+    if (data.reservationRuleSetId !== undefined) {
+      this.reservationRuleSetId = data.reservationRuleSetId;
+    }
     if (data.characteristics) {
       this.characteristics = Array.from(new Set(data.characteristics));
     }
@@ -189,6 +197,7 @@ export class Vehicle {
     const result = vehicleSchema.safeParse({
       id: this.id,
       ownerId: this.ownerId,
+      reservationRuleSetId: this.reservationRuleSetId,
       plate: this.plate,
       brand: this.brand,
       model: this.model,
