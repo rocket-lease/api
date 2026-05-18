@@ -42,6 +42,7 @@ const reservationSchema = z.object({
   walletProvider: WalletProviderEnum.nullable(),
   contractAcceptedAt: z.date().nullable(),
   paidAt: z.date().nullable(),
+  voucherToken: z.string().uuid().nullable(),
   rejectionReason: z.string().max(280).nullable(),
   transferExpiresAt: z.date().nullable(),
   transferCode: z.string().nullable(),
@@ -82,6 +83,7 @@ export interface ReservationProps {
   walletProvider?: WalletProvider | null;
   contractAcceptedAt: Date | null;
   paidAt?: Date | null;
+  voucherToken?: string | null;
   rejectionReason?: string | null;
   transferExpiresAt?: Date | null;
   transferCode?: string | null;
@@ -105,6 +107,7 @@ export class Reservation {
   private walletProvider: WalletProvider | null;
   private contractAcceptedAt: Date | null;
   private paidAt: Date | null;
+  private voucherToken: string | null;
   private rejectionReason: string | null;
   private transferExpiresAt: Date | null;
   private transferCode: string | null;
@@ -127,6 +130,7 @@ export class Reservation {
     this.walletProvider = props.walletProvider ?? null;
     this.contractAcceptedAt = props.contractAcceptedAt;
     this.paidAt = props.paidAt ?? null;
+    this.voucherToken = props.voucherToken ?? null;
     this.rejectionReason = props.rejectionReason ?? null;
     this.transferExpiresAt = props.transferExpiresAt ?? null;
     this.transferCode = props.transferCode ?? null;
@@ -180,6 +184,9 @@ export class Reservation {
   }
   public getPaidAt() {
     return this.paidAt;
+  }
+  public getVoucherToken() {
+    return this.voucherToken;
   }
   public getRejectionReason() {
     return this.rejectionReason;
@@ -244,6 +251,7 @@ export class Reservation {
     this.paymentMethod = method;
     this.walletProvider = walletProvider ?? null;
     this.paidAt = now;
+    this.voucherToken = randomUUID();
     this.holdExpiresAt = null;
     this.updatedAt = now;
   }
@@ -404,6 +412,7 @@ export class Reservation {
       walletProvider: this.walletProvider,
       contractAcceptedAt: this.contractAcceptedAt,
       paidAt: this.paidAt,
+      voucherToken: this.voucherToken,
       rejectionReason: this.rejectionReason,
       transferExpiresAt: this.transferExpiresAt,
       transferCode: this.transferCode,

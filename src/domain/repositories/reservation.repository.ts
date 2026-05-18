@@ -45,6 +45,8 @@ export interface ReservationRepository {
    */
   findById(id: string): Promise<Reservation | null>;
 
+  findByVoucherToken(token: string): Promise<Reservation | null>;
+
   /**
    * Devuelve las reservas del vehículo cuyas fechas se solapan con el rango y
    * cuyo status está en `statuses`. Se usa al crear una reserva para chequear

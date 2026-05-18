@@ -1,6 +1,7 @@
 import { ReservationService } from '@/application/reservation.service';
 import { InMemoryReservationRepository } from '@/infrastructure/repository/in_memory.reservation.repository';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
+import { Reservation } from '@/domain/entities/reservation.entity';
 import type { VehicleRepository } from '@/domain/repositories/vehicle.repository';
 import type {
   UserRepository,
@@ -18,6 +19,8 @@ import {
   ReservationForbiddenException,
   ReservationNotFoundException,
   VehicleNotAvailableException,
+  VoucherNotFoundException,
+  VoucherReservationCancelledException,
 } from '@/domain/exceptions/reservation.exception';
 import { EntityNotFoundException } from '@/domain/exceptions/domain.exception';
 
@@ -851,4 +854,137 @@ describe('ReservationService', () => {
       });
     });
   });
+
+  describe('Digital Voucher', () => {
+    let rentadorId: string;
+    let autoV: Vehicle;
+
+    beforeEach(() => {
+      rentadorId = randomUUID();
+      autoV = makeVehicle({ ownerId: rentadorId, autoAccept: true });
+      vehicleRepo = makeVehicleRepo([autoV]);
+      service = new ReservationService(repo, vehicleRepo, userRepo, clock);
+    });
+
+    it('returns a valid voucher when reservation is confirmed', async () => {
+      const created = await service.createReservation(conductorA, {
+        vehicleId: autoV.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      await service.confirmPayment(conductorA, created.id, {
+        paymentMethod: 'credit_card',
+      });
+
+      const voucher = await service.getVoucher(created.id, conductorA);
+      expect(voucher.reservationId).toBe(created.id);
+      expect(voucher.status).toBe('confirmed');
+      expect(voucher.paymentMethod).toBe('credit_card');
+      expect(voucher.voucherToken).toBeDefined();
+    });
+
+    it('throws VoucherNotFoundException when reservation is pending_payment', async () => {
+      const created = await service.createReservation(conductorA, {
+        vehicleId: autoV.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+
+      await expect(service.getVoucher(created.id, conductorA)).rejects.toThrow(
+        VoucherNotFoundException,
+      );
+    });
+
+    it('throws VoucherReservationCancelledException when reservation is cancelled', async () => {
+      const created = await service.createReservation(conductorA, {
+        vehicleId: autoV.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      await service.cancelReservation(conductorA, created.id);
+
+      await expect(service.getVoucher(created.id, conductorA)).rejects.toThrow(
+        VoucherReservationCancelledException,
+      );
+    });
+
+    it('throws ReservationForbiddenException when accessed by another conductor', async () => {
+      const created = await service.createReservation(conductorA, {
+        vehicleId: autoV.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      await service.confirmPayment(conductorA, created.id, {
+        paymentMethod: 'credit_card',
+      });
+
+      await expect(service.getVoucher(created.id, conductorB)).rejects.toThrow(
+        ReservationForbiddenException,
+      );
+    });
+
+    it('verifies a valid voucher token successfully', async () => {
+      const created = await service.createReservation(conductorA, {
+        vehicleId: autoV.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      const paymentRes = await service.confirmPayment(conductorA, created.id, {
+        paymentMethod: 'credit_card',
+      });
+
+      const verification = await service.verifyVoucher(paymentRes.voucherToken);
+      expect(verification.reservationId).toBe(created.id);
+      expect(verification.status).toBe('confirmed');
+      expect(verification.isValid).toBe(true);
+    });
+
+    it('verifies a voucher is invalid if reservation is cancelled', async () => {
+      const created = await service.createReservation(conductorA, {
+        vehicleId: autoV.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      const paymentRes = await service.confirmPayment(conductorA, created.id, {
+        paymentMethod: 'credit_card',
+      });
+
+      // Force cancellation via new entity and repo (simulate cancellation)
+      const resEntity = new Reservation({
+        id: created.id,
+        vehicleId: autoV.getId(),
+        conductorId: conductorA,
+        rentadorId: rentadorId,
+        status: 'cancelled',
+        startAt: new Date(start),
+        endAt: new Date(end),
+        holdExpiresAt: null,
+        contractAcceptedAt: clock.now(),
+        totalCents: 48000,
+        paymentMethod: 'credit_card',
+        paidAt: clock.now(),
+        voucherToken: paymentRes.voucherToken,
+        createdAt: clock.now(),
+        updatedAt: clock.now(),
+      });
+      await repo.update(resEntity);
+
+      const verification = await service.verifyVoucher(paymentRes.voucherToken);
+      expect(verification.isValid).toBe(false);
+      expect(verification.status).toBe('cancelled');
+    });
+
+    it('throws VoucherNotFoundException for unknown token', async () => {
+      await expect(service.verifyVoucher(randomUUID())).rejects.toThrow(
+        VoucherNotFoundException,
+      );
+    });
+  });
 });
+

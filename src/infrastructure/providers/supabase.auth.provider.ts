@@ -24,19 +24,9 @@ export class SupabaseAuthProvider implements AuthProvider {
     const { data, error } = await this.supabase.auth.admin.createUser({
       email,
       password,
-      email_confirm: false,
+      email_confirm: true,
     });
     if (error) throw new InvalidEntityDataException(error.message);
-
-    const { error: resendError } = await this.supabase.auth.resend({
-      type: 'signup',
-      email,
-    });
-    if (resendError) {
-      this.logger.warn(
-        `Failed to send signup OTP for ${email}: ${resendError.message}`,
-      );
-    }
 
     return { userId: data.user.id };
   }

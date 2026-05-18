@@ -156,6 +156,22 @@ export class ReservationController {
     return await this.reservationService.getBusyRangesForVehicle(vehicleId);
   }
 
+  @Get('voucher/verify/:token')
+  async verifyVoucher(
+    @Param('token') token: string,
+  ): Promise<Contracts.VerifyVoucherResponse> {
+    return await this.reservationService.verifyVoucher(token);
+  }
+
+  @Get(':id/voucher')
+  async getVoucher(
+    @Param('id') id: string,
+    @Req() req: Request,
+  ): Promise<Contracts.Voucher> {
+    const conductorId = await this.requireUserId(req);
+    return await this.reservationService.getVoucher(id, conductorId);
+  }
+
   @Get(':id')
   async getById(
     @Param('id') id: string,

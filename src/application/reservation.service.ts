@@ -26,6 +26,10 @@ import {
   InitiateTransferResponseSchema,
   type ConfirmTransferResponse,
   ConfirmTransferResponseSchema,
+  type Voucher,
+  VoucherSchema,
+  type VerifyVoucherResponse,
+  VerifyVoucherResponseSchema,
 } from '@rocket-lease/contracts';
 import {
   APPROVAL_TTL_MS,
@@ -55,6 +59,8 @@ import {
   ReservationForbiddenException,
   ReservationNotFoundException,
   VehicleNotAvailableException,
+  VoucherNotFoundException,
+  VoucherReservationCancelledException,
 } from '@/domain/exceptions/reservation.exception';
 import {
   VOUCHER_PROVIDER,
@@ -71,6 +77,7 @@ import {
 import { CLOCK, type Clock } from '@/domain/providers/clock.provider';
 import { computeReservationTotalCents } from './helpers/pricing';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
+import { EMAIL_PROVIDER, type EmailProvider } from '@/domain/providers/email.provider';
 
 @Injectable()
 export class ReservationService {
@@ -89,6 +96,8 @@ export class ReservationService {
     private readonly notificationProvider: NotificationProvider,
     @Inject(PAYMENT_GATEWAY_PROVIDER)
     private readonly paymentGateway: PaymentGatewayProvider,
+    @Inject(EMAIL_PROVIDER)
+    private readonly emailProvider: EmailProvider,
   ) {}
 
   /**
@@ -233,8 +242,7 @@ export class ReservationService {
     );
     const saved = await this.reservationRepository.update(reservation);
 
-    // Generate voucher and send notifications
-    const voucher = await this.voucherProvider.generateVoucher(saved.getId());
+    await this.voucherProvider.generateVoucher(saved.getId());
 
     await this.notificationProvider.notify(
       saved.getConductorId(),
@@ -246,13 +254,17 @@ export class ReservationService {
       'Nueva reserva confirmada',
       `Tenés una nueva reserva confirmada para el vehículo.`,
     );
+    const conductorProfile = await this.userRepository.getProfileById(conductorId);
+    if (conductorProfile?.email) {
+      const voucherData = await this.getVoucher(saved.getId(), conductorId);
+      await this.emailProvider.sendVoucherEmail(conductorProfile.email, voucherData);
+    }
 
     return ConfirmReservationPaymentResponseSchema.parse({
       id: saved.getId(),
       status: 'confirmed',
       paidAt: saved.getPaidAt()!.toISOString(),
-      voucher: { qrCode: voucher.qrCode },
-      notified: true,
+      voucherToken: saved.getVoucherToken()!,
     });
   }
 
@@ -457,6 +469,90 @@ export class ReservationService {
     return this.toDTO(reservation);
   }
 
+  public async getVoucher(
+    reservationId: string,
+    conductorId: string,
+  ): Promise<Voucher> {
+    const reservation = await this.reservationRepository.findById(reservationId);
+    if (!reservation) throw new ReservationNotFoundException(reservationId);
+    if (!reservation.isOwnedByConductor(conductorId)) {
+      throw new ReservationForbiddenException();
+    }
+    if (reservation.getStatus() === 'cancelled') {
+      throw new VoucherReservationCancelledException(reservationId);
+    }
+    const token = reservation.getVoucherToken();
+    if (!token) throw new VoucherNotFoundException('pending');
+
+    const vehicle = await this.vehicleRepository.findById(reservation.getVehicleId());
+    if (!vehicle) throw new EntityNotFoundException('vehicle', reservation.getVehicleId());
+    const conductorProfile = await this.userRepository.getProfileById(conductorId);
+
+    return VoucherSchema.parse({
+      reservationId: reservation.getId(),
+      voucherToken: token,
+      status: reservation.getStatus(),
+      conductor: {
+        id: conductorId,
+        name: conductorProfile?.name ?? 'Conductor',
+        avatarUrl: conductorProfile?.avatarUrl ?? null,
+      },
+      vehicle: this.vehicleSummary(vehicle, vehicle.getId()),
+      startAt: reservation.getStartAt().toISOString(),
+      endAt: reservation.getEndAt().toISOString(),
+      totalCents: reservation.getTotalCents(),
+      currency: reservation.getCurrency(),
+      paymentMethod: reservation.getPaymentMethod()!,
+      paidAt: reservation.getPaidAt()!.toISOString(),
+    });
+  }
+
+  public async verifyVoucher(token: string): Promise<VerifyVoucherResponse> {
+    const reservation = await this.reservationRepository.findByVoucherToken(token);
+    if (!reservation) throw new VoucherNotFoundException(token);
+
+    const vehicle = await this.vehicleRepository.findById(reservation.getVehicleId());
+    const conductorProfile = await this.userRepository.getProfileById(reservation.getConductorId());
+    const rentadorProfile = await this.userRepository.getProfileById(reservation.getRentadorId());
+
+    const isValid = reservation.getStatus() === 'confirmed' || reservation.getStatus() === 'in_progress';
+
+    return VerifyVoucherResponseSchema.parse({
+      reservationId: reservation.getId(),
+      status: reservation.getStatus(),
+      conductor: {
+        id: reservation.getConductorId(),
+        name: conductorProfile?.name ?? 'Conductor',
+        avatarUrl: conductorProfile?.avatarUrl ?? null,
+      },
+      vehicle: this.vehicleSummary(vehicle, reservation.getVehicleId()),
+      rentador: {
+        id: reservation.getRentadorId(),
+        name: rentadorProfile?.name ?? 'Rentador',
+        avatarUrl: rentadorProfile?.avatarUrl ?? null,
+      },
+      startAt: reservation.getStartAt().toISOString(),
+      endAt: reservation.getEndAt().toISOString(),
+      totalCents: reservation.getTotalCents(),
+      currency: reservation.getCurrency(),
+      paymentMethod: reservation.getPaymentMethod()!,
+      paidAt: reservation.getPaidAt()!.toISOString(),
+      isValid,
+    });
+  }
+
+  /**
+   * Lista las reservas del usuario autenticado desde la perspectiva indicada.
+   *
+   * Hidrata `vehicle`, `conductor` y `rentador` en 3 queries fijas (1 reservas +
+   * 2 batch `IN (...)`) sin importar `N`, evitando N+1.
+   *
+   * @param userId - ID del usuario autenticado (extraído del JWT por el controller,
+   *   nunca del query string — garantiza que un usuario no pueda ver reservas ajenas).
+   * @param dto - Rol (`conductor` u `owner`), filtros opcionales (`status[]`, `from`,
+   *   `to`) y paginación.
+   * @returns Página paginada con `items`, `page`, `pageSize` y `total` global.
+   */
   public async list(
     userId: string,
     dto: ReservationsListRequest,
@@ -633,6 +729,7 @@ export class ReservationService {
         ? r.getContractAcceptedAt()!.toISOString()
         : null,
       paidAt: r.getPaidAt() ? r.getPaidAt()!.toISOString() : null,
+      voucherToken: r.getVoucherToken() ?? null,
       rejectionReason: r.getRejectionReason(),
       transferExpiresAt: r.getTransferExpiresAt()
         ? r.getTransferExpiresAt()!.toISOString()
