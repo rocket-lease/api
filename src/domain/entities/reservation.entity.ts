@@ -25,7 +25,7 @@ const PaymentMethodEnum = z.enum([
   'digital_wallet',
 ]);
 
-const WalletProviderEnum = z.enum(['mercadopago', 'uala']);
+export const WalletProviderEnum = z.enum(['mercadopago', 'uala']);
 
 const reservationSchema = z.object({
   id: z.string().uuid(),

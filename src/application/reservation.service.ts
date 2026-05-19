@@ -33,7 +33,7 @@ import {
   CASCADE_REJECTION_REASON,
   HOLD_TTL_MS,
   Reservation,
-  PaymentMethod,
+  WalletProviderEnum,
 } from '@/domain/entities/reservation.entity';
 import {
   RESERVATION_REPOSITORY,
@@ -71,12 +71,6 @@ import {
 import { CLOCK, type Clock } from '@/domain/providers/clock.provider';
 import { computeReservationTotalCents } from './helpers/pricing';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
-
-const INSTANT_METHODS: PaymentMethod[] = [
-  'credit_card',
-  'debit_card',
-  'digital_wallet',
-];
 
 @Injectable()
 export class ReservationService {
@@ -229,10 +223,13 @@ export class ReservationService {
       throw new Error('walletProvider is required for digital_wallet');
     }
 
+    const parsedWalletProvider = dto.walletProvider
+      ? WalletProviderEnum.parse(dto.walletProvider)
+      : undefined;
     reservation.confirmPayment(
       dto.paymentMethod,
       now,
-      dto.walletProvider as any,
+      parsedWalletProvider,
     );
     const saved = await this.reservationRepository.update(reservation);
 
@@ -305,17 +302,19 @@ export class ReservationService {
    * Re-intenta con un intervalo exponencial hasta 3 veces si falla.
    */
   private autoConfirmTransfer(reservationId: string): void {
-    setTimeout(async () => {
-      try {
-        const r = await this.reservationRepository.findById(reservationId);
-        if (!r) return;
-        if (r.getStatus() !== 'pending_approval') return;
-        if (r.isTransferExpired(this.clock.now())) return;
-        r.confirmTransferPayment(this.clock.now());
-        await this.reservationRepository.update(r);
-      } catch {
-        // auto-confirm falló (ej. solapamiento de EXCLUDE), se cancela silenciosamente
-      }
+    setTimeout(() => {
+      void (async (): Promise<void> => {
+        try {
+          const r = await this.reservationRepository.findById(reservationId);
+          if (!r) return;
+          if (r.getStatus() !== 'pending_approval') return;
+          if (r.isTransferExpired(this.clock.now())) return;
+          r.confirmTransferPayment(this.clock.now());
+          await this.reservationRepository.update(r);
+        } catch {
+          // auto-confirm falló (ej. solapamiento de EXCLUDE), se cancela silenciosamente
+        }
+      })();
     }, 5000);
   }
 
