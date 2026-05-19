@@ -50,6 +50,8 @@ interface GlobalContext {
   reservation_response?: any;
   reservations_by_alias?: Record<string, string>;
   pre_made_reservations?: Array<{ alias: string; status: string }>;
+  voucher_token?: string;
+  verification_response?: any;
 }
 
 export interface MyWorld extends World {
