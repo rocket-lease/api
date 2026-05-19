@@ -4,6 +4,7 @@ import {
 } from '@/domain/entities/reservation.entity';
 import {
   ContractNotAcceptedException,
+  InvalidQrTokenException,
   InvalidReservationTransitionException,
 } from '@/domain/exceptions/reservation.exception';
 import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
@@ -199,6 +200,54 @@ describe('Reservation entity', () => {
       expect(() => r.reject('motivo', new Date())).toThrow(
         InvalidReservationTransitionException,
       );
+    });
+  });
+
+  describe('confirmPickup', () => {
+    it('transitions confirmed to in_progress and generates returnQrToken', () => {
+      const r = makeReservation({ status: 'confirmed', voucherToken: randomUUID() });
+      const now = new Date('2026-06-02T10:00:00Z');
+      r.confirmPickup(now);
+      expect(r.getStatus()).toBe('in_progress');
+      expect(r.getStartedAt()).toEqual(now);
+      expect(r.getReturnQrToken()).toBeTruthy();
+    });
+
+    it('fails when not confirmed', () => {
+      const r = makeReservation({ status: 'in_progress' });
+      expect(() => r.confirmPickup(new Date())).toThrow(InvalidReservationTransitionException);
+    });
+
+    it('fails when pending_payment', () => {
+      const r = makeReservation();
+      expect(() => r.confirmPickup(new Date())).toThrow(InvalidReservationTransitionException);
+    });
+  });
+
+  describe('confirmReturn', () => {
+    function makeInProgressWithToken() {
+      const r = makeReservation({ status: 'confirmed', voucherToken: randomUUID() });
+      r.confirmPickup(new Date('2026-06-02T10:00:00Z'));
+      return r;
+    }
+
+    it('transitions in_progress to completed', () => {
+      const r = makeInProgressWithToken();
+      const token = r.getReturnQrToken()!;
+      const now = new Date('2026-06-04T10:00:00Z');
+      r.confirmReturn(token, now);
+      expect(r.getStatus()).toBe('completed');
+      expect(r.getCompletedAt()).toEqual(now);
+    });
+
+    it('fails when token does not match', () => {
+      const r = makeInProgressWithToken();
+      expect(() => r.confirmReturn(randomUUID(), new Date())).toThrow(InvalidQrTokenException);
+    });
+
+    it('fails when not in_progress', () => {
+      const r = makeReservation({ status: 'confirmed', voucherToken: randomUUID() });
+      expect(() => r.confirmReturn(randomUUID(), new Date())).toThrow(InvalidReservationTransitionException);
     });
   });
 

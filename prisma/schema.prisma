@@ -116,6 +116,9 @@ model Reservation {
   contractAcceptedAt  DateTime?          @map("contract_accepted_at") @db.Timestamptz(6)
   paidAt              DateTime?          @map("paid_at") @db.Timestamptz(6)
   voucherToken        String?            @map("voucher_token") @db.Uuid
+  returnQrToken       String?            @unique @map("return_qr_token") @db.Uuid
+  startedAt           DateTime?          @map("started_at") @db.Timestamptz(6)
+  completedAt         DateTime?          @map("completed_at") @db.Timestamptz(6)
   rejectionReason     String?            @map("rejection_reason") @db.VarChar(280)
   transferExpiresAt   DateTime?          @map("transfer_expires_at") @db.Timestamptz(6)
   transferCode        String?            @map("transfer_code")
