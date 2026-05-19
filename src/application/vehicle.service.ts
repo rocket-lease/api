@@ -42,7 +42,6 @@ export class VehicleService {
     if (exists) throw new EntityAlreadyExistsException('vehicle', data.plate);
 
     const owner = await this.userRepository.findById(ownerId);
-    if (!owner) throw new EntityNotFoundException('user', ownerId);
 
     const vehicle = new Vehicle(
       undefined,
