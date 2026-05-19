@@ -50,7 +50,6 @@ export class DomainExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
-    const timestamp = new Date().toISOString();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let code: ErrorCode = ErrorCodes.INTERNAL_ERROR;
@@ -116,10 +115,6 @@ export class DomainExceptionFilter implements ExceptionFilter {
       code = ErrorCodes.INVALID_ENTITY_DATA;
       title = 'Bad Request';
       message = exception.issues.map((i) => i.message).join('; ');
-    } else if (exception instanceof UserHasVehiclesException) {
-      status = HttpStatus.CONFLICT;
-      code = ErrorCodes.USER_HAS_VEHICLES;
-      title = 'Conflict';
     } else if (exception instanceof UnauthorizedException) {
       status = HttpStatus.UNAUTHORIZED;
       code = ErrorCodes.UNAUTHORIZED;
@@ -140,15 +135,6 @@ export class DomainExceptionFilter implements ExceptionFilter {
       if (status === HttpStatus.UNAUTHORIZED) code = ErrorCodes.UNAUTHORIZED;
       if (status === HttpStatus.FORBIDDEN) code = ErrorCodes.FORBIDDEN;
       title = HttpStatus[status] ?? 'Error';
-    } else if (isZodError(exception)) {
-      status = HttpStatus.BAD_REQUEST;
-      code = ErrorCodes.INVALID_ENTITY_DATA;
-      message = exception.issues
-        .map((i: ZodIssue) => {
-          const field = i.path.join('.');
-          return field ? `${field}: ${i.message.toLowerCase()}` : i.message;
-        })
-        .join('; ');
     }
 
     const problem = ProblemDetailsSchema.parse({
