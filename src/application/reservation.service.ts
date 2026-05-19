@@ -37,6 +37,7 @@ import {
   CASCADE_REJECTION_REASON,
   HOLD_TTL_MS,
   Reservation,
+  RESERVATION_STATUS,
   WalletProviderEnum,
 } from '@/domain/entities/reservation.entity';
 import {
@@ -155,7 +156,7 @@ export class ReservationService {
       endAt,
     );
 
-    const status = effectiveAutoAccept ? 'pending_payment' : 'pending_approval';
+    const status = effectiveAutoAccept ? RESERVATION_STATUS.pending_payment : RESERVATION_STATUS.pending_approval;
     const ttlMs = effectiveAutoAccept ? HOLD_TTL_MS : APPROVAL_TTL_MS;
 
     const reservation = new Reservation({
@@ -213,11 +214,8 @@ export class ReservationService {
     }
 
     const now = this.clock.now();
-    if (
-      reservation.isHoldExpired(now) ||
-      reservation.getStatus() === 'expired'
-    ) {
-      if (reservation.getStatus() === 'pending_payment') {
+    if (reservation.isHoldExpired(now) || reservation.isExpired()) {
+      if (reservation.isPendingPayment()) {
         reservation.markExpired(now);
         await this.reservationRepository.update(reservation);
       }
@@ -262,7 +260,7 @@ export class ReservationService {
 
     return ConfirmReservationPaymentResponseSchema.parse({
       id: saved.getId(),
-      status: 'confirmed',
+      status: RESERVATION_STATUS.confirmed,
       paidAt: saved.getPaidAt()!.toISOString(),
       voucherToken: saved.getVoucherToken()!,
     });
@@ -280,11 +278,8 @@ export class ReservationService {
     }
 
     const now = this.clock.now();
-    if (
-      reservation.isHoldExpired(now) ||
-      reservation.getStatus() === 'expired'
-    ) {
-      if (reservation.getStatus() === 'pending_payment') {
+    if (reservation.isHoldExpired(now) || reservation.isExpired()) {
+      if (reservation.isPendingPayment()) {
         reservation.markExpired(now);
         await this.reservationRepository.update(reservation);
       }
@@ -300,7 +295,7 @@ export class ReservationService {
 
     return InitiateTransferResponseSchema.parse({
       id: saved.getId(),
-      status: 'pending_approval',
+      status: RESERVATION_STATUS.pending_approval,
       transferCode: saved.getTransferCode()!,
       transferAlias: saved.getTransferAlias()!,
       transferExpiresAt: saved.getTransferExpiresAt()!.toISOString(),
@@ -319,7 +314,7 @@ export class ReservationService {
         try {
           const r = await this.reservationRepository.findById(reservationId);
           if (!r) return;
-          if (r.getStatus() !== 'pending_approval') return;
+          if (!r.isPendingApproval()) return;
           if (r.isTransferExpired(this.clock.now())) return;
           r.confirmTransferPayment(this.clock.now());
           await this.reservationRepository.update(r);
@@ -355,7 +350,7 @@ export class ReservationService {
 
     return ConfirmTransferResponseSchema.parse({
       id: saved.getId(),
-      status: 'confirmed',
+      status: RESERVATION_STATUS.confirmed,
       paidAt: saved.getPaidAt()!.toISOString(),
       voucher: { qrCode: voucher.qrCode },
       notified: true,
@@ -414,7 +409,7 @@ export class ReservationService {
 
     return ApproveReservationResponseSchema.parse({
       id: reservation.getId(),
-      status: 'pending_payment',
+      status: RESERVATION_STATUS.pending_payment,
       holdExpiresAt: reservation.getHoldExpiresAt()!.toISOString(),
     });
   }
@@ -448,7 +443,7 @@ export class ReservationService {
 
     return RejectReservationResponseSchema.parse({
       id: saved.getId(),
-      status: 'rejected',
+      status: RESERVATION_STATUS.rejected,
       rejectionReason: saved.getRejectionReason(),
     });
   }
@@ -478,7 +473,7 @@ export class ReservationService {
     if (!reservation.isOwnedByConductor(conductorId)) {
       throw new ReservationForbiddenException();
     }
-    if (reservation.getStatus() === 'cancelled') {
+    if (reservation.isCancelled()) {
       throw new VoucherReservationCancelledException(reservationId);
     }
     const token = reservation.getVoucherToken();
@@ -515,7 +510,7 @@ export class ReservationService {
     const conductorProfile = await this.userRepository.getProfileById(reservation.getConductorId());
     const rentadorProfile = await this.userRepository.getProfileById(reservation.getRentadorId());
 
-    const isValid = reservation.getStatus() === 'confirmed' || reservation.getStatus() === 'in_progress';
+    const isValid = reservation.isConfirmed() || reservation.isInProgress();
 
     return VerifyVoucherResponseSchema.parse({
       reservationId: reservation.getId(),
@@ -669,7 +664,7 @@ export class ReservationService {
 
     return CancelReservationResponseSchema.parse({
       id: saved.getId(),
-      status: 'cancelled',
+      status: RESERVATION_STATUS.cancelled,
     });
   }
 
@@ -696,7 +691,7 @@ export class ReservationService {
     const now = this.clock.now();
     const pending = await this.reservationRepository.findActiveByVehicleId(
       vehicleId,
-      ['pending_payment', 'pending_approval'],
+      [RESERVATION_STATUS.pending_payment, RESERVATION_STATUS.pending_approval],
     );
     for (const r of pending) {
       r.cancel(now);
