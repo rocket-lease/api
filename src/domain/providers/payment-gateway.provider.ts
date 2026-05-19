@@ -3,6 +3,11 @@ export interface PaymentGatewayResult {
   transactionId: string;
 }
 
+export interface TransferCodeResult {
+  code: string;
+  alias: string;
+}
+
 export interface PaymentGatewayProvider {
   /**
    * Procesa un pago inmediato (tarjeta crédito/débito).
@@ -17,7 +22,7 @@ export interface PaymentGatewayProvider {
   /**
    * Genera un código de transferencia bancaria (CBU/CVU simulado).
    */
-  generateTransferCode(): Promise<string>;
+  generateTransferCode(): Promise<TransferCodeResult>;
 }
 
 export const PAYMENT_GATEWAY_PROVIDER = Symbol('PaymentGatewayProvider');

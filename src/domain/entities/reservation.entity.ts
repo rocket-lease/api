@@ -10,7 +10,6 @@ import {
 const ReservationStatusEnum = z.enum([
   'pending_approval',
   'pending_payment',
-  'pending_approval',
   'confirmed',
   'in_progress',
   'completed',
@@ -46,6 +45,7 @@ const reservationSchema = z.object({
   rejectionReason: z.string().max(280).nullable(),
   transferExpiresAt: z.date().nullable(),
   transferCode: z.string().nullable(),
+  transferAlias: z.string().nullable(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
@@ -56,7 +56,6 @@ export type WalletProvider = z.infer<typeof WalletProviderEnum>;
 
 export const BLOCKING_STATUSES: ReservationStatus[] = [
   'pending_payment',
-  'pending_approval',
   'confirmed',
   'in_progress',
 ];
@@ -86,6 +85,7 @@ export interface ReservationProps {
   rejectionReason?: string | null;
   transferExpiresAt?: Date | null;
   transferCode?: string | null;
+  transferAlias?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -108,6 +108,7 @@ export class Reservation {
   private rejectionReason: string | null;
   private transferExpiresAt: Date | null;
   private transferCode: string | null;
+  private transferAlias: string | null;
   private readonly createdAt: Date;
   private updatedAt: Date;
 
@@ -129,6 +130,7 @@ export class Reservation {
     this.rejectionReason = props.rejectionReason ?? null;
     this.transferExpiresAt = props.transferExpiresAt ?? null;
     this.transferCode = props.transferCode ?? null;
+    this.transferAlias = props.transferAlias ?? null;
     this.createdAt = props.createdAt ?? new Date();
     this.updatedAt = props.updatedAt ?? this.createdAt;
     this.validate();
@@ -188,6 +190,9 @@ export class Reservation {
   public getTransferCode() {
     return this.transferCode;
   }
+  public getTransferAlias() {
+    return this.transferAlias;
+  }
   public getCreatedAt() {
     return this.createdAt;
   }
@@ -204,7 +209,7 @@ export class Reservation {
   }
 
   public isHoldExpired(now: Date): boolean {
-    if (this.status !== 'pending_payment') return false;
+    if (this.status !== 'pending_payment' && this.status !== 'pending_approval') return false;
     if (!this.holdExpiresAt) return false;
     return this.holdExpiresAt.getTime() <= now.getTime();
   }
@@ -224,7 +229,7 @@ export class Reservation {
     now: Date,
     walletProvider?: WalletProvider,
   ): void {
-    if (this.status !== 'pending_payment') {
+    if (this.status !== 'pending_payment' && this.status !== 'pending_approval') {
       throw new InvalidReservationTransitionException(this.status, 'confirmed');
     }
     if (!this.contractAcceptedAt) {
@@ -248,8 +253,12 @@ export class Reservation {
    * Transita de pending_payment → pending_approval.
    * Genera un código CBU/CVU simulado y establece expiración a 2h.
    */
-  public initiateBankTransfer(now: Date, transferCode: string): void {
-    if (this.status !== 'pending_payment') {
+  public initiateBankTransfer(
+    now: Date,
+    transferCode: string,
+    transferAlias: string,
+  ): void {
+    if (this.status !== 'pending_payment' && this.status !== 'pending_approval') {
       throw new InvalidReservationTransitionException(
         this.status,
         'pending_approval',
@@ -261,6 +270,7 @@ export class Reservation {
     this.status = 'pending_approval';
     this.paymentMethod = 'bank_transfer';
     this.transferCode = transferCode;
+    this.transferAlias = transferAlias;
     this.transferExpiresAt = new Date(now.getTime() + TRANSFER_TTL_MS);
     this.holdExpiresAt = null;
     this.updatedAt = now;
@@ -397,6 +407,7 @@ export class Reservation {
       rejectionReason: this.rejectionReason,
       transferExpiresAt: this.transferExpiresAt,
       transferCode: this.transferCode,
+      transferAlias: this.transferAlias,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     });

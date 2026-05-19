@@ -30,6 +30,7 @@ type Row = {
   rejectionReason: string | null;
   transferExpiresAt: Date | null;
   transferCode: string | null;
+  transferAlias: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -200,6 +201,7 @@ export class PostgresReservationRepository implements ReservationRepository {
       rejectionReason: r.getRejectionReason(),
       transferExpiresAt: r.getTransferExpiresAt(),
       transferCode: r.getTransferCode() ?? null,
+      transferAlias: r.getTransferAlias() ?? null,
       createdAt: r.getCreatedAt(),
       updatedAt: r.getUpdatedAt(),
     };
@@ -224,6 +226,7 @@ export class PostgresReservationRepository implements ReservationRepository {
       rejectionReason: row.rejectionReason,
       transferExpiresAt: row.transferExpiresAt,
       transferCode: row.transferCode,
+      transferAlias: row.transferAlias,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });

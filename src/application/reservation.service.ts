@@ -282,19 +282,41 @@ export class ReservationService {
       throw new HoldExpiredException(reservationId);
     }
 
-    const transferCode =
+    const { code: transferCode, alias: transferAlias } =
       await this.paymentGateway.generateTransferCode();
-    reservation.initiateBankTransfer(now, transferCode);
+    reservation.initiateBankTransfer(now, transferCode, transferAlias);
     const saved = await this.reservationRepository.update(reservation);
+
+    this.autoConfirmTransfer(reservationId);
 
     return InitiateTransferResponseSchema.parse({
       id: saved.getId(),
       status: 'pending_approval',
       transferCode: saved.getTransferCode()!,
+      transferAlias: saved.getTransferAlias()!,
       transferExpiresAt: saved.getTransferExpiresAt()!.toISOString(),
       totalCents: saved.getTotalCents(),
       currency: 'ARS',
     });
+  }
+
+  /**
+   * Auto-confirma la transferencia después de 5 segundos (demo).
+   * Re-intenta con un intervalo exponencial hasta 3 veces si falla.
+   */
+  private autoConfirmTransfer(reservationId: string): void {
+    setTimeout(async () => {
+      try {
+        const r = await this.reservationRepository.findById(reservationId);
+        if (!r) return;
+        if (r.getStatus() !== 'pending_approval') return;
+        if (r.isTransferExpired(this.clock.now())) return;
+        r.confirmTransferPayment(this.clock.now());
+        await this.reservationRepository.update(r);
+      } catch {
+        // auto-confirm falló (ej. solapamiento de EXCLUDE), se cancela silenciosamente
+      }
+    }, 5000);
   }
 
   public async confirmTransferPayment(
@@ -617,6 +639,7 @@ export class ReservationService {
         ? r.getTransferExpiresAt()!.toISOString()
         : null,
       transferCode: r.getTransferCode(),
+      transferAlias: r.getTransferAlias(),
       createdAt: r.getCreatedAt().toISOString(),
       updatedAt: r.getUpdatedAt().toISOString(),
       vehicle: this.vehicleSummary(vehicle, r.getVehicleId()),
