@@ -18,19 +18,6 @@ Given(
   },
 );
 
-Given(
-  'que ya existe un usuario registrado con email {string}',
-  async function (this: MyWorld, email: string) {
-    await api(this).post('/auth/register', {
-      name: 'Existente',
-      email,
-      dni: '12345678',
-      phone: '1100000000',
-      password: 'Passw0rd!',
-    });
-  },
-);
-
 Given('ese email ya fue verificado', async function (this: MyWorld) {
   const email = this.world.register_dto?.email ?? 'repetido@ejemplo.com';
   await api(this).post('/verifications/email/verify', {
@@ -39,7 +26,7 @@ Given('ese email ya fue verificado', async function (this: MyWorld) {
   });
 });
 
-When('envía el formulario de registro', async function (this: MyWorld) {
+When('envío el formulario de registro', async function (this: MyWorld) {
   this.world.register_response = await api(this).post(
     '/auth/register',
     this.world.register_dto,
@@ -69,7 +56,8 @@ Then('no se crea la cuenta', function (this: MyWorld) {
 });
 
 Then('el sistema indica que el email es inválido', function (this: MyWorld) {
-  expect(this.world.register_response.status).toBe(400);
+  const res = this.world.register_response ?? this.world.response;
+  expect(res.status).toBe(400);
 });
 
 Then(

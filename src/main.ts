@@ -8,12 +8,14 @@ async function bootstrap() {
   app.enableCors({
     origin: process.env.CORS_ORIGIN?.split(',') ?? [
       'https://rocket-lease.vercel.app',
+      'https://rocketlease.qzz.io',
       'http://localhost:5173',
       'http://localhost:4173',
+      'https://dreamy-anyplace-zebra.ngrok-free.dev',
     ],
     credentials: true,
   });
   app.useGlobalFilters(new DomainExceptionFilter());
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(process.env.PORT ?? 8080);
 }
 void bootstrap();

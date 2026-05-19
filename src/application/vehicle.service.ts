@@ -6,9 +6,10 @@ import {
 } from '@/domain/exceptions/domain.exception';
 import type { VehicleRepository } from '@/domain/repositories/vehicle.repository';
 import { VEHICLE_REPOSITORY } from '@/domain/repositories/vehicle.repository';
-import type { UserRepository } from '@/domain/repositories/user.repository';
+import type { UserProfile, UserRepository } from '@/domain/repositories/user.repository';
 import { USER_REPOSITORY } from '@/domain/repositories/user.repository';
 import { Inject, Injectable } from '@nestjs/common';
+import { ReservationService } from './reservation.service';
 import { UpdateVehicleRequestSchema } from '@rocket-lease/contracts';
 import {
   CreateVehicleRequest,
@@ -29,6 +30,7 @@ export class VehicleService {
     private readonly vehicleRepository: VehicleRepository,
     @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepository,
+    @Inject(ReservationService) private readonly reservationService: ReservationService,
     private readonly reservationRuleSetService: ReservationRuleSetService,
   ) {}
 
@@ -38,6 +40,9 @@ export class VehicleService {
   ): Promise<CreateVehicleResponse> {
     const exists = await this.vehicleRepository.findByPlate(data.plate);
     if (exists) throw new EntityAlreadyExistsException('vehicle', data.plate);
+
+    const owner = await this.userRepository.findById(ownerId);
+    if (!owner) throw new EntityNotFoundException('user', ownerId);
 
     const vehicle = new Vehicle(
       undefined,
@@ -55,12 +60,13 @@ export class VehicleService {
       data.characteristics || [],
       data.color,
       data.mileage,
-      data.basePrice,
+      data.basePriceCents,
       data.description,
       data.province,
       data.city,
       data.availableFrom,
       null,
+      data.autoAccept ?? null,
     );
 
     const savedVehicle = await this.vehicleRepository.save(vehicle);
@@ -84,10 +90,14 @@ export class VehicleService {
     if (vehicle.getOwnerId() !== ownerId) {
       throw new EntityNotFoundException('vehicle', vehicleId);
     }
+    const wasEnabled = vehicle.isEnabled();
     try {
       const parsed = UpdateVehicleRequestSchema.parse(data);
       vehicle.update(parsed);
       await this.vehicleRepository.save(vehicle);
+      if (wasEnabled && !vehicle.isEnabled()) {
+        await this.reservationService.cancelPendingByVehicle(vehicle.getId());
+      }
     } catch (e: any) {
       const field = e?.issues?.[0]?.keys?.[0] ?? 'desconocido';
       throw new InvalidEntityDataException(`cannot modify field '${field}'`);
@@ -130,6 +140,7 @@ export class VehicleService {
     if (vehicle.getOwnerId() !== ownerId) {
       throw new EntityNotFoundException('vehicle', vehicleId);
     }
+    await this.reservationService.cancelPendingByVehicle(vehicleId);
     await this.vehicleRepository.delete(vehicleId);
   }
 
@@ -148,12 +159,22 @@ export class VehicleService {
 
   private async toListDTO(vehicles: Vehicle[]): Promise<GetVehicleResponse[]> {
     const ownerIds = Array.from(new Set(vehicles.map((v) => v.getOwnerId())));
-    const owners = new Map<string, VehicleOwner>();
-    for (const id of ownerIds) {
-      const owner = await this.loadOwner(id);
-      if (owner) owners.set(id, owner);
-    }
+    const profiles = await this.userRepository.findProfilesByIds(ownerIds);
+    const owners = new Map<string, VehicleOwner>(
+      profiles.map((p) => [p.id, this.profileToOwner(p)]),
+    );
     return Promise.all(vehicles.map((v) => this.toDTO(v, owners.get(v.getOwnerId()))));
+  }
+
+  private profileToOwner(profile: UserProfile): VehicleOwner {
+    return {
+      id: profile.id,
+      name: profile.name,
+      avatarUrl: profile.avatarUrl,
+      level: profile.level,
+      reputationScore: profile.reputationScore,
+      verified: profile.verificationStatus === 'verified',
+    };
   }
 
   private async loadReservationRuleSet(ruleSetId: string | null) {
@@ -171,9 +192,7 @@ export class VehicleService {
   ): Promise<GetVehicleResponse> {
     const reservationRuleSet = includeReservationRuleSet
       ? await this.loadReservationRuleSet(vehicle.getReservationRuleSetId())
-      : undefined;
-
-    return GetVehicleResponseSchema.parse({
+      : undefined;    return GetVehicleResponseSchema.parse({
       id: vehicle.getId(),
       ownerId: vehicle.getOwnerId(),
       plate: vehicle.getPlate(),
@@ -189,13 +208,14 @@ export class VehicleService {
       characteristics: vehicle.getCharacteristics(),
       color: vehicle.getColor(),
       mileage: vehicle.getMileage(),
-      basePrice: vehicle.getBasePrice(),
+      basePriceCents: vehicle.getBasePriceCents(),
       description: vehicle.getDescription(),
       province: vehicle.getProvince(),
       city: vehicle.getCity(),
       availableFrom: vehicle.getAvailableFrom(),
       reservationRuleSetId: vehicle.getReservationRuleSetId(),
-      reservationRuleSet,
+      autoAccept: vehicle.getAutoAccept(),
+      reservationRuleSet: reservationRuleSet,
       owner,
     });
   }

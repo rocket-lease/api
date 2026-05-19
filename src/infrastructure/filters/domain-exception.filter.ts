@@ -8,6 +8,18 @@ import {
   UserHasVehiclesException,
 } from '@/domain/exceptions/domain.exception';
 import {
+  ContractNotAcceptedException,
+  HoldExpiredException,
+  InvalidReservationTransitionException,
+  OwnerCannotReserveOwnVehicleException,
+  ReservationForbiddenException,
+  ReservationNotFoundException,
+  VehicleNotAvailableException,
+  TransferExpiredException,
+  VoucherNotFoundException,
+  VoucherReservationCancelledException,
+} from '@/domain/exceptions/reservation.exception';
+import {
   ExceptionFilter,
   Catch,
   ArgumentsHost,
@@ -23,10 +35,9 @@ import {
   ProblemDetailsSchema,
   type ErrorCode,
 } from '@rocket-lease/contracts';
+import { ZodIssue } from 'zod/v3';
 
-function isZodError(
-  error: Error,
-): error is Error & { issues: Array<{ message: string }> } {
+function isZodError(error: Error): error is Error & { issues: ZodIssue[] } {
   return (
     error.name === 'ZodError' &&
     Array.isArray((error as { issues?: unknown }).issues)
@@ -45,6 +56,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
     let code: ErrorCode = ErrorCodes.INTERNAL_ERROR;
     let title = 'Internal Server Error';
     let message = exception.message;
+    // let code: string | undefined;
 
     if (
       exception instanceof FavoriteAlreadyExistsException ||
@@ -61,6 +73,36 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.NOT_FOUND;
       code = ErrorCodes.ENTITY_NOT_FOUND;
       title = 'Not Found';
+    } else if (exception instanceof ReservationNotFoundException) {
+      status = HttpStatus.NOT_FOUND;
+      code = ErrorCodes.RESERVATION_NOT_FOUND;
+    } else if (exception instanceof VehicleNotAvailableException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.RESERVATION_VEHICLE_NOT_AVAILABLE;
+    } else if (exception instanceof HoldExpiredException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.RESERVATION_HOLD_EXPIRED;
+    } else if (exception instanceof InvalidReservationTransitionException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.RESERVATION_INVALID_TRANSITION;
+    } else if (exception instanceof ContractNotAcceptedException) {
+      status = HttpStatus.BAD_REQUEST;
+      code = ErrorCodes.RESERVATION_CONTRACT_NOT_ACCEPTED;
+    } else if (exception instanceof OwnerCannotReserveOwnVehicleException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.RESERVATION_OWNER_CANNOT_RESERVE;
+    } else if (exception instanceof ReservationForbiddenException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.RESERVATION_FORBIDDEN;
+    } else if (exception instanceof TransferExpiredException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.RESERVATION_TRANSFER_EXPIRED;
+    } else if (exception instanceof VoucherNotFoundException) {
+      status = HttpStatus.NOT_FOUND;
+      code = ErrorCodes.VOUCHER_NOT_FOUND;
+    } else if (exception instanceof VoucherReservationCancelledException) {
+      status = HttpStatus.GONE;
+      code = ErrorCodes.VOUCHER_RESERVATION_CANCELLED;
     } else if (exception instanceof EmailNotVerifiedException) {
       status = HttpStatus.FORBIDDEN;
       code = ErrorCodes.FORBIDDEN;
@@ -98,6 +140,15 @@ export class DomainExceptionFilter implements ExceptionFilter {
       if (status === HttpStatus.UNAUTHORIZED) code = ErrorCodes.UNAUTHORIZED;
       if (status === HttpStatus.FORBIDDEN) code = ErrorCodes.FORBIDDEN;
       title = HttpStatus[status] ?? 'Error';
+    } else if (isZodError(exception)) {
+      status = HttpStatus.BAD_REQUEST;
+      code = ErrorCodes.INVALID_ENTITY_DATA;
+      message = exception.issues
+        .map((i: ZodIssue) => {
+          const field = i.path.join('.');
+          return field ? `${field}: ${i.message.toLowerCase()}` : i.message;
+        })
+        .join('; ');
     }
 
     const problem = ProblemDetailsSchema.parse({
@@ -109,8 +160,8 @@ export class DomainExceptionFilter implements ExceptionFilter {
       instance: request.url,
       statusCode: status,
       message,
-      timestamp,
-      path: request.url,
+      timestamp: new Date().toISOString(),
+      path: ctx.getRequest<Request>().url,
     });
 
     response.status(status).type('application/problem+json').json(problem);

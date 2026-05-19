@@ -17,16 +17,22 @@ db:
 stop:
 	docker compose --profile full down
 
+ifeq ($(OS),Windows_NT)
+check-siblings:
+	@if not exist ..\contracts ( \
+	  echo  Falta ..\contracts. Cloná rocket-lease/contracts al lado de api/. && \
+	  echo  Detalles: api/docs/adr/0007-contracts-as-source.md && \
+	  exit 1 )
+
+test:
+	powershell -ExecutionPolicy Bypass -File scripts/test-cucumber.ps1
+else
 check-siblings:
 	@test -d ../contracts || (echo "" && \
 	  echo "  Falta ../contracts. Cloná rocket-lease/contracts al lado de api/." && \
 	  echo "  Detalles: api/docs/adr/0007-contracts-as-source.md" && \
 	  echo "" && exit 1)
 
-ifeq ($(OS),Windows_NT)
-test:
-	powershell -ExecutionPolicy Bypass -File scripts/test-cucumber.ps1
-else
 test:
 	sh scripts/test-cucumber.sh
 endif

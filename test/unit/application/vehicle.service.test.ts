@@ -3,6 +3,7 @@ import { VehicleRepository } from '@/domain/repositories/vehicle.repository';
 import { UserRepository } from '@/domain/repositories/user.repository';
 import { VehicleService } from '@/application/vehicle.service';
 import { ReservationRuleSetService } from '@/application/reservation-rule-set.service';
+import { ReservationService } from '@/application/reservation.service';
 import { CreateVehicleResponseSchema } from '@rocket-lease/contracts';
 import { randomUUID } from 'crypto';
 
@@ -20,7 +21,7 @@ const validDto = {
   photos: ['https://example.com/photo.jpg'],
   color: 'Blue',
   mileage: 100,
-  basePrice: 5000,
+  basePriceCents: 5000,
   description: null,
   province: 'Buenos Aires',
   city: 'La Plata',
@@ -47,7 +48,7 @@ const buildVehicle = (
     [...validDto.characteristics],
     validDto.color,
     validDto.mileage,
-    validDto.basePrice,
+    validDto.basePriceCents,
     validDto.description,
     validDto.province,
     validDto.city,
@@ -65,6 +66,7 @@ describe('VehicleService', () => {
       save: jest.fn(),
       fetchAll: jest.fn().mockResolvedValue([]),
       findById: jest.fn().mockResolvedValue(null),
+      findByIds: jest.fn().mockResolvedValue([]),
       findByPlate: jest.fn().mockResolvedValue(null),
       findByOwnerId: jest.fn().mockResolvedValue([]),
       findByCharacteristics: jest.fn().mockResolvedValue([]),
@@ -75,20 +77,26 @@ describe('VehicleService', () => {
       findByEmail: jest.fn().mockResolvedValue(null),
       findById: jest.fn().mockResolvedValue(null),
       getProfileById: jest.fn().mockResolvedValue(null),
+      findProfilesByIds: jest.fn().mockResolvedValue([]),
       updateProfile: jest.fn(),
       updateAvatar: jest.fn(),
       updateBasicInfo: jest.fn(),
       deleteById: jest.fn(),
       markPhoneVerified: jest.fn(),
       isPhoneVerified: jest.fn().mockResolvedValue(false),
+      updateAutoAccept: jest.fn(),
     };
     reservationRuleSetServiceMock = {
       getRuleSetDetails: jest.fn().mockResolvedValue(null),
     };
+    const reservationServiceMock = {
+      cancelPendingByVehicle: jest.fn().mockResolvedValue(0),
+    } as unknown as ReservationService;
 
     service = new VehicleService(
       repositoryMock,
       userRepoMock,
+      reservationServiceMock,
       reservationRuleSetServiceMock as unknown as ReservationRuleSetService,
     );
   });
@@ -134,6 +142,26 @@ describe('VehicleService', () => {
       enabledA.getId(),
       enabledB.getId(),
     ]);
+  });
+
+  it('debería hacer exactamente 1 query de users para hidratar owners en el listado', async () => {
+    const owner1 = randomUUID();
+    const owner2 = randomUUID();
+    const vehicles = [
+      buildVehicle({ ownerId: owner1 }),
+      buildVehicle({ ownerId: owner2 }),
+      buildVehicle({ ownerId: owner1 }),
+    ];
+    repositoryMock.fetchAll.mockResolvedValue(vehicles);
+    userRepoMock.findProfilesByIds.mockResolvedValue([]);
+
+    await service.getAll();
+
+    expect(userRepoMock.findProfilesByIds).toHaveBeenCalledTimes(1);
+    expect(userRepoMock.findProfilesByIds).toHaveBeenCalledWith(
+      expect.arrayContaining([owner1, owner2]),
+    );
+    expect(userRepoMock.getProfileById).not.toHaveBeenCalled();
   });
 
   it('should reject delete by non-owner', async () => {

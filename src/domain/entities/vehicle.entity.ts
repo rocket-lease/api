@@ -13,7 +13,7 @@ const vehicleSchema = z.object({
     .number()
     .int()
     .min(1900)
-    .max(new Date().getFullYear() + 1, 'Invalid year'),
+    .max(new Date().getFullYear() + 5, 'Invalid year'),
   passengers: z
     .number()
     .int()
@@ -29,11 +29,12 @@ const vehicleSchema = z.object({
     .min(1, 'At least one photo is required'),
   color: z.string().min(1, 'Color is required'),
   mileage: z.number().min(0, 'Mileage cannot be negative'),
-  basePrice: z.number().gt(0, 'Base price must be greater than zero'),
+  basePriceCents: z.number().int().gt(0, 'Base price must be greater than zero'),
   description: z.string().nullable(),
   province: z.string().min(1, 'Province is required'),
   city: z.string().min(1, 'City is required'),
   availableFrom: z.string().date('Invalid date format'),
+  autoAccept: z.boolean().nullable(),
   characteristics: z.array(
     z.enum([
       'GPS',
@@ -74,12 +75,13 @@ export class Vehicle {
     >,
     private color: string,
     private mileage: number,
-    private basePrice: number,
+    private basePriceCents: number,
     private description: string | null,
     private province: string,
     private city: string,
     private availableFrom: string,
     private reservationRuleSetId: string | null = null,
+    private autoAccept: boolean | null = null,
   ) {
     this.validate();
   }
@@ -138,8 +140,8 @@ export class Vehicle {
   public getMileage(): number {
     return this.mileage;
   }
-  public getBasePrice(): number {
-    return this.basePrice;
+  public getBasePriceCents(): number {
+    return this.basePriceCents;
   }
   public getDescription(): string | null {
     return this.description;
@@ -152,6 +154,9 @@ export class Vehicle {
   }
   public getAvailableFrom(): string {
     return this.availableFrom;
+  }
+  public getAutoAccept(): boolean | null {
+    return this.autoAccept;
   }
 
   public isEnabled(): boolean {
@@ -182,7 +187,7 @@ export class Vehicle {
       this.characteristics = Array.from(new Set(data.characteristics));
     }
     if (data.color) this.color = data.color;
-    if (data.basePrice) this.basePrice = data.basePrice;
+    if (data.basePriceCents) this.basePriceCents = data.basePriceCents;
     if (data.description !== undefined) this.description = data.description;
     if (data.isAccessible !== undefined) this.isAccessible = data.isAccessible;
     if (data.enabled !== undefined) this.enabled = data.enabled;
@@ -190,6 +195,7 @@ export class Vehicle {
     if (data.city !== undefined) this.city = data.city;
     if (data.availableFrom !== undefined)
       this.availableFrom = data.availableFrom;
+    if (data.autoAccept !== undefined) this.autoAccept = data.autoAccept;
     this.validate();
   }
 
@@ -210,11 +216,12 @@ export class Vehicle {
       photos: this.photos,
       color: this.color,
       mileage: this.mileage,
-      basePrice: this.basePrice,
+      basePriceCents: this.basePriceCents,
       description: this.description,
       province: this.province,
       city: this.city,
       availableFrom: this.availableFrom,
+      autoAccept: this.autoAccept,
       characteristics: this.characteristics,
     });
 

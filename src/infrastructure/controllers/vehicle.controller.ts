@@ -11,6 +11,7 @@ import {
   Param,
   Query,
   Delete,
+  Inject,
 } from '@nestjs/common';
 import * as Contracts from '@rocket-lease/contracts';
 import type { Request } from 'express';
@@ -19,8 +20,8 @@ import { z } from 'zod';
 @Controller('vehicle')
 export class VehicleController {
   constructor(
-    private readonly vehicleService: VehicleService,
-    private readonly authService: AuthService,
+    @Inject(VehicleService) private readonly vehicleService: VehicleService,
+    @Inject(AuthService) private readonly authService: AuthService,
   ) {}
 
   @Get('mine')

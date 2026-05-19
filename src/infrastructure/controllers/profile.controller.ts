@@ -6,6 +6,7 @@ import {
   Get,
   Headers,
   HttpCode,
+  Inject,
   Param,
   Patch,
   Post,
@@ -22,8 +23,8 @@ import { ProfileService } from '@/application/profile.service';
 @Controller('profile')
 export class ProfileController {
   constructor(
-    private readonly authService: AuthService,
-    private readonly profileService: ProfileService,
+    @Inject(AuthService) private readonly authService: AuthService,
+    @Inject(ProfileService) private readonly profileService: ProfileService,
   ) {}
 
   private async resolveUserId(authorization?: string): Promise<string> {
