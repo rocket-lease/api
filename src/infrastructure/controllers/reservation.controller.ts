@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Inject,
   Param,
   Post,
   Query,
@@ -18,9 +19,16 @@ import * as Contracts from '@rocket-lease/contracts';
 @Controller('reservations')
 export class ReservationController {
   constructor(
-    private readonly reservationService: ReservationService,
-    private readonly authService: AuthService,
+    @Inject(ReservationService) private readonly reservationService: ReservationService,
+    @Inject(AuthService) private readonly authService: AuthService,
   ) {}
+
+  @Get(':id/payment-methods')
+  async getPaymentMethods(
+    @Param('id') _id: string,
+  ): Promise<Contracts.PaymentMethodsResponse> {
+    return await this.reservationService.getPaymentMethods();
+  }
 
   @Post()
   async create(
@@ -45,6 +53,27 @@ export class ReservationController {
       conductorId,
       id,
       parsed,
+    );
+  }
+
+  @Post(':id/transfer')
+  async initiateTransfer(
+    @Param('id') id: string,
+    @Req() req: Request,
+  ): Promise<Contracts.InitiateTransferResponse> {
+    const conductorId = await this.requireUserId(req);
+    return await this.reservationService.initiateBankTransfer(conductorId, id);
+  }
+
+  @Post(':id/transfer/confirm')
+  async confirmTransfer(
+    @Param('id') id: string,
+    @Req() req: Request,
+  ): Promise<Contracts.ConfirmTransferResponse> {
+    const conductorId = await this.requireUserId(req);
+    return await this.reservationService.confirmTransferPayment(
+      conductorId,
+      id,
     );
   }
 

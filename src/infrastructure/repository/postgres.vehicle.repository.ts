@@ -1,7 +1,7 @@
 import { VehicleRepository } from '@/domain/repositories/vehicle.repository';
 import { PrismaService } from '../database/prisma.service';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Characteristic } from '@rocket-lease/contracts';
 import type { Prisma } from '@prisma/client';
@@ -17,7 +17,7 @@ type VehicleWithRelations = Prisma.VehicleGetPayload<{
 
 @Injectable()
 export class PostgresVehicleRepository implements VehicleRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async save(vehicle: Vehicle): Promise<Vehicle> {
     const characteristics = vehicle.getCharacteristics();

@@ -41,3 +41,9 @@ export class OwnerCannotReserveOwnVehicleException extends DomainException {
     super(`owner cannot reserve own vehicle ${vehicleId}`);
   }
 }
+
+export class TransferExpiredException extends DomainException {
+  constructor(reservationId: string) {
+    super(`transfer expired for reservation ${reservationId}`);
+  }
+}

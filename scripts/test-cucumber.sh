@@ -25,4 +25,4 @@ echo "Aplicando migraciones..."
 pnpm exec prisma migrate deploy || exit 1
 
 echo "Ejecutando tests Cucumber..."
-pnpm exec cucumber-js --tags "not @ignore" $EXTRA_ARGS
+NODE_OPTIONS='--import tsx' pnpm exec cucumber-js --tags "not @ignore" $EXTRA_ARGS

@@ -29,7 +29,7 @@ export class VehicleService {
     private readonly vehicleRepository: VehicleRepository,
     @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepository,
-    private readonly reservationService: ReservationService,
+    @Inject(ReservationService) private readonly reservationService: ReservationService,
   ) {}
 
   public async createVehicle(

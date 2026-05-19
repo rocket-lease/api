@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   HttpCode,
+  Inject,
   Param,
   Post,
   Headers,
@@ -21,8 +22,8 @@ import { AuthService } from '@/application/auth.service';
 @Controller('favorites')
 export class FavoriteController {
   constructor(
-    private readonly favoriteService: FavoriteService,
-    private readonly authService: AuthService,
+    @Inject(FavoriteService) private readonly favoriteService: FavoriteService,
+    @Inject(AuthService) private readonly authService: AuthService,
   ) {}
 
   private async resolveConductorId(

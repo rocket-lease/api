@@ -89,9 +89,13 @@ model Reservation {
   totalCents          Int                @map("total_cents")
   currency            String             @default("ARS")
   paymentMethod       PaymentMethod?     @map("payment_method")
+  walletProvider      String?            @map("wallet_provider")
   contractAcceptedAt  DateTime?          @map("contract_accepted_at") @db.Timestamptz(6)
   paidAt              DateTime?          @map("paid_at") @db.Timestamptz(6)
   rejectionReason     String?            @map("rejection_reason") @db.VarChar(280)
+  transferExpiresAt   DateTime?          @map("transfer_expires_at") @db.Timestamptz(6)
+  transferCode        String?            @map("transfer_code")
+  transferAlias       String?            @map("transfer_alias")
   createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -144,6 +148,7 @@ enum PaymentMethod {
   credit_card
   debit_card
   bank_transfer
+  digital_wallet
 }
 
 enum Characteristic {

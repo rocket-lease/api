@@ -4,6 +4,7 @@ import { InvalidEntityDataException } from '../exceptions/domain.exception';
 import {
   ContractNotAcceptedException,
   InvalidReservationTransitionException,
+  TransferExpiredException,
 } from '../exceptions/reservation.exception';
 
 const ReservationStatusEnum = z.enum([
@@ -21,7 +22,10 @@ const PaymentMethodEnum = z.enum([
   'credit_card',
   'debit_card',
   'bank_transfer',
+  'digital_wallet',
 ]);
+
+export const WalletProviderEnum = z.enum(['mercadopago', 'uala']);
 
 const reservationSchema = z.object({
   id: z.string().uuid(),
@@ -35,15 +39,20 @@ const reservationSchema = z.object({
   totalCents: z.number().int().nonnegative(),
   currency: z.literal('ARS'),
   paymentMethod: PaymentMethodEnum.nullable(),
+  walletProvider: WalletProviderEnum.nullable(),
   contractAcceptedAt: z.date().nullable(),
   paidAt: z.date().nullable(),
   rejectionReason: z.string().max(280).nullable(),
+  transferExpiresAt: z.date().nullable(),
+  transferCode: z.string().nullable(),
+  transferAlias: z.string().nullable(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
 
 export type ReservationStatus = z.infer<typeof ReservationStatusEnum>;
 export type PaymentMethod = z.infer<typeof PaymentMethodEnum>;
+export type WalletProvider = z.infer<typeof WalletProviderEnum>;
 
 export const BLOCKING_STATUSES: ReservationStatus[] = [
   'pending_payment',
@@ -56,6 +65,7 @@ export const APPROVAL_TTL_MS = 24 * 60 * 60 * 1000;
 
 export const CASCADE_REJECTION_REASON =
   'El vehículo fue reservado por otro conductor para fechas que se solapan.';
+export const TRANSFER_TTL_MS = 2 * 60 * 60 * 1000;
 
 export interface ReservationProps {
   id?: string;
@@ -69,9 +79,13 @@ export interface ReservationProps {
   totalCents: number;
   currency?: 'ARS';
   paymentMethod?: PaymentMethod | null;
+  walletProvider?: WalletProvider | null;
   contractAcceptedAt: Date | null;
   paidAt?: Date | null;
   rejectionReason?: string | null;
+  transferExpiresAt?: Date | null;
+  transferCode?: string | null;
+  transferAlias?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -88,9 +102,13 @@ export class Reservation {
   private readonly totalCents: number;
   private readonly currency: 'ARS';
   private paymentMethod: PaymentMethod | null;
+  private walletProvider: WalletProvider | null;
   private contractAcceptedAt: Date | null;
   private paidAt: Date | null;
   private rejectionReason: string | null;
+  private transferExpiresAt: Date | null;
+  private transferCode: string | null;
+  private transferAlias: string | null;
   private readonly createdAt: Date;
   private updatedAt: Date;
 
@@ -106,9 +124,13 @@ export class Reservation {
     this.totalCents = props.totalCents;
     this.currency = props.currency ?? 'ARS';
     this.paymentMethod = props.paymentMethod ?? null;
+    this.walletProvider = props.walletProvider ?? null;
     this.contractAcceptedAt = props.contractAcceptedAt;
     this.paidAt = props.paidAt ?? null;
     this.rejectionReason = props.rejectionReason ?? null;
+    this.transferExpiresAt = props.transferExpiresAt ?? null;
+    this.transferCode = props.transferCode ?? null;
+    this.transferAlias = props.transferAlias ?? null;
     this.createdAt = props.createdAt ?? new Date();
     this.updatedAt = props.updatedAt ?? this.createdAt;
     this.validate();
@@ -150,6 +172,9 @@ export class Reservation {
   public getPaymentMethod() {
     return this.paymentMethod;
   }
+  public getWalletProvider() {
+    return this.walletProvider;
+  }
   public getContractAcceptedAt() {
     return this.contractAcceptedAt;
   }
@@ -158,6 +183,15 @@ export class Reservation {
   }
   public getRejectionReason() {
     return this.rejectionReason;
+  }
+  public getTransferExpiresAt() {
+    return this.transferExpiresAt;
+  }
+  public getTransferCode() {
+    return this.transferCode;
+  }
+  public getTransferAlias() {
+    return this.transferAlias;
   }
   public getCreatedAt() {
     return this.createdAt;
@@ -175,22 +209,103 @@ export class Reservation {
   }
 
   public isHoldExpired(now: Date): boolean {
-    if (this.status !== 'pending_payment') return false;
+    if (this.status !== 'pending_payment' && this.status !== 'pending_approval') return false;
     if (!this.holdExpiresAt) return false;
     return this.holdExpiresAt.getTime() <= now.getTime();
   }
 
-  public confirmPayment(method: PaymentMethod, now: Date): void {
-    if (this.status !== 'pending_payment') {
+  public isTransferExpired(now: Date): boolean {
+    if (this.status !== 'pending_approval') return false;
+    if (!this.transferExpiresAt) return false;
+    return this.transferExpiresAt.getTime() <= now.getTime();
+  }
+
+  /**
+   * Confirma el pago inmediato (tarjeta crédito, débito, billetera virtual).
+   * Transita de pending_payment → confirmed.
+   */
+  public confirmPayment(
+    method: PaymentMethod,
+    now: Date,
+    walletProvider?: WalletProvider,
+  ): void {
+    if (this.status !== 'pending_payment' && this.status !== 'pending_approval') {
       throw new InvalidReservationTransitionException(this.status, 'confirmed');
     }
     if (!this.contractAcceptedAt) {
       throw new ContractNotAcceptedException();
     }
+    if (method === 'digital_wallet' && !walletProvider) {
+      throw new InvalidEntityDataException(
+        'walletProvider is required for digital_wallet',
+      );
+    }
     this.status = 'confirmed';
     this.paymentMethod = method;
+    this.walletProvider = walletProvider ?? null;
     this.paidAt = now;
     this.holdExpiresAt = null;
+    this.updatedAt = now;
+  }
+
+  /**
+   * Inicia pago por transferencia bancaria.
+   * Transita de pending_payment → pending_approval.
+   * Genera un código CBU/CVU simulado y establece expiración a 2h.
+   */
+  public initiateBankTransfer(
+    now: Date,
+    transferCode: string,
+    transferAlias: string,
+  ): void {
+    if (this.status !== 'pending_payment' && this.status !== 'pending_approval') {
+      throw new InvalidReservationTransitionException(
+        this.status,
+        'pending_approval',
+      );
+    }
+    if (!this.contractAcceptedAt) {
+      throw new ContractNotAcceptedException();
+    }
+    this.status = 'pending_approval';
+    this.paymentMethod = 'bank_transfer';
+    this.transferCode = transferCode;
+    this.transferAlias = transferAlias;
+    this.transferExpiresAt = new Date(now.getTime() + TRANSFER_TTL_MS);
+    this.holdExpiresAt = null;
+    this.updatedAt = now;
+  }
+
+  /**
+   * Confirma la acreditación de una transferencia bancaria.
+   * Transita de pending_approval → confirmed.
+   */
+  public confirmTransferPayment(now: Date): void {
+    if (this.status !== 'pending_approval') {
+      throw new InvalidReservationTransitionException(
+        this.status,
+        'confirmed',
+      );
+    }
+    if (this.isTransferExpired(now)) {
+      throw new TransferExpiredException(this.id);
+    }
+    this.status = 'confirmed';
+    this.paidAt = now;
+    this.transferExpiresAt = null;
+    this.updatedAt = now;
+  }
+
+  /**
+   * Expira una transferencia no acreditada.
+   * Transita de pending_approval → cancelled.
+   */
+  public expireTransfer(now: Date): void {
+    if (this.status !== 'pending_approval') {
+      throw new InvalidReservationTransitionException(this.status, 'cancelled');
+    }
+    this.status = 'cancelled';
+    this.transferExpiresAt = null;
     this.updatedAt = now;
   }
 
@@ -286,9 +401,13 @@ export class Reservation {
       totalCents: this.totalCents,
       currency: this.currency,
       paymentMethod: this.paymentMethod,
+      walletProvider: this.walletProvider,
       contractAcceptedAt: this.contractAcceptedAt,
       paidAt: this.paidAt,
       rejectionReason: this.rejectionReason,
+      transferExpiresAt: this.transferExpiresAt,
+      transferCode: this.transferCode,
+      transferAlias: this.transferAlias,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     });

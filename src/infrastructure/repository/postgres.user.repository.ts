@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { Prisma, User as PrismaUser } from '@prisma/client';
 import { User } from '@/domain/entities/user.entity';
 import {
@@ -14,7 +14,7 @@ import { PrismaService } from '@/infrastructure/database/prisma.service';
 
 @Injectable()
 export class PostgresUserRepository implements UserRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   private mapProfile(row: PrismaUser): UserProfile {
     return {

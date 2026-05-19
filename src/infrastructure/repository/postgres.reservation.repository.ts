@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import {
   Reservation,
   ReservationStatus,
@@ -24,16 +24,20 @@ type Row = {
   totalCents: number;
   currency: string;
   paymentMethod: PaymentMethod | null;
+  walletProvider: string | null;
   contractAcceptedAt: Date | null;
   paidAt: Date | null;
   rejectionReason: string | null;
+  transferExpiresAt: Date | null;
+  transferCode: string | null;
+  transferAlias: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
 
 @Injectable()
 export class PostgresReservationRepository implements ReservationRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async save(reservation: Reservation): Promise<Reservation> {
     const data = this.toRow(reservation);
@@ -86,6 +90,16 @@ export class PostgresReservationRepository implements ReservationRepository {
       where: {
         status: 'pending_approval',
         createdAt: { lte: cutoff },
+      },
+    });
+    return rows.map((r) => this.toEntity(r));
+  }
+
+  async findExpiredTransfers(now: Date): Promise<Reservation[]> {
+    const rows = await this.prisma.reservation.findMany({
+      where: {
+        status: 'pending_approval',
+        transferExpiresAt: { lte: now },
       },
     });
     return rows.map((r) => this.toEntity(r));
@@ -181,9 +195,13 @@ export class PostgresReservationRepository implements ReservationRepository {
       totalCents: r.getTotalCents(),
       currency: r.getCurrency(),
       paymentMethod: r.getPaymentMethod() as any,
+      walletProvider: r.getWalletProvider() ?? null,
       contractAcceptedAt: r.getContractAcceptedAt(),
       paidAt: r.getPaidAt(),
       rejectionReason: r.getRejectionReason(),
+      transferExpiresAt: r.getTransferExpiresAt(),
+      transferCode: r.getTransferCode() ?? null,
+      transferAlias: r.getTransferAlias() ?? null,
       createdAt: r.getCreatedAt(),
       updatedAt: r.getUpdatedAt(),
     };
@@ -202,9 +220,13 @@ export class PostgresReservationRepository implements ReservationRepository {
       totalCents: row.totalCents,
       currency: (row.currency as 'ARS') ?? 'ARS',
       paymentMethod: row.paymentMethod,
+      walletProvider: (row.walletProvider as any) ?? null,
       contractAcceptedAt: row.contractAcceptedAt,
       paidAt: row.paidAt,
       rejectionReason: row.rejectionReason,
+      transferExpiresAt: row.transferExpiresAt,
+      transferCode: row.transferCode,
+      transferAlias: row.transferAlias,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });
