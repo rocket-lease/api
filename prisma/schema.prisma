@@ -95,6 +95,7 @@ model Reservation {
   rejectionReason     String?            @map("rejection_reason") @db.VarChar(280)
   transferExpiresAt   DateTime?          @map("transfer_expires_at") @db.Timestamptz(6)
   transferCode        String?            @map("transfer_code")
+  transferAlias       String?            @map("transfer_alias")
   createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
