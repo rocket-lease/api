@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { ReservationStatusSchema } from '@rocket-lease/contracts';
 import { InvalidEntityDataException } from '../exceptions/domain.exception';
 import {
   ContractNotAcceptedException,
@@ -7,17 +8,7 @@ import {
   TransferExpiredException,
 } from '../exceptions/reservation.exception';
 
-const ReservationStatusEnum = z.enum([
-  'pending_approval',
-  'pending_payment',
-  'confirmed',
-  'in_progress',
-  'completed',
-  'cancelled',
-  'rejected',
-  'expired',
-]);
-export const RESERVATION_STATUS = ReservationStatusEnum.enum;
+export const RESERVATION_STATUS = ReservationStatusSchema.enum;
 
 const PaymentMethodEnum = z.enum([
   'credit_card',
@@ -33,7 +24,7 @@ const reservationSchema = z.object({
   vehicleId: z.string().uuid(),
   conductorId: z.string().uuid(),
   rentadorId: z.string().uuid(),
-  status: ReservationStatusEnum,
+  status: ReservationStatusSchema,
   startAt: z.date(),
   endAt: z.date(),
   holdExpiresAt: z.date().nullable(),
@@ -52,7 +43,7 @@ const reservationSchema = z.object({
   updatedAt: z.date(),
 });
 
-export type ReservationStatus = z.infer<typeof ReservationStatusEnum>;
+export type ReservationStatus = z.infer<typeof ReservationStatusSchema>;
 export type PaymentMethod = z.infer<typeof PaymentMethodEnum>;
 export type WalletProvider = z.infer<typeof WalletProviderEnum>;
 
