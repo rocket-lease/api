@@ -117,7 +117,7 @@ function makeNotificationProvider(): jest.Mocked<NotificationProvider> {
 function makePaymentGatewayProvider(): jest.Mocked<PaymentGatewayProvider> {
   return {
     processPayment: jest.fn().mockResolvedValue({ success: true, transactionId: 'txn-test' }),
-    generateTransferCode: jest.fn().mockResolvedValue('CBU-test-code'),
+    generateTransferCode: jest.fn().mockResolvedValue({ code: 'CBU-test-code', alias: 'rocket.lease.1' }),
   };
 }
 
@@ -661,7 +661,7 @@ describe('ReservationService', () => {
           autoAccept: true,
         });
         vehicleRepo = makeVehicleRepo([auto]);
-        service = new ReservationService(repo, vehicleRepo, userRepo, clock);
+        service = new ReservationService(repo, vehicleRepo, userRepo, clock, voucherProvider, notificationProvider, paymentGateway);
         const created = await service.createReservation(conductorA, {
           vehicleId: auto.getId(),
           startAt: start,
