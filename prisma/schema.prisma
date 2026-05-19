@@ -26,6 +26,7 @@ model User {
   phoneVerifiedAt       DateTime?  @map("phone_verified_at")
   favorites             Favorite[]
   vehicles              Vehicle[]
+  reservationRuleSets   ReservationRuleSet[]
   reservations          Reservation[] @relation("conductor_reservations")
 
   @@map("users")
@@ -65,7 +66,9 @@ model Vehicle {
 
   ownerId      String
   owner        User         @relation(fields: [ownerId], references: [id])
-  photos       Photo[]
+  reservationRuleSetId String? @map("reservation_rule_set_id")
+  reservationRuleSet ReservationRuleSet? @relation(fields: [reservationRuleSetId], references: [id], onDelete: SetNull)
+  photos       Photo[]      
   characteristics VehicleCharacteristic[]
   reservations    Reservation[]
 
@@ -73,6 +76,26 @@ model Vehicle {
   updatedAt DateTime @updatedAt
 
   @@map("vehicles")
+}
+
+model ReservationRuleSet {
+  id                  String             @id @default(uuid())
+  ownerId             String             @map("owner_id")
+  name                String
+  description         String?            @db.Text
+  cancellationPolicy  CancellationPolicy @map("cancellation_policy")
+  deposit             Deposit
+  maxKilometrageType  MaxKilometrageType @map("max_kilometrage_type")
+  maxKilometrageValue Int?               @map("max_kilometrage_value")
+  minRentalDays       Int?               @map("min_rental_days")
+  maxRentalDays       Int?               @map("max_rental_days")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+
+  owner               User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  vehicles            Vehicle[]
+
+  @@map("reservation_rule_sets")
 }
 
 model Reservation {
@@ -161,4 +184,21 @@ enum Characteristic {
   USB_CHARGER
   AUX_CABLE
   BLUETOOTH
+}
+
+enum CancellationPolicy {
+  FLEXIBLE
+  MODERATE
+  STRICT
+}
+
+enum Deposit {
+  NONE
+  TEN_PERCENT
+  FIFTY_PERCENT
+}
+
+enum MaxKilometrageType {
+  UNLIMITED
+  LIMITED
 }

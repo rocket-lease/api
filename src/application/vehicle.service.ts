@@ -21,6 +21,7 @@ import {
   UpdateVehicleRequest,
   VehicleOwner,
 } from '@rocket-lease/contracts';
+import { ReservationRuleSetService } from './reservation-rule-set.service';
 
 @Injectable()
 export class VehicleService {
@@ -30,6 +31,7 @@ export class VehicleService {
     @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepository,
     @Inject(ReservationService) private readonly reservationService: ReservationService,
+    private readonly reservationRuleSetService: ReservationRuleSetService,
   ) {}
 
   public async createVehicle(
@@ -60,6 +62,7 @@ export class VehicleService {
       data.province,
       data.city,
       data.availableFrom,
+      null,
       data.autoAccept ?? null,
     );
 
@@ -71,7 +74,7 @@ export class VehicleService {
     const vehicle = await this.vehicleRepository.findById(vehicleId);
     if (!vehicle) throw new EntityNotFoundException('vehicle', vehicleId);
     const owner = await this.loadOwner(vehicle.getOwnerId());
-    return this.toDTO(vehicle, owner);
+    return this.toDTO(vehicle, owner, true);
   }
 
   public async updateVehicle(
@@ -92,8 +95,8 @@ export class VehicleService {
       if (wasEnabled && !vehicle.isEnabled()) {
         await this.reservationService.cancelPendingByVehicle(vehicle.getId());
       }
-    } catch (e) {
-      const field = e.issues?.[0]?.keys?.[0] ?? 'desconocido';
+    } catch (e: any) {
+      const field = e?.issues?.[0]?.keys?.[0] ?? 'desconocido';
       throw new InvalidEntityDataException(`cannot modify field '${field}'`);
     }
   }
@@ -157,7 +160,7 @@ export class VehicleService {
     const owners = new Map<string, VehicleOwner>(
       profiles.map((p) => [p.id, this.profileToOwner(p)]),
     );
-    return vehicles.map((v) => this.toDTO(v, owners.get(v.getOwnerId())));
+    return Promise.all(vehicles.map((v) => this.toDTO(v, owners.get(v.getOwnerId()))));
   }
 
   private profileToOwner(profile: UserProfile): VehicleOwner {
@@ -171,8 +174,22 @@ export class VehicleService {
     };
   }
 
-  private toDTO(vehicle: Vehicle, owner?: VehicleOwner): GetVehicleResponse {
-    return GetVehicleResponseSchema.parse({
+  private async loadReservationRuleSet(ruleSetId: string | null) {
+    if (!ruleSetId) {
+      return null;
+    }
+
+    return this.reservationRuleSetService.getPublicRuleSet(ruleSetId);
+  }
+
+  private async toDTO(
+    vehicle: Vehicle,
+    owner?: VehicleOwner,
+    includeReservationRuleSet = false,
+  ): Promise<GetVehicleResponse> {
+    const reservationRuleSet = includeReservationRuleSet
+      ? await this.loadReservationRuleSet(vehicle.getReservationRuleSetId())
+      : undefined;    return GetVehicleResponseSchema.parse({
       id: vehicle.getId(),
       ownerId: vehicle.getOwnerId(),
       plate: vehicle.getPlate(),
@@ -193,7 +210,9 @@ export class VehicleService {
       province: vehicle.getProvince(),
       city: vehicle.getCity(),
       availableFrom: vehicle.getAvailableFrom(),
+      reservationRuleSetId: vehicle.getReservationRuleSetId(),
       autoAccept: vehicle.getAutoAccept(),
+      reservationRuleSet: reservationRuleSet,
       owner,
     });
   }

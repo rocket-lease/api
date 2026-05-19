@@ -66,6 +66,7 @@ function makeVehicle(
     'B',
     'CABA',
     '2026-06-01',
+    null,
     'autoAccept' in overrides ? overrides.autoAccept! : true,
   );
 }
@@ -408,6 +409,7 @@ describe('ReservationService', () => {
           'B',
           'CABA',
           '2026-06-01',
+          null,
           true,
         );
         created.push(v);

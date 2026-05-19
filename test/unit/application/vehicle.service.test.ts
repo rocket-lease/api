@@ -2,6 +2,7 @@ import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { VehicleRepository } from '@/domain/repositories/vehicle.repository';
 import { UserRepository } from '@/domain/repositories/user.repository';
 import { VehicleService } from '@/application/vehicle.service';
+import { ReservationRuleSetService } from '@/application/reservation-rule-set.service';
 import { ReservationService } from '@/application/reservation.service';
 import { CreateVehicleResponseSchema } from '@rocket-lease/contracts';
 import { randomUUID } from 'crypto';
@@ -58,6 +59,7 @@ describe('VehicleService', () => {
   let service: VehicleService;
   let repositoryMock: jest.Mocked<VehicleRepository>;
   let userRepoMock: jest.Mocked<UserRepository>;
+  let reservationRuleSetServiceMock: jest.Mocked<Pick<ReservationRuleSetService, 'getRuleSetDetails'>>;
 
   beforeEach(() => {
     repositoryMock = {
@@ -84,14 +86,18 @@ describe('VehicleService', () => {
       isPhoneVerified: jest.fn().mockResolvedValue(false),
       updateAutoAccept: jest.fn(),
     };
-
+    reservationRuleSetServiceMock = {
+      getRuleSetDetails: jest.fn().mockResolvedValue(null),
+    };
     const reservationServiceMock = {
       cancelPendingByVehicle: jest.fn().mockResolvedValue(0),
     } as unknown as ReservationService;
+
     service = new VehicleService(
       repositoryMock,
       userRepoMock,
       reservationServiceMock,
+      reservationRuleSetServiceMock as unknown as ReservationRuleSetService,
     );
   });
 

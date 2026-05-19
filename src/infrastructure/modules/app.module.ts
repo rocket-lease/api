@@ -5,6 +5,7 @@ import { AuthModule } from './auth.module';
 import { FavoriteModule } from './favorite.module';
 import { ProfileModule } from './profile.module';
 import { VerificationModule } from './verification.module';
+import { ReservationRuleSetModule } from './reservation-rule-set.module';
 import { ReservationModule } from './reservation.module';
 import { UploadsModule } from './uploads.module';
 
@@ -16,6 +17,7 @@ import { UploadsModule } from './uploads.module';
     FavoriteModule,
     ProfileModule,
     VerificationModule,
+    ReservationRuleSetModule,
     ReservationModule,
     UploadsModule,
   ],
