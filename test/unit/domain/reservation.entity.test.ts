@@ -130,12 +130,13 @@ describe('Reservation entity', () => {
       expect(r.getUpdatedAt()).toEqual(now);
     });
 
-    it('fails when confirmed', () => {
+    it('transitions confirmed to cancelled', () => {
       const r = makeReservation();
       r.confirmPayment('credit_card', new Date('2026-06-01T10:05:00Z'));
-      expect(() => r.cancel(new Date())).toThrow(
-        InvalidReservationTransitionException,
-      );
+      const now = new Date('2026-06-01T10:10:00Z');
+      r.cancel(now);
+      expect(r.getStatus()).toBe('cancelled');
+      expect(r.getUpdatedAt()).toEqual(now);
     });
 
     it('fails when already cancelled', () => {

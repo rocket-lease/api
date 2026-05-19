@@ -47,3 +47,15 @@ export class TransferExpiredException extends DomainException {
     super(`transfer expired for reservation ${reservationId}`);
   }
 }
+
+export class VoucherNotFoundException extends DomainException {
+  constructor(token: string) {
+    super(`voucher with token ${token} not found`);
+  }
+}
+
+export class VoucherReservationCancelledException extends DomainException {
+  constructor(reservationId: string) {
+    super(`reservation ${reservationId} is cancelled — voucher is invalid`);
+  }
+}

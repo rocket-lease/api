@@ -23,6 +23,10 @@ import { StubNotificationProvider } from '@/infrastructure/providers/stub.notifi
 import { StubPaymentGatewayProvider } from '@/infrastructure/providers/stub.payment-gateway.provider';
 import { ReservationExpiryJob } from '@/infrastructure/jobs/reservation-expiry.job';
 import { AuthModule } from './auth.module';
+import { EMAIL_PROVIDER } from '@/domain/providers/email.provider';
+import { StubEmailProvider } from '@/infrastructure/providers/stub.email.provider';
+import { ResendEmailProvider } from '@/infrastructure/providers/resend.email.provider';
+import { SmtpEmailProvider } from '@/infrastructure/providers/smtp.email.provider';
 
 @Module({
   imports: [AuthModule],
@@ -58,6 +62,15 @@ import { AuthModule } from './auth.module';
     {
       provide: PAYMENT_GATEWAY_PROVIDER,
       useClass: StubPaymentGatewayProvider,
+    },
+    {
+      provide: EMAIL_PROVIDER,
+      useClass:
+        process.env.EMAIL_PROVIDER === 'smtp'
+          ? SmtpEmailProvider
+          : process.env.EMAIL_PROVIDER === 'resend'
+            ? ResendEmailProvider
+            : StubEmailProvider,
     },
   ],
   exports: [

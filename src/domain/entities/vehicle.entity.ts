@@ -12,7 +12,7 @@ const vehicleSchema = z.object({
     .number()
     .int()
     .min(1900)
-    .max(new Date().getFullYear() + 1, 'Invalid year'),
+    .max(new Date().getFullYear() + 5, 'Invalid year'),
   passengers: z
     .number()
     .int()

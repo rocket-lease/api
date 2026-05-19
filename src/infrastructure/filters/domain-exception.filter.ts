@@ -16,6 +16,8 @@ import {
   ReservationNotFoundException,
   VehicleNotAvailableException,
   TransferExpiredException,
+  VoucherNotFoundException,
+  VoucherReservationCancelledException,
 } from '@/domain/exceptions/reservation.exception';
 import {
   ExceptionFilter,
@@ -89,6 +91,12 @@ export class DomainExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof TransferExpiredException) {
       status = HttpStatus.CONFLICT;
       code = ErrorCodes.RESERVATION_TRANSFER_EXPIRED;
+    } else if (exception instanceof VoucherNotFoundException) {
+      status = HttpStatus.NOT_FOUND;
+      code = ErrorCodes.VOUCHER_NOT_FOUND;
+    } else if (exception instanceof VoucherReservationCancelledException) {
+      status = HttpStatus.GONE;
+      code = ErrorCodes.VOUCHER_RESERVATION_CANCELLED;
     } else if (exception instanceof EmailNotVerifiedException) {
       status = HttpStatus.FORBIDDEN;
     } else if (exception instanceof InvalidEntityDataException) {

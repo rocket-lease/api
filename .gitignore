@@ -18,3 +18,4 @@ reports/
 !.vscode/extensions.json
 !.vscode/launch.json
 .pnpm-store
+.gemini/*   

@@ -28,16 +28,6 @@ export class SupabaseAuthProvider implements AuthProvider {
     });
     if (error) throw new InvalidEntityDataException(error.message);
 
-    const { error: resendError } = await this.supabase.auth.resend({
-      type: 'signup',
-      email,
-    });
-    if (resendError) {
-      this.logger.warn(
-        `Failed to send signup OTP for ${email}: ${resendError.message}`,
-      );
-    }
-
     return { userId: data.user.id };
   }
 
