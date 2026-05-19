@@ -867,7 +867,7 @@ describe('ReservationService', () => {
       rentadorId = randomUUID();
       autoV = makeVehicle({ ownerId: rentadorId, autoAccept: true });
       vehicleRepo = makeVehicleRepo([autoV]);
-      service = new ReservationService(repo, vehicleRepo, userRepo, clock, emailProvider);
+      service = new ReservationService(repo, vehicleRepo, userRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
     });
 
     it('returns a valid voucher when reservation is confirmed', async () => {
