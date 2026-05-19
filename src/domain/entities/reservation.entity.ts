@@ -300,6 +300,7 @@ export class Reservation {
     }
     this.status = 'confirmed';
     this.paidAt = now;
+    this.voucherToken = randomUUID();
     this.transferExpiresAt = null;
     this.updatedAt = now;
   }
