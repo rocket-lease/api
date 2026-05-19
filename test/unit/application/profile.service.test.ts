@@ -25,6 +25,8 @@ describe('ProfileService', () => {
     };
     mediaProviderMock = {
       uploadAvatar: jest.fn(),
+      signUpload: jest.fn(),
+      deleteAsset: jest.fn(),
     };
 
     service = new ProfileService(userRepoMock, mediaProviderMock);
