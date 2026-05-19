@@ -17,6 +17,7 @@ const ReservationStatusEnum = z.enum([
   'rejected',
   'expired',
 ]);
+export const RESERVATION_STATUS = ReservationStatusEnum.enum;
 
 const PaymentMethodEnum = z.enum([
   'credit_card',
@@ -56,9 +57,9 @@ export type PaymentMethod = z.infer<typeof PaymentMethodEnum>;
 export type WalletProvider = z.infer<typeof WalletProviderEnum>;
 
 export const BLOCKING_STATUSES: ReservationStatus[] = [
-  'pending_payment',
-  'confirmed',
-  'in_progress',
+  RESERVATION_STATUS.pending_payment,
+  RESERVATION_STATUS.confirmed,
+  RESERVATION_STATUS.in_progress,
 ];
 
 export const HOLD_TTL_MS = 10 * 60 * 1000;
@@ -120,7 +121,7 @@ export class Reservation {
     this.vehicleId = props.vehicleId;
     this.conductorId = props.conductorId;
     this.rentadorId = props.rentadorId;
-    this.status = props.status ?? 'pending_payment';
+    this.status = props.status ?? RESERVATION_STATUS.pending_payment;
     this.startAt = props.startAt;
     this.endAt = props.endAt;
     this.holdExpiresAt = props.holdExpiresAt;
@@ -216,16 +217,23 @@ export class Reservation {
   }
 
   public isHoldExpired(now: Date): boolean {
-    if (this.status !== 'pending_payment' && this.status !== 'pending_approval') return false;
+    if (!this.isPendingPayment() && !this.isPendingApproval()) return false;
     if (!this.holdExpiresAt) return false;
     return this.holdExpiresAt.getTime() <= now.getTime();
   }
 
   public isTransferExpired(now: Date): boolean {
-    if (this.status !== 'pending_approval') return false;
+    if (!this.isPendingApproval()) return false;
     if (!this.transferExpiresAt) return false;
     return this.transferExpiresAt.getTime() <= now.getTime();
   }
+
+  public isPendingApproval(): boolean { return this.status === RESERVATION_STATUS.pending_approval; }
+  public isPendingPayment(): boolean { return this.status === RESERVATION_STATUS.pending_payment; }
+  public isConfirmed(): boolean { return this.status === RESERVATION_STATUS.confirmed; }
+  public isInProgress(): boolean { return this.status === RESERVATION_STATUS.in_progress; }
+  public isCancelled(): boolean { return this.status === RESERVATION_STATUS.cancelled; }
+  public isExpired(): boolean { return this.status === RESERVATION_STATUS.expired; }
 
   /**
    * Confirma el pago inmediato (tarjeta crédito, débito, billetera virtual).
@@ -236,8 +244,8 @@ export class Reservation {
     now: Date,
     walletProvider?: WalletProvider,
   ): void {
-    if (this.status !== 'pending_payment' && this.status !== 'pending_approval') {
-      throw new InvalidReservationTransitionException(this.status, 'confirmed');
+    if (!this.isPendingPayment() && !this.isPendingApproval()) {
+      throw new InvalidReservationTransitionException(this.status, RESERVATION_STATUS.confirmed);
     }
     if (!this.contractAcceptedAt) {
       throw new ContractNotAcceptedException();
@@ -247,7 +255,7 @@ export class Reservation {
         'walletProvider is required for digital_wallet',
       );
     }
-    this.status = 'confirmed';
+    this.status = RESERVATION_STATUS.confirmed;
     this.paymentMethod = method;
     this.walletProvider = walletProvider ?? null;
     this.paidAt = now;
@@ -266,16 +274,16 @@ export class Reservation {
     transferCode: string,
     transferAlias: string,
   ): void {
-    if (this.status !== 'pending_payment' && this.status !== 'pending_approval') {
+    if (!this.isPendingPayment() && !this.isPendingApproval()) {
       throw new InvalidReservationTransitionException(
         this.status,
-        'pending_approval',
+        RESERVATION_STATUS.pending_approval,
       );
     }
     if (!this.contractAcceptedAt) {
       throw new ContractNotAcceptedException();
     }
-    this.status = 'pending_approval';
+    this.status = RESERVATION_STATUS.pending_approval;
     this.paymentMethod = 'bank_transfer';
     this.transferCode = transferCode;
     this.transferAlias = transferAlias;
@@ -289,16 +297,16 @@ export class Reservation {
    * Transita de pending_approval → confirmed.
    */
   public confirmTransferPayment(now: Date): void {
-    if (this.status !== 'pending_approval') {
+    if (!this.isPendingApproval()) {
       throw new InvalidReservationTransitionException(
         this.status,
-        'confirmed',
+        RESERVATION_STATUS.confirmed,
       );
     }
     if (this.isTransferExpired(now)) {
       throw new TransferExpiredException(this.id);
     }
-    this.status = 'confirmed';
+    this.status = RESERVATION_STATUS.confirmed;
     this.paidAt = now;
     this.voucherToken = randomUUID();
     this.transferExpiresAt = null;
@@ -310,19 +318,19 @@ export class Reservation {
    * Transita de pending_approval → cancelled.
    */
   public expireTransfer(now: Date): void {
-    if (this.status !== 'pending_approval') {
-      throw new InvalidReservationTransitionException(this.status, 'cancelled');
+    if (!this.isPendingApproval()) {
+      throw new InvalidReservationTransitionException(this.status, RESERVATION_STATUS.cancelled);
     }
-    this.status = 'cancelled';
+    this.status = RESERVATION_STATUS.cancelled;
     this.transferExpiresAt = null;
     this.updatedAt = now;
   }
 
   public markExpired(now: Date): void {
-    if (this.status !== 'pending_payment') {
-      throw new InvalidReservationTransitionException(this.status, 'expired');
+    if (!this.isPendingPayment()) {
+      throw new InvalidReservationTransitionException(this.status, RESERVATION_STATUS.expired);
     }
-    this.status = 'expired';
+    this.status = RESERVATION_STATUS.expired;
     this.holdExpiresAt = null;
     this.updatedAt = now;
   }
@@ -334,13 +342,13 @@ export class Reservation {
    * @param now - Instante actual usado para calcular `holdExpiresAt` y `updatedAt`.
    */
   public approve(now: Date): void {
-    if (this.status !== 'pending_approval') {
+    if (!this.isPendingApproval()) {
       throw new InvalidReservationTransitionException(
         this.status,
-        'pending_payment',
+        RESERVATION_STATUS.pending_payment,
       );
     }
-    this.status = 'pending_payment';
+    this.status = RESERVATION_STATUS.pending_payment;
     this.holdExpiresAt = new Date(now.getTime() + HOLD_TTL_MS);
     this.updatedAt = now;
   }
@@ -354,10 +362,10 @@ export class Reservation {
    * @param now - Instante actual usado para `updatedAt`.
    */
   public reject(reason: string | null, now: Date): void {
-    if (this.status !== 'pending_approval') {
-      throw new InvalidReservationTransitionException(this.status, 'rejected');
+    if (!this.isPendingApproval()) {
+      throw new InvalidReservationTransitionException(this.status, RESERVATION_STATUS.rejected);
     }
-    this.status = 'rejected';
+    this.status = RESERVATION_STATUS.rejected;
     this.rejectionReason = reason && reason.length > 0 ? reason : null;
     this.holdExpiresAt = null;
     this.updatedAt = now;
@@ -370,10 +378,10 @@ export class Reservation {
    * @param now - Instante actual usado para `updatedAt`.
    */
   public markApprovalExpired(now: Date): void {
-    if (this.status !== 'pending_approval') {
-      throw new InvalidReservationTransitionException(this.status, 'expired');
+    if (!this.isPendingApproval()) {
+      throw new InvalidReservationTransitionException(this.status, RESERVATION_STATUS.expired);
     }
-    this.status = 'expired';
+    this.status = RESERVATION_STATUS.expired;
     this.holdExpiresAt = null;
     this.updatedAt = now;
   }
@@ -386,14 +394,10 @@ export class Reservation {
    * @param now - Instante actual usado para `updatedAt`.
    */
   public cancel(now: Date): void {
-    if (
-      this.status !== 'pending_payment' &&
-      this.status !== 'pending_approval' &&
-      this.status !== 'confirmed'
-    ) {
-      throw new InvalidReservationTransitionException(this.status, 'cancelled');
+    if (!this.isPendingPayment() && !this.isPendingApproval() && !this.isConfirmed()) {
+      throw new InvalidReservationTransitionException(this.status, RESERVATION_STATUS.cancelled);
     }
-    this.status = 'cancelled';
+    this.status = RESERVATION_STATUS.cancelled;
     this.holdExpiresAt = null;
     this.updatedAt = now;
   }
