@@ -1,11 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { EmailProvider } from '../../domain/providers/email.provider';
 import { Voucher } from '@rocket-lease/contracts';
 import * as nodemailer from 'nodemailer';
+import { LOGGER, type Logger } from '@/application/logger.interface';
 
 @Injectable()
 export class SmtpEmailProvider implements EmailProvider {
-  private readonly logger = new Logger(SmtpEmailProvider.name);
+  @Inject(LOGGER) private readonly logger: Logger;
   private transporter: nodemailer.Transporter | null = null;
 
   private getTransporter(): nodemailer.Transporter {
@@ -93,7 +94,7 @@ export class SmtpEmailProvider implements EmailProvider {
         html: htmlContent,
       });
 
-      this.logger.log(`Voucher enviado exitosamente por SMTP a ${to}`);
+      this.logger.info(`Voucher enviado exitosamente por SMTP a ${to}`);
     } catch (error) {
       this.logger.error(`Fallo al enviar el voucher por SMTP a ${to}: ${error instanceof Error ? error.message : error}`);
     }

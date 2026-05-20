@@ -1,10 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { EmailProvider } from '../../domain/providers/email.provider';
 import { Voucher } from '@rocket-lease/contracts';
+import { LOGGER, type Logger } from '@/application/logger.interface';
 
 @Injectable()
 export class ResendEmailProvider implements EmailProvider {
-  private readonly logger = new Logger(ResendEmailProvider.name);
+  @Inject(LOGGER) private readonly logger: Logger;
 
   async sendVoucherEmail(to: string, voucher: Voucher): Promise<void> {
     const apiKey = process.env.RESEND_API_KEY;
@@ -71,7 +72,7 @@ export class ResendEmailProvider implements EmailProvider {
         throw new Error(`Error de API Resend: ${response.status} ${errText}`);
       }
 
-      this.logger.log(`Voucher enviado exitosamente por correo a ${to}`);
+      this.logger.info(`Voucher enviado exitosamente por correo a ${to}`);
     } catch (error) {
       this.logger.error(`Fallo al enviar el voucher por correo a ${to}: ${error instanceof Error ? error.message : error}`);
     }

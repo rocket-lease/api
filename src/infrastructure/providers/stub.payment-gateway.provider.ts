@@ -1,13 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import {
   PaymentGatewayResult,
   PaymentGatewayProvider,
   TransferCodeResult,
 } from '@/domain/providers/payment-gateway.provider';
+import { LOGGER, type Logger } from '@/application/logger.interface';
 
 @Injectable()
 export class StubPaymentGatewayProvider implements PaymentGatewayProvider {
-  private readonly logger = new Logger(StubPaymentGatewayProvider.name);
+  @Inject(LOGGER) private readonly logger: Logger;
   private aliasCounter = 0;
 
   async processPayment(
@@ -15,7 +16,7 @@ export class StubPaymentGatewayProvider implements PaymentGatewayProvider {
     currency: string,
     method: string,
   ): Promise<PaymentGatewayResult> {
-    this.logger.log(
+    this.logger.info(
       `[STUB] Processing payment: ${amountCents} ${currency} via ${method}`,
     );
     return {
@@ -28,7 +29,7 @@ export class StubPaymentGatewayProvider implements PaymentGatewayProvider {
     this.aliasCounter++;
     const code = `CBU${Date.now()}${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
     const alias = `rocket.lease.${this.aliasCounter}`;
-    this.logger.log(`[STUB] Generated transfer code: ${code}, alias: ${alias}`);
+    this.logger.info(`[STUB] Generated transfer code: ${code}, alias: ${alias}`);
     return { code, alias };
   }
 }
