@@ -3,6 +3,7 @@ import {
   Reservation,
   ReservationStatus,
   PaymentMethod,
+  RESERVATION_STATUS,
 } from '@/domain/entities/reservation.entity';
 import {
   ReservationRepository,
@@ -156,6 +157,21 @@ export class PostgresReservationRepository implements ReservationRepository {
       where: { vehicleId, status: { in: statuses as any } },
     });
     return rows.map((r) => this.toEntity(r));
+  }
+
+  async hasActiveReservations(userId: string): Promise<boolean> {
+    const activeStatuses = [
+      RESERVATION_STATUS.confirmed,
+      RESERVATION_STATUS.in_progress,
+      RESERVATION_STATUS.pending_payment,
+    ];
+    const count = await this.prisma.reservation.count({
+      where: {
+        OR: [{ conductorId: userId }, { rentadorId: userId }],
+        status: { in: activeStatuses },
+      },
+    });
+    return count > 0;
   }
 
   async findByUser(

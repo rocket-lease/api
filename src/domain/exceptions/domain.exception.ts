@@ -47,3 +47,15 @@ export class UserHasVehiclesException extends DomainException {
     super('User has active vehicles and cannot be deleted');
   }
 }
+
+export class UserHasActiveReservationsException extends DomainException {
+  constructor() {
+    super('User has active reservations and cannot delete their account');
+  }
+}
+
+export class EmailUnverifiedPendingException extends DomainException {
+  constructor(email: string) {
+    super(`email ${email} is already registered but pending verification`);
+  }
+}

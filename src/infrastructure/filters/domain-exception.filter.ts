@@ -1,10 +1,12 @@
 import {
   EmailNotVerifiedException,
+  EmailUnverifiedPendingException,
   EntityAlreadyExistsException,
   EntityNotFoundException,
   FavoriteAlreadyExistsException,
   FavoriteNotFoundException,
   InvalidEntityDataException,
+  UserHasActiveReservationsException,
   UserHasVehiclesException,
 } from '@/domain/exceptions/domain.exception';
 import {
@@ -57,10 +59,21 @@ export class DomainExceptionFilter implements ExceptionFilter {
     let message = exception.message;
     // let code: string | undefined;
 
-    if (
+    if (exception instanceof UserHasActiveReservationsException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.USER_HAS_ACTIVE_RESERVATIONS;
+      title = 'Conflict';
+    } else if (exception instanceof EmailUnverifiedPendingException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.EMAIL_UNVERIFIED_PENDING;
+      title = 'Conflict';
+    } else if (exception instanceof UserHasVehiclesException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.USER_HAS_VEHICLES;
+      title = 'Conflict';
+    } else if (
       exception instanceof FavoriteAlreadyExistsException ||
-      exception instanceof EntityAlreadyExistsException ||
-      exception instanceof UserHasVehiclesException
+      exception instanceof EntityAlreadyExistsException
     ) {
       status = HttpStatus.CONFLICT;
       code = ErrorCodes.ENTITY_ALREADY_EXISTS;
