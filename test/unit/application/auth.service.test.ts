@@ -37,6 +37,7 @@ describe('AuthService', () => {
       findActiveByVehicleId: jest.fn(),
       findByUser: jest.fn(),
       hasActiveReservations: jest.fn().mockResolvedValue(false),
+      findByReturnQrToken: jest.fn().mockResolvedValue(null),
     };
     userRepoMock = {
       save: jest.fn(),
