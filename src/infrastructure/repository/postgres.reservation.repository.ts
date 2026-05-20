@@ -158,6 +158,21 @@ export class PostgresReservationRepository implements ReservationRepository {
     return rows.map((r) => this.toEntity(r));
   }
 
+  async hasActiveReservations(userId: string): Promise<boolean> {
+    const activeStatuses: ReservationStatus[] = [
+      'confirmed',
+      'in_progress',
+      'pending_payment',
+    ];
+    const count = await this.prisma.reservation.count({
+      where: {
+        OR: [{ conductorId: userId }, { rentadorId: userId }],
+        status: { in: activeStatuses },
+      },
+    });
+    return count > 0;
+  }
+
   async findByUser(
     userId: string,
     role: ReservationRole,
