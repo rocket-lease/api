@@ -38,6 +38,8 @@ export class VehicleController {
   async getVehicles(
     @Query('characteristics') characteristics?: string | string[],
     @Query('ownerId') ownerId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ): Promise<Array<Contracts.GetVehicleResponse>> {
     if (ownerId !== undefined) {
       const parsed = z.string().uuid().safeParse(ownerId);
@@ -66,10 +68,10 @@ export class VehicleController {
 
     const unique = Array.from(new Set(parsedList));
     if (unique.length > 0) {
-      return await this.vehicleService.getByCharacteristics(unique);
+      return await this.vehicleService.getByCharacteristics(unique, from, to);
     }
 
-    return await this.vehicleService.getAll();
+    return await this.vehicleService.getAll(from, to);
   }
 
   @Get(':id')

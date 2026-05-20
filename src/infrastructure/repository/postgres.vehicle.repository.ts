@@ -1,4 +1,4 @@
-import { VehicleRepository } from '@/domain/repositories/vehicle.repository';
+import { VehicleRepository, type VehicleFilter } from '@/domain/repositories/vehicle.repository';
 import { PrismaService } from '../database/prisma.service';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { Injectable, Inject } from '@nestjs/common';
@@ -123,9 +123,25 @@ export class PostgresVehicleRepository implements VehicleRepository {
     return raws.map((raw) => this.mapToDomain(raw));
   }
 
-  async fetchAll(): Promise<Vehicle[]> {
+  async fetchAll(filter?: VehicleFilter): Promise<Vehicle[]> {
+    const andConditions: Prisma.VehicleWhereInput[] = [{ enabled: true }];
+
+    if (filter?.from && filter.to) {
+      andConditions.push({
+        NOT: {
+          reservations: {
+            some: {
+              status: { in: ['confirmed', 'in_progress'] },
+              startAt: { lt: new Date(filter.to) },
+              endAt: { gt: new Date(filter.from) },
+            },
+          },
+        },
+      });
+    }
+
     const raws = await this.prisma.vehicle.findMany({
-      where: { enabled: true },
+      where: { AND: andConditions },
       include: VEHICLE_INCLUDE,
     });
     return raws.map((raw) => this.mapToDomain(raw));
@@ -133,20 +149,35 @@ export class PostgresVehicleRepository implements VehicleRepository {
 
   async findByCharacteristics(
     characteristics: Characteristic[],
+    filter?: VehicleFilter,
   ): Promise<Vehicle[]> {
     if (characteristics.length === 0) {
-      return this.fetchAll();
+      return this.fetchAll(filter);
     }
 
-    const filters = characteristics.map((item) => ({
-      characteristics: { some: { characteristic: item } },
-    }));
+    const andConditions: Prisma.VehicleWhereInput[] = [
+      { enabled: true },
+      ...characteristics.map((item) => ({
+        characteristics: { some: { characteristic: item } },
+      })),
+    ];
+
+    if (filter?.from && filter.to) {
+      andConditions.push({
+        NOT: {
+          reservations: {
+            some: {
+              status: { in: ['confirmed', 'in_progress'] },
+              startAt: { lt: new Date(filter.to) },
+              endAt: { gt: new Date(filter.from) },
+            },
+          },
+        },
+      });
+    }
 
     const raws = await this.prisma.vehicle.findMany({
-      where: {
-        enabled: true,
-        AND: filters,
-      },
+      where: { AND: andConditions },
       include: VEHICLE_INCLUDE,
     });
     return raws.map((raw) => this.mapToDomain(raw));

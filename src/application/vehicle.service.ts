@@ -115,16 +115,18 @@ export class VehicleService {
     return this.toListDTO(vehicles.filter((v) => v.isEnabled()));
   }
 
-  public async getAll(): Promise<Array<GetVehicleResponse>> {
-    const vehicles = await this.vehicleRepository.fetchAll();
+  public async getAll(from?: string, to?: string): Promise<Array<GetVehicleResponse>> {
+    const vehicles = await this.vehicleRepository.fetchAll({ from, to });
     return this.toListDTO(vehicles);
   }
 
   public async getByCharacteristics(
     characteristics: Characteristic[],
+    from?: string,
+    to?: string,
   ): Promise<Array<GetVehicleResponse>> {
     const vehicles =
-      await this.vehicleRepository.findByCharacteristics(characteristics);
+      await this.vehicleRepository.findByCharacteristics(characteristics, { from, to });
     return this.toListDTO(vehicles);
   }
 
