@@ -67,10 +67,13 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.CONFLICT;
       code = ErrorCodes.EMAIL_UNVERIFIED_PENDING;
       title = 'Conflict';
+    } else if (exception instanceof UserHasVehiclesException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.USER_HAS_VEHICLES;
+      title = 'Conflict';
     } else if (
       exception instanceof FavoriteAlreadyExistsException ||
-      exception instanceof EntityAlreadyExistsException ||
-      exception instanceof UserHasVehiclesException
+      exception instanceof EntityAlreadyExistsException
     ) {
       status = HttpStatus.CONFLICT;
       code = ErrorCodes.ENTITY_ALREADY_EXISTS;
