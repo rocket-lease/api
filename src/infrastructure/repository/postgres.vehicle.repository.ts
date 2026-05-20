@@ -124,28 +124,8 @@ export class PostgresVehicleRepository implements VehicleRepository {
   }
 
   async fetchAll(filter?: VehicleFilter): Promise<Vehicle[]> {
-    const and: Prisma.VehicleWhereInput[] = [{ enabled: true }];
-
-    if (filter?.city) {
-      and.push({ city: { equals: filter.city, mode: 'insensitive' } });
-    }
-
-    if (filter?.from && filter.to) {
-      and.push({
-        NOT: {
-          reservations: {
-            some: {
-              status: { in: ['confirmed', 'in_progress'] },
-              startAt: { lt: new Date(filter.to) },
-              endAt:   { gt: new Date(filter.from) },
-            },
-          },
-        },
-      });
-    }
-
     const raws = await this.prisma.vehicle.findMany({
-      where: { AND: and },
+      where: { AND: this.buildBaseWhere(filter) },
       include: VEHICLE_INCLUDE,
       orderBy: { basePriceCents: 'asc' },
     });
@@ -156,22 +136,31 @@ export class PostgresVehicleRepository implements VehicleRepository {
     characteristics: Characteristic[],
     filter?: VehicleFilter,
   ): Promise<Vehicle[]> {
-    if (characteristics.length === 0) {
-      return this.fetchAll(filter);
-    }
+    if (characteristics.length === 0) return this.fetchAll(filter);
 
     const and: Prisma.VehicleWhereInput[] = [
-      { enabled: true },
+      ...this.buildBaseWhere(filter),
       ...characteristics.map((item) => ({
         characteristics: { some: { characteristic: item } },
       })),
     ];
 
+    const raws = await this.prisma.vehicle.findMany({
+      where: { AND: and },
+      include: VEHICLE_INCLUDE,
+      orderBy: { basePriceCents: 'asc' },
+    });
+    return raws.map((raw) => this.mapToDomain(raw));
+  }
+
+  private buildBaseWhere(filter?: VehicleFilter): Prisma.VehicleWhereInput[] {
+    const and: Prisma.VehicleWhereInput[] = [{ enabled: true }];
+
     if (filter?.city) {
       and.push({ city: { equals: filter.city, mode: 'insensitive' } });
     }
 
-    if (filter?.from && filter.to) {
+    if (filter?.from && filter?.to) {
       and.push({
         NOT: {
           reservations: {
@@ -185,12 +174,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
       });
     }
 
-    const raws = await this.prisma.vehicle.findMany({
-      where: { AND: and },
-      include: VEHICLE_INCLUDE,
-      orderBy: { basePriceCents: 'asc' },
-    });
-    return raws.map((raw) => this.mapToDomain(raw));
+    return and;
   }
 
   async delete(id: string): Promise<void> {
