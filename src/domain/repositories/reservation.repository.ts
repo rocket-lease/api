@@ -139,6 +139,16 @@ export interface ReservationRepository {
   ): Promise<void>;
 
   /**
+   * Devuelve `true` si el usuario tiene al menos una reserva activa (como conductor
+   * o como rentador) en alguno de los estados bloqueantes: `confirmed`, `in_progress`
+   * o `pending_payment`. Se usa para impedir el borrado de cuenta.
+   *
+   * @param userId - ID del usuario a consultar.
+   * @returns `true` si existe al menos una reserva activa asociada al usuario.
+   */
+  hasActiveReservations(userId: string): Promise<boolean>;
+
+  /**
    * Lista las reservas en las que participa un usuario, desde la perspectiva indicada.
    *
    * @param userId - ID del usuario cuyas reservas se quieren listar.
