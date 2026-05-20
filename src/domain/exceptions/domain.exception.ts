@@ -41,3 +41,9 @@ export class FavoriteNotFoundException extends DomainException {
     super(`favorite for vehicle ${vehicleId} not found`);
   }
 }
+
+export class UserHasVehiclesException extends DomainException {
+  constructor() {
+    super('User has active vehicles and cannot be deleted');
+  }
+}

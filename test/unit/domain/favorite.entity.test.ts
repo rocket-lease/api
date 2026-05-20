@@ -7,7 +7,12 @@ const validVehicleId = randomUUID();
 
 describe('Favorite Entity', () => {
   it('crea entidad válida con todos los campos', () => {
-    const fav = new Favorite(validId, validConductorId, validVehicleId, new Date());
+    const fav = new Favorite(
+      validId,
+      validConductorId,
+      validVehicleId,
+      new Date(),
+    );
     expect(fav.id).toBe(validId);
     expect(fav.conductorId).toBe(validConductorId);
     expect(fav.vehicleId).toBe(validVehicleId);
@@ -41,8 +46,8 @@ describe('Favorite Entity', () => {
   });
 
   it('lanza error de validación si id no es UUID', () => {
-    expect(() => new Favorite('id-invalido', validConductorId, validVehicleId)).toThrow(
-      'Validation error:',
-    );
+    expect(
+      () => new Favorite('id-invalido', validConductorId, validVehicleId),
+    ).toThrow('Validation error:');
   });
 });

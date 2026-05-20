@@ -52,7 +52,8 @@ export class FavoriteService {
   }
 
   async listFavorites(conductorId: string): Promise<ListFavoritesResponse> {
-    const favorites = await this.favoriteRepository.findByConductor(conductorId);
+    const favorites =
+      await this.favoriteRepository.findByConductor(conductorId);
     return ListFavoritesResponseSchema.parse({
       items: favorites.map((fav) => ({
         id: fav.id,

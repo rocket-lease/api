@@ -2,13 +2,16 @@
 
 NestJS backend for Rocket Lease. TypeScript, Postgres on Supabase via Prisma, Supabase Auth (JWT verified locally), pragmatic clean architecture.
 
-## Canonical rules (do not duplicate; defer to infra)
+## Cross-repo docs (live in this repo)
 
-For branching, PR gates, TS strictness, lint config, coverage thresholds, error format (RFC 7807), date/money/IDs, concurrency policy, provider stubbing pattern, pre-commit hooks: see `<org>/infra` repo, file `playbook/canonical-rules.md`, sections §1–§12.
+This is the anchor repo for cross-cutting documentation:
 
-Domain glossary (Spanish canonical): `<org>/infra/playbook/CONTEXT.md`. New domain terms must be added there in the same PR that introduces them.
+- ADRs: `docs/adr/`
+- Domain glossary: `docs/CONTEXT.md` (Spanish canonical terms, English code identifiers)
+- Architectural decisions: `docs/DECISIONS.md`
+- Cross-repo conventions (commits, errors, money, dates): `docs/CONVENTIONS.md`
 
-Cross-cutting ADRs: `<org>/infra/docs/adr/`. This repo holds backend-specific ADRs in `docs/adr/`.
+web and contracts AGENTS.md link here. New domain terms must be added to `docs/CONTEXT.md` in the same PR that introduces them.
 
 ## Layer rules (this repo)
 
@@ -32,14 +35,14 @@ Hard rules (block PR via review, lint where possible):
 2. Services depend on repository **interfaces**, injected by DI token. No `PrismaService` import in services.
 3. Entities are plain TS. Prisma model types live only inside repositories; mapped to entities at the repository boundary.
 4. Cross-module access only through the public service contract. No `repo.findById()` from another module's controller.
-5. External providers (payment, identity, push, storage) wrapped behind interfaces. See `infra/docs/adr/0005-providers-stubbed.md`. Stubs in `infrastructure/`. Never branch on `process.env.PROVIDER` inside services — that decision happens in the module wiring.
-6. Reservations: status transitions only via `ReservationsService`. Never update `status` from another module. See `infra/docs/adr/0004-reservation-concurrency.md`.
+5. External providers (payment, identity, push, storage) wrapped behind interfaces. See `docs/adr/0005-providers-stubbed.md`. Stubs in `infrastructure/`. Never branch on `process.env.PROVIDER` inside services — that decision happens in the module wiring.
+6. Reservations: status transitions only via `ReservationsService`. Never update `status` from another module. See `docs/adr/0004-reservation-concurrency.md`.
 
 ## Modules (planned)
 
 `auth`, `users`, `vehicles`, `search`, `reservations`, `payments`, `contracts` (digital signing of rental terms; not to be confused with the `@<org>/contracts` package), `reviews`, `reputation`, `levels`, `notifications`, `support`, `dashboard`, `geo`, `pricing`, `identity`.
 
-Sprint allocation per module: `<org>/infra/playbook/DECISIONS.md` → "Sprint allocation" section.
+Sprint allocation per module: `docs/DECISIONS.md` → "Sprint allocation" section.
 
 ## Persistence
 
@@ -73,9 +76,13 @@ Required integration tests:
 
 ## Local dev
 
+Prereq: clone `contracts` next to `api/` (same parent directory). The api depends on `@rocket-lease/contracts` via `link:../contracts` — see `docs/adr/0007-contracts-as-source.md`. A `preinstall` script aborts if the sibling is missing.
+
 - `pnpm install`
 - `pnpm prisma migrate dev`
-- `pnpm dev` — starts NestJS on port 3000 with Supabase local stack (`supabase start` separately, or pointed at remote via `.env.local`).
+- `make run` — api on host against prod DB (Supabase via `.env.local`). Default.
+- `make run-local` — full stack in docker (api + Postgres + `../contracts` bind-mount).
+- `make db` — only Postgres up, useful for tests.
 
 `.env.example` documents every required variable. `.env.local` is gitignored. Real values: ask in the team password manager, do not commit.
 
@@ -85,11 +92,11 @@ Required integration tests:
 
 ## CI
 
-`.github/workflows/ci.yml` calls `<org>/infra/.github/workflows/ci-node.yml@main` with this repo's matrix.
+`.github/workflows/ci-cd.yml` runs tests + deploy. It checks out `contracts` as a sibling (same branch if present, else PR base ref) before `pnpm install`. See `docs/adr/0007-contracts-as-source.md`.
 
 ## Pointers for AI agents
 
-- Read `infra/playbook/CONTEXT.md` and `DECISIONS.md` before any non-trivial work.
+- Read `docs/CONTEXT.md` and `docs/DECISIONS.md` before any non-trivial work.
 - When adding a new feature module: copy the structure from an existing module (after sprint 1, `users` is a good template).
 - When adding a new external provider: follow ADR-0005. Always start with a stub adapter; real adapter is a separate ADR + PR.
 - When in doubt about layer placement: `controllers` only translate HTTP ↔ DTO. `services` hold business rules. `repositories` only do persistence. If you can't decide, ask the architect.

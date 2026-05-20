@@ -1,75 +1,121 @@
 import { AuthService } from '@/application/auth.service';
 import { VehicleService } from '@/application/vehicle.service';
 import {
-    Body,
-    Controller,
-    Post,
-    Get,
-    Req,
-    Patch,
-    Param,
-    Delete,
-    Query,
+  BadRequestException,
+  Body,
+  Controller,
+  Post,
+  Get,
+  Req,
+  Patch,
+  Param,
+  Query,
+  Delete,
+  Inject,
 } from '@nestjs/common';
 import * as Contracts from '@rocket-lease/contracts';
 import type { Request } from 'express';
+import { z } from 'zod';
 
 @Controller('vehicle')
 export class VehicleController {
-    constructor(
-        private readonly vehicleService: VehicleService,
-        private readonly authService: AuthService,
-    ) {}
+  constructor(
+    @Inject(VehicleService) private readonly vehicleService: VehicleService,
+    @Inject(AuthService) private readonly authService: AuthService,
+  ) {}
 
-    @Get('mine')
-    async getMyVehicles(
-        @Req() req: Request,
-    ): Promise<Array<Contracts.GetVehicleResponse>> {
-        const authHeader = req.headers.authorization;
-        if (!authHeader) throw new Error('Token not found');
-        const ownerId = await this.authService.getUserIdFromToken(authHeader);
-        return await this.vehicleService.getMyVehicles(ownerId);
+  @Get('mine')
+  async getMyVehicles(
+    @Req() req: Request,
+  ): Promise<Array<Contracts.GetVehicleResponse>> {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) throw new Error('Token not found');
+    const ownerId = await this.authService.getUserIdFromToken(authHeader);
+    return await this.vehicleService.getMyVehicles(ownerId);
+  }
+
+  @Get()
+  async getVehicles(
+    @Query('characteristics') characteristics?: string | string[],
+    @Query('ownerId') ownerId?: string,
+    @Query('city') city?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ): Promise<Array<Contracts.GetVehicleResponse>> {
+    if (ownerId !== undefined) {
+      const parsed = z.string().uuid().safeParse(ownerId);
+      if (!parsed.success) {
+        throw new BadRequestException('invalid ownerId');
+      }
+      return await this.vehicleService.getPublishedByOwnerId(parsed.data);
     }
 
-    @Get()
-    async getVehicles(
-        @Query('city') city?: string,
-        @Query('from') from?: string,
-        @Query('to') to?: string,
-    ): Promise<Array<Contracts.GetVehicleResponse>> {
-        return await this.vehicleService.getAll({ city, from, to });
-    }
+    const parsedList: Contracts.Characteristic[] = [];
 
-    @Get(':id')
-    async getVehicleById(
-        @Param('id') id: string,
-    ): Promise<Contracts.GetVehicleResponse> {
-        return await this.vehicleService.getById(id);
-    }
-
-    @Delete(':id')
-    async deleteVehicle(@Param('id') id: string): Promise<void> {
-        await this.vehicleService.deleteVehicle(id);
-    }
-
-    @Patch(':id')
-    async updateVehicle(
-        @Param('id') id: string,
-        @Body() dto: Contracts.UpdateVehicleRequest,
-    ): Promise<void> {
-        return await this.vehicleService.updateVehicle(id, dto);
-    }
-
-    @Post()
-    async publishVehicle(
-        @Body() dto: Contracts.CreateVehicleRequest,
-        @Req() req: Request,
-    ): Promise<Contracts.CreateVehicleResponse> {
-        const authHeader = req.headers.authorization;
-        if (!authHeader) {
-            throw Error('Token not found');
+    if (characteristics) {
+      const raw = Array.isArray(characteristics)
+        ? characteristics
+        : characteristics.split(',');
+      for (const item of raw) {
+        const trimmed = item.trim();
+        if (!trimmed) continue;
+        const parsed = Contracts.CharacteristicSchema.safeParse(trimmed);
+        if (!parsed.success) {
+          throw new BadRequestException(`invalid characteristic: ${trimmed}`);
         }
-        const ownerId = await this.authService.getUserIdFromToken(authHeader);
-        return await this.vehicleService.createVehicle(ownerId, dto);
+        parsedList.push(parsed.data);
+      }
     }
+
+    const filter = { city, from, to };
+    const unique = Array.from(new Set(parsedList));
+    if (unique.length > 0) {
+      return await this.vehicleService.getByCharacteristics(unique, filter);
+    }
+
+    return await this.vehicleService.getAll(filter);
+  }
+
+  @Get(':id')
+  async getVehicleById(
+    @Param('id') id: string,
+  ): Promise<Contracts.GetVehicleResponse> {
+    return await this.vehicleService.getById(id);
+  }
+
+  @Delete(':id')
+  async deleteVehicle(
+    @Param('id') id: string,
+    @Req() req: Request,
+  ): Promise<void> {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) throw new Error('Token not found');
+    const ownerId = await this.authService.getUserIdFromToken(authHeader);
+    await this.vehicleService.deleteVehicle(id, ownerId);
+  }
+
+  @Patch(':id')
+  async updateVehicle(
+    @Param('id') id: string,
+    @Body() dto: Contracts.UpdateVehicleRequest,
+    @Req() req: Request,
+  ): Promise<void> {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) throw new Error('Token not found');
+    const ownerId = await this.authService.getUserIdFromToken(authHeader);
+    return await this.vehicleService.updateVehicle(id, ownerId, dto);
+  }
+
+  @Post()
+  async publishVehicle(
+    @Body() dto: Contracts.CreateVehicleRequest,
+    @Req() req: Request,
+  ): Promise<Contracts.CreateVehicleResponse> {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      throw Error('Token not found');
+    }
+    const ownerId = await this.authService.getUserIdFromToken(authHeader);
+    return await this.vehicleService.createVehicle(ownerId, dto);
+  }
 }

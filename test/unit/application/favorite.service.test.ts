@@ -48,9 +48,9 @@ describe('FavoriteService', () => {
     it('lanza FavoriteAlreadyExistsException si el favorito ya existe', async () => {
       repoMock.findByConductorAndVehicle.mockResolvedValue(makeFavorite());
 
-      await expect(service.addFavorite(conductorId, { vehicleId })).rejects.toThrow(
-        FavoriteAlreadyExistsException,
-      );
+      await expect(
+        service.addFavorite(conductorId, { vehicleId }),
+      ).rejects.toThrow(FavoriteAlreadyExistsException);
       expect(repoMock.save).not.toHaveBeenCalled();
     });
 
@@ -82,9 +82,9 @@ describe('FavoriteService', () => {
     it('lanza FavoriteNotFoundException si el favorito no existe', async () => {
       repoMock.findByConductorAndVehicle.mockResolvedValue(null);
 
-      await expect(service.removeFavorite(conductorId, vehicleId)).rejects.toThrow(
-        FavoriteNotFoundException,
-      );
+      await expect(
+        service.removeFavorite(conductorId, vehicleId),
+      ).rejects.toThrow(FavoriteNotFoundException);
       expect(repoMock.delete).not.toHaveBeenCalled();
     });
   });

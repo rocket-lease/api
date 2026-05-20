@@ -1,0 +1,13 @@
+# Dev image used by docker-compose --profile full.
+# Source for api/ and contracts/ comes in via bind mounts at runtime; this image
+# only provides the runtime (node + pnpm). See infra/docs/adr/0007-contracts-as-source.md.
+
+FROM node:22-alpine
+
+RUN npm install -g pnpm@11.0.8
+
+WORKDIR /workspace/api
+EXPOSE 8080
+
+# Default command; docker-compose overrides as needed.
+CMD ["pnpm", "start:dev"]

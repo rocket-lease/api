@@ -1,0 +1,76 @@
+name: Deploy
+
+# Triggered directly on push to main (i.e. PR merge). CI is NOT re-run here —
+# branch protection on `main` (require PR + green CI + up-to-date branch) is the
+# gate that guarantees the merged commit was validated by the PR run.
+on:
+  push:
+    branches: [main]
+
+env:
+  REGION: us-west1
+  PROJECT_ID: project-b607cbd7-eafa-4aed-872
+  IMAGE: us-west1-docker.pkg.dev/project-b607cbd7-eafa-4aed-872/rocket-leaser/api
+  SERVICE: rocket-leaser-api
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout api
+        uses: actions/checkout@v4
+        with:
+          path: api
+
+      - name: Checkout contracts (main)
+        uses: actions/checkout@v4
+        with:
+          repository: rocket-lease/contracts
+          ref: main
+          token: ${{ secrets.CONTRACTS_TOKEN }}
+          path: contracts
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/831744561983/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-actions-sa@project-b607cbd7-eafa-4aed-872.iam.gserviceaccount.com
+          token_format: access_token
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker auth
+        uses: docker/login-action@v3
+        with:
+          registry: us-west1-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+
+      # Build context is the parent dir that holds api/ and contracts/ as siblings.
+      - name: Build image
+        run: |
+          docker build -f api/Dockerfile \
+            -t ${{ env.IMAGE }}:${{ github.sha }} \
+            -t ${{ env.IMAGE }}:latest \
+            .
+
+      - name: Push image
+        run: |
+          docker push ${{ env.IMAGE }}:${{ github.sha }}
+          docker push ${{ env.IMAGE }}:latest
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE }} \
+            --image=${{ env.IMAGE }}:${{ github.sha }} \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --project=${{ env.PROJECT_ID }} \
+            --set-env-vars="DATABASE_URL=${{ secrets.DATABASE_URL }},DIRECT_URL=${{ secrets.DIRECT_URL }},SUPABASE_URL=${{ secrets.SUPABASE_URL }},SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }},SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }},CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME }},CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }},CLOUDINARY_API_SECRET=${{ secrets.CLOUDINARY_API_SECRET }}"

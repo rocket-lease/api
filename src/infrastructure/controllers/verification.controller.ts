@@ -4,6 +4,7 @@ import {
   Get,
   Headers,
   HttpCode,
+  Inject,
   Post,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -30,12 +31,13 @@ type VerifyPhoneOtpRequest = z.infer<typeof VerifyPhoneOtpRequestSchema>;
 @Controller('verifications')
 export class VerificationController {
   constructor(
-    private readonly verificationService: VerificationService,
-    private readonly authService: AuthService,
+    @Inject(VerificationService) private readonly verificationService: VerificationService,
+    @Inject(AuthService) private readonly authService: AuthService,
   ) {}
 
   private async resolveUserId(authorization?: string): Promise<string> {
-    if (!authorization) throw new UnauthorizedException('Missing authorization header');
+    if (!authorization)
+      throw new UnauthorizedException('Missing authorization header');
     try {
       return await this.authService.getUserIdFromToken(authorization);
     } catch {

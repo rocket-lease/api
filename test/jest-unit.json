@@ -8,6 +8,8 @@
   },
   "moduleNameMapper": {
     "^@/(.*)$": "<rootDir>/src/$1",
-    "^@test/(.*)$": "<rootDir>/test/$1"
+    "^@test/(.*)$": "<rootDir>/test/$1",
+    "^@rocket-lease/contracts$": "<rootDir>/../contracts/src/index.ts",
+    "^@rocket-lease/contracts/(.*)$": "<rootDir>/../contracts/src/$1"
   }
 }

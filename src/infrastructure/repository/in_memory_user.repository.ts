@@ -30,6 +30,7 @@ export class InMemoryUserRepository implements UserRepository {
         accessibility: [],
         maxPriceDaily: null,
       },
+      autoAccept: user.getAutoAccept(),
     });
   }
 
@@ -39,7 +40,13 @@ export class InMemoryUserRepository implements UserRepository {
   ): Promise<void> {
     const existing = this.storageById.get(id);
     if (!existing) return;
-    const updated = new User(id, data.name, existing.getEmail(), data.dni, data.phone);
+    const updated = new User(
+      id,
+      data.name,
+      existing.getEmail(),
+      data.dni,
+      data.phone,
+    );
     this.storageById.set(id, updated);
     this.storageByEmail.set(existing.getEmail(), updated);
     const profile = this.profiles.get(id);
@@ -60,7 +67,17 @@ export class InMemoryUserRepository implements UserRepository {
     return this.profiles.get(id) ?? null;
   }
 
-  public async updateProfile(id: string, profile: UpdateUserProfile): Promise<UserProfile> {
+  public async findProfilesByIds(ids: string[]): Promise<UserProfile[]> {
+    return ids.flatMap((id) => {
+      const p = this.profiles.get(id);
+      return p ? [p] : [];
+    });
+  }
+
+  public async updateProfile(
+    id: string,
+    profile: UpdateUserProfile,
+  ): Promise<UserProfile> {
     const existing = this.profiles.get(id);
     if (!existing) {
       throw new Error('User profile not found');
@@ -72,13 +89,23 @@ export class InMemoryUserRepository implements UserRepository {
       phone: profile.phone,
       avatarUrl: profile.avatarUrl,
       preferences: profile.preferences,
+      autoAccept:
+        profile.autoAccept !== undefined ? profile.autoAccept : existing.autoAccept,
     };
 
     this.profiles.set(id, nextProfile);
     return nextProfile;
   }
 
-  public async updateAvatar(id: string, avatarUrl: string): Promise<UserProfile> {
+  public async updateAutoAccept(id: string, value: boolean): Promise<void> {
+    const profile = this.profiles.get(id);
+    if (profile) this.profiles.set(id, { ...profile, autoAccept: value });
+  }
+
+  public async updateAvatar(
+    id: string,
+    avatarUrl: string,
+  ): Promise<UserProfile> {
     const existing = this.profiles.get(id);
     if (!existing) {
       throw new Error('User profile not found');

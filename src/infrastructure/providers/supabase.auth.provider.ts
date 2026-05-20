@@ -28,24 +28,21 @@ export class SupabaseAuthProvider implements AuthProvider {
     });
     if (error) throw new InvalidEntityDataException(error.message);
 
-    const { error: resendError } = await this.supabase.auth.resend({
-      type: 'signup',
-      email,
-    });
-    if (resendError) {
-      this.logger.warn(
-        `Failed to send signup OTP for ${email}: ${resendError.message}`,
-      );
-    }
-
     return { userId: data.user.id };
   }
 
   async signIn(
     email: string,
     password: string,
-  ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
-    const { data, error } = await this.supabase.auth.signInWithPassword({ email, password });
+  ): Promise<{
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+  }> {
+    const { data, error } = await this.supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
     if (error) {
       const code = (error as { code?: string }).code;
       if (code === 'email_not_confirmed') {
@@ -63,7 +60,8 @@ export class SupabaseAuthProvider implements AuthProvider {
   async verifyToken(token: string): Promise<{ userId: string }> {
     try {
       const { payload } = await jwtVerify(token, this.jwks);
-      if (!payload.sub) throw new InvalidEntityDataException('Token sin sub claim');
+      if (!payload.sub)
+        throw new InvalidEntityDataException('Token sin sub claim');
       return { userId: payload.sub };
     } catch (err) {
       if (err instanceof InvalidEntityDataException) throw err;
@@ -116,7 +114,8 @@ export class SupabaseAuthProvider implements AuthProvider {
       type: 'signup',
     });
     if (error) throw new InvalidEntityDataException(error.message);
-    if (!data.user) throw new InvalidEntityDataException('OTP verification returned no user');
+    if (!data.user)
+      throw new InvalidEntityDataException('OTP verification returned no user');
     return { userId: data.user.id };
   }
 
