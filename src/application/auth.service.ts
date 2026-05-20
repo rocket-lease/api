@@ -50,6 +50,7 @@ export class AuthService {
     const { userId } = await this.authProvider.signUp(dto.email, dto.password);
     const user = new User(userId, dto.name, dto.email, dto.dni, dto.phone);
     await this.userRepository.save(user);
+    await this.authProvider.resendSignupOtp(dto.email);
 
     return RegisterUserResponseSchema.parse({
       id: user.getId(),
