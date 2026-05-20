@@ -14,7 +14,7 @@ import { PinoLoggerAdapter } from '@/infrastructure/providers/pino.logger.provid
           target: 'pino-pretty',
           options: { colorize: true, translateTime: 'HH:MM:ss', singleLine: true, ignore: 'pid,hostname' },
         },
-        customLogLevel: (req, res, err) => {
+        customLogLevel: (_req, res, _err) => {
           if (res.statusCode >= 500) return 'error';
           if (res.statusCode >= 400) return 'warn';
           return 'info';
