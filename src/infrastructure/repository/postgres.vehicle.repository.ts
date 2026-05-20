@@ -1,4 +1,4 @@
-import { VehicleRepository } from '@/domain/repositories/vehicle.repository';
+import { VehicleRepository, type VehicleFilter } from '@/domain/repositories/vehicle.repository';
 import { PrismaService } from '../database/prisma.service';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { Injectable, Inject } from '@nestjs/common';
@@ -123,33 +123,58 @@ export class PostgresVehicleRepository implements VehicleRepository {
     return raws.map((raw) => this.mapToDomain(raw));
   }
 
-  async fetchAll(): Promise<Vehicle[]> {
+  async fetchAll(filter?: VehicleFilter): Promise<Vehicle[]> {
     const raws = await this.prisma.vehicle.findMany({
-      where: { enabled: true },
+      where: { AND: this.buildBaseWhere(filter) },
       include: VEHICLE_INCLUDE,
+      orderBy: { basePriceCents: 'asc' },
     });
     return raws.map((raw) => this.mapToDomain(raw));
   }
 
   async findByCharacteristics(
     characteristics: Characteristic[],
+    filter?: VehicleFilter,
   ): Promise<Vehicle[]> {
-    if (characteristics.length === 0) {
-      return this.fetchAll();
-    }
+    if (characteristics.length === 0) return this.fetchAll(filter);
 
-    const filters = characteristics.map((item) => ({
-      characteristics: { some: { characteristic: item } },
-    }));
+    const and: Prisma.VehicleWhereInput[] = [
+      ...this.buildBaseWhere(filter),
+      ...characteristics.map((item) => ({
+        characteristics: { some: { characteristic: item } },
+      })),
+    ];
 
     const raws = await this.prisma.vehicle.findMany({
-      where: {
-        enabled: true,
-        AND: filters,
-      },
+      where: { AND: and },
       include: VEHICLE_INCLUDE,
+      orderBy: { basePriceCents: 'asc' },
     });
     return raws.map((raw) => this.mapToDomain(raw));
+  }
+
+  private buildBaseWhere(filter?: VehicleFilter): Prisma.VehicleWhereInput[] {
+    const and: Prisma.VehicleWhereInput[] = [{ enabled: true }];
+
+    if (filter?.city) {
+      and.push({ city: { equals: filter.city, mode: 'insensitive' } });
+    }
+
+    if (filter?.from && filter?.to) {
+      and.push({
+        NOT: {
+          reservations: {
+            some: {
+              status: { in: ['confirmed', 'in_progress'] },
+              startAt: { lt: new Date(filter.to) },
+              endAt:   { gt: new Date(filter.from) },
+            },
+          },
+        },
+      });
+    }
+
+    return and;
   }
 
   async delete(id: string): Promise<void> {

@@ -38,6 +38,9 @@ export class VehicleController {
   async getVehicles(
     @Query('characteristics') characteristics?: string | string[],
     @Query('ownerId') ownerId?: string,
+    @Query('city') city?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ): Promise<Array<Contracts.GetVehicleResponse>> {
     if (ownerId !== undefined) {
       const parsed = z.string().uuid().safeParse(ownerId);
@@ -64,12 +67,18 @@ export class VehicleController {
       }
     }
 
+    const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+    if (from && !ISO_DATE.test(from)) throw new BadRequestException('from must be YYYY-MM-DD')
+    if (to   && !ISO_DATE.test(to))   throw new BadRequestException('to must be YYYY-MM-DD')
+    if (from && to && from > to)       throw new BadRequestException('from must be <= to')
+
+    const filter = { city: city?.trim() || undefined, from, to };
     const unique = Array.from(new Set(parsedList));
     if (unique.length > 0) {
-      return await this.vehicleService.getByCharacteristics(unique);
+      return await this.vehicleService.getByCharacteristics(unique, filter);
     }
 
-    return await this.vehicleService.getAll();
+    return await this.vehicleService.getAll(filter);
   }
 
   @Get(':id')

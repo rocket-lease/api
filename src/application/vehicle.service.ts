@@ -4,7 +4,7 @@ import {
   EntityNotFoundException,
   InvalidEntityDataException,
 } from '@/domain/exceptions/domain.exception';
-import type { VehicleRepository } from '@/domain/repositories/vehicle.repository';
+import type { VehicleRepository, VehicleFilter } from '@/domain/repositories/vehicle.repository';
 import { VEHICLE_REPOSITORY } from '@/domain/repositories/vehicle.repository';
 import type { UserProfile, UserRepository } from '@/domain/repositories/user.repository';
 import { USER_REPOSITORY } from '@/domain/repositories/user.repository';
@@ -115,16 +115,17 @@ export class VehicleService {
     return this.toListDTO(vehicles.filter((v) => v.isEnabled()));
   }
 
-  public async getAll(): Promise<Array<GetVehicleResponse>> {
-    const vehicles = await this.vehicleRepository.fetchAll();
+  public async getAll(filter?: VehicleFilter): Promise<Array<GetVehicleResponse>> {
+    const vehicles = await this.vehicleRepository.fetchAll(filter);
     return this.toListDTO(vehicles);
   }
 
   public async getByCharacteristics(
     characteristics: Characteristic[],
+    filter?: VehicleFilter,
   ): Promise<Array<GetVehicleResponse>> {
     const vehicles =
-      await this.vehicleRepository.findByCharacteristics(characteristics);
+      await this.vehicleRepository.findByCharacteristics(characteristics, filter);
     return this.toListDTO(vehicles);
   }
 
@@ -189,7 +190,8 @@ export class VehicleService {
   ): Promise<GetVehicleResponse> {
     const reservationRuleSet = includeReservationRuleSet
       ? await this.loadReservationRuleSet(vehicle.getReservationRuleSetId())
-      : undefined;    return GetVehicleResponseSchema.parse({
+      : undefined;
+    return GetVehicleResponseSchema.parse({
       id: vehicle.getId(),
       ownerId: vehicle.getOwnerId(),
       plate: vehicle.getPlate(),
