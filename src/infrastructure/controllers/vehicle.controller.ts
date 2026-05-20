@@ -12,6 +12,7 @@ import {
   Query,
   Delete,
   Inject,
+  UnauthorizedException,
 } from '@nestjs/common';
 import * as Contracts from '@rocket-lease/contracts';
 import type { Request } from 'express';
@@ -24,13 +25,21 @@ export class VehicleController {
     @Inject(AuthService) private readonly authService: AuthService,
   ) {}
 
+  private async resolveUserId(req: Request): Promise<string> {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) throw new UnauthorizedException('Token not found');
+    try {
+      return await this.authService.getUserIdFromToken(authHeader);
+    } catch {
+      throw new UnauthorizedException('Invalid access token');
+    }
+  }
+
   @Get('mine')
   async getMyVehicles(
     @Req() req: Request,
   ): Promise<Array<Contracts.GetVehicleResponse>> {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) throw new Error('Token not found');
-    const ownerId = await this.authService.getUserIdFromToken(authHeader);
+    const ownerId = await this.resolveUserId(req);
     return await this.vehicleService.getMyVehicles(ownerId);
   }
 
@@ -93,9 +102,7 @@ export class VehicleController {
     @Param('id') id: string,
     @Req() req: Request,
   ): Promise<void> {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) throw new Error('Token not found');
-    const ownerId = await this.authService.getUserIdFromToken(authHeader);
+    const ownerId = await this.resolveUserId(req);
     await this.vehicleService.deleteVehicle(id, ownerId);
   }
 
@@ -105,9 +112,7 @@ export class VehicleController {
     @Body() dto: Contracts.UpdateVehicleRequest,
     @Req() req: Request,
   ): Promise<void> {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) throw new Error('Token not found');
-    const ownerId = await this.authService.getUserIdFromToken(authHeader);
+    const ownerId = await this.resolveUserId(req);
     return await this.vehicleService.updateVehicle(id, ownerId, dto);
   }
 
@@ -116,11 +121,7 @@ export class VehicleController {
     @Body() dto: Contracts.CreateVehicleRequest,
     @Req() req: Request,
   ): Promise<Contracts.CreateVehicleResponse> {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      throw Error('Token not found');
-    }
-    const ownerId = await this.authService.getUserIdFromToken(authHeader);
+    const ownerId = await this.resolveUserId(req);
     return await this.vehicleService.createVehicle(ownerId, dto);
   }
 }

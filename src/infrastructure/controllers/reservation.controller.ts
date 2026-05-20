@@ -206,6 +206,10 @@ export class ReservationController {
   private async requireUserId(req: Request): Promise<string> {
     const authHeader = req.headers.authorization;
     if (!authHeader) throw new UnauthorizedException('Token not found');
-    return this.authService.getUserIdFromToken(authHeader);
+    try {
+      return await this.authService.getUserIdFromToken(authHeader);
+    } catch {
+      throw new UnauthorizedException('Invalid access token');
+    }
   }
 }
