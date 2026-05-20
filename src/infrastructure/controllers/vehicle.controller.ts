@@ -32,15 +32,12 @@ export class VehicleController {
     }
 
     @Get()
-    async getVehicles(): Promise<Array<Contracts.GetVehicleResponse>> {
-        return await this.vehicleService.getAll();
-    }
-
-    @Get('search')
-    async searchVehicles(
-        @Query() query: Contracts.SearchVehiclesQuery,
-    ): Promise<Contracts.SearchVehiclesResponse> {
-        return this.vehicleService.searchVehicles(query);
+    async getVehicles(
+        @Query('city') city?: string,
+        @Query('from') from?: string,
+        @Query('to') to?: string,
+    ): Promise<Array<Contracts.GetVehicleResponse>> {
+        return await this.vehicleService.getAll({ city, from, to });
     }
 
     @Get(':id')

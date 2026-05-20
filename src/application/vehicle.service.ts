@@ -4,7 +4,7 @@ import {
     EntityNotFoundException,
     InvalidEntityDataException,
 } from '@/domain/exceptions/domain.exception';
-import type { VehicleRepository } from '@/domain/repositories/vehicle.repository';
+import type { VehicleRepository, VehicleFilter } from '@/domain/repositories/vehicle.repository';
 import { VEHICLE_REPOSITORY } from '@/domain/repositories/vehicle.repository';
 import { Inject, Injectable } from '@nestjs/common';
 import { UpdateVehicleRequestSchema } from '@rocket-lease/contracts';
@@ -15,9 +15,6 @@ import {
     GetVehicleResponse,
     GetVehicleResponseSchema,
     UpdateVehicleRequest,
-    SearchVehiclesQuery,
-    SearchVehiclesResponse,
-    SearchVehiclesResponseSchema,
 } from '@rocket-lease/contracts';
 
 @Injectable()
@@ -89,18 +86,9 @@ export class VehicleService {
         return vehicles.map((v) => this.toDTO(v));
     }
 
-    public async getAll(): Promise<Array<GetVehicleResponse>> {
-        const vehicles = await this.vehicleRepository.fetchAll();
+    public async getAll(filter?: VehicleFilter): Promise<Array<GetVehicleResponse>> {
+        const vehicles = await this.vehicleRepository.fetchAll(filter);
         return vehicles.map((v) => this.toDTO(v));
-    }
-
-    public async searchVehicles(query: SearchVehiclesQuery): Promise<SearchVehiclesResponse> {
-        const vehicles = await this.vehicleRepository.search({
-            city: query.city,
-            startDate: query.startDate ? new Date(query.startDate) : undefined,
-            endDate: query.endDate ? new Date(query.endDate) : undefined,
-        });
-        return SearchVehiclesResponseSchema.parse({ vehicles: vehicles.map((v) => this.toDTO(v)) });
     }
 
     public async deleteVehicle(vehicleId: string): Promise<void> {
