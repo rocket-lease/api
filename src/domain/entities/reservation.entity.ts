@@ -4,6 +4,7 @@ import { ReservationStatusSchema } from '@rocket-lease/contracts';
 import { InvalidEntityDataException } from '../exceptions/domain.exception';
 import {
   ContractNotAcceptedException,
+  InvalidQrTokenException,
   InvalidReservationTransitionException,
   TransferExpiredException,
 } from '../exceptions/reservation.exception';
@@ -35,6 +36,9 @@ const reservationSchema = z.object({
   contractAcceptedAt: z.date().nullable(),
   paidAt: z.date().nullable(),
   voucherToken: z.string().uuid().nullable(),
+  returnQrToken: z.string().uuid().nullable(),
+  startedAt: z.date().nullable(),
+  completedAt: z.date().nullable(),
   rejectionReason: z.string().max(280).nullable(),
   transferExpiresAt: z.date().nullable(),
   transferCode: z.string().nullable(),
@@ -76,6 +80,9 @@ export interface ReservationProps {
   contractAcceptedAt: Date | null;
   paidAt?: Date | null;
   voucherToken?: string | null;
+  returnQrToken?: string | null;
+  startedAt?: Date | null;
+  completedAt?: Date | null;
   rejectionReason?: string | null;
   transferExpiresAt?: Date | null;
   transferCode?: string | null;
@@ -100,6 +107,9 @@ export class Reservation {
   private contractAcceptedAt: Date | null;
   private paidAt: Date | null;
   private voucherToken: string | null;
+  private returnQrToken: string | null;
+  private startedAt: Date | null;
+  private completedAt: Date | null;
   private rejectionReason: string | null;
   private transferExpiresAt: Date | null;
   private transferCode: string | null;
@@ -123,6 +133,9 @@ export class Reservation {
     this.contractAcceptedAt = props.contractAcceptedAt;
     this.paidAt = props.paidAt ?? null;
     this.voucherToken = props.voucherToken ?? null;
+    this.returnQrToken = props.returnQrToken ?? null;
+    this.startedAt = props.startedAt ?? null;
+    this.completedAt = props.completedAt ?? null;
     this.rejectionReason = props.rejectionReason ?? null;
     this.transferExpiresAt = props.transferExpiresAt ?? null;
     this.transferCode = props.transferCode ?? null;
@@ -179,6 +192,15 @@ export class Reservation {
   }
   public getVoucherToken() {
     return this.voucherToken;
+  }
+  public getReturnQrToken() {
+    return this.returnQrToken;
+  }
+  public getStartedAt() {
+    return this.startedAt;
+  }
+  public getCompletedAt() {
+    return this.completedAt;
   }
   public getRejectionReason() {
     return this.rejectionReason;
@@ -393,6 +415,28 @@ export class Reservation {
     this.updatedAt = now;
   }
 
+  public confirmPickup(now: Date): void {
+    if (!this.isConfirmed()) {
+      throw new InvalidReservationTransitionException(this.status, RESERVATION_STATUS.in_progress);
+    }
+    this.status = RESERVATION_STATUS.in_progress;
+    this.startedAt = now;
+    this.returnQrToken = randomUUID();
+    this.updatedAt = now;
+  }
+
+  public confirmReturn(token: string, now: Date): void {
+    if (!this.isInProgress()) {
+      throw new InvalidReservationTransitionException(this.status, RESERVATION_STATUS.completed);
+    }
+    if (this.returnQrToken !== token) {
+      throw new InvalidQrTokenException();
+    }
+    this.status = RESERVATION_STATUS.completed;
+    this.completedAt = now;
+    this.updatedAt = now;
+  }
+
   private validate(): void {
     const result = reservationSchema.safeParse({
       id: this.id,
@@ -410,6 +454,9 @@ export class Reservation {
       contractAcceptedAt: this.contractAcceptedAt,
       paidAt: this.paidAt,
       voucherToken: this.voucherToken,
+      returnQrToken: this.returnQrToken,
+      startedAt: this.startedAt,
+      completedAt: this.completedAt,
       rejectionReason: this.rejectionReason,
       transferExpiresAt: this.transferExpiresAt,
       transferCode: this.transferCode,

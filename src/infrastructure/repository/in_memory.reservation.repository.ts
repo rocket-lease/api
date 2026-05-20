@@ -53,6 +53,10 @@ export class InMemoryReservationRepository implements ReservationRepository {
     return Array.from(this.store.values()).find((r) => r.getVoucherToken() === token) ?? null;
   }
 
+  async findByReturnQrToken(token: string): Promise<Reservation | null> {
+    return Array.from(this.store.values()).find((r) => r.getReturnQrToken() === token) ?? null;
+  }
+
   async findOverlapping(
     vehicleId: string,
     startAt: Date,

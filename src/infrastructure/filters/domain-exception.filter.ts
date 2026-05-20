@@ -20,6 +20,7 @@ import {
   TransferExpiredException,
   VoucherNotFoundException,
   VoucherReservationCancelledException,
+  InvalidQrTokenException,
 } from '@/domain/exceptions/reservation.exception';
 import {
   ExceptionFilter,
@@ -115,6 +116,9 @@ export class DomainExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof VoucherReservationCancelledException) {
       status = HttpStatus.GONE;
       code = ErrorCodes.VOUCHER_RESERVATION_CANCELLED;
+    } else if (exception instanceof InvalidQrTokenException) {
+      status = HttpStatus.NOT_FOUND;
+      code = ErrorCodes.RESERVATION_INVALID_QR_TOKEN;
     } else if (exception instanceof EmailNotVerifiedException) {
       status = HttpStatus.FORBIDDEN;
       code = ErrorCodes.FORBIDDEN;

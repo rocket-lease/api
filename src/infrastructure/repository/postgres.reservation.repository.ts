@@ -29,6 +29,9 @@ type Row = {
   contractAcceptedAt: Date | null;
   paidAt: Date | null;
   voucherToken: string | null;
+  returnQrToken: string | null;
+  startedAt: Date | null;
+  completedAt: Date | null;
   rejectionReason: string | null;
   transferExpiresAt: Date | null;
   transferCode: string | null;
@@ -63,6 +66,11 @@ export class PostgresReservationRepository implements ReservationRepository {
 
   async findByVoucherToken(token: string): Promise<Reservation | null> {
     const row = await this.prisma.reservation.findFirst({ where: { voucherToken: token } });
+    return row ? this.toEntity(row) : null;
+  }
+
+  async findByReturnQrToken(token: string): Promise<Reservation | null> {
+    const row = await this.prisma.reservation.findUnique({ where: { returnQrToken: token } });
     return row ? this.toEntity(row) : null;
   }
 
@@ -221,6 +229,9 @@ export class PostgresReservationRepository implements ReservationRepository {
       contractAcceptedAt: r.getContractAcceptedAt(),
       paidAt: r.getPaidAt(),
       voucherToken: r.getVoucherToken(),
+      returnQrToken: r.getReturnQrToken(),
+      startedAt: r.getStartedAt(),
+      completedAt: r.getCompletedAt(),
       rejectionReason: r.getRejectionReason(),
       transferExpiresAt: r.getTransferExpiresAt(),
       transferCode: r.getTransferCode() ?? null,
@@ -247,6 +258,9 @@ export class PostgresReservationRepository implements ReservationRepository {
       contractAcceptedAt: row.contractAcceptedAt,
       paidAt: row.paidAt,
       voucherToken: row.voucherToken,
+      returnQrToken: row.returnQrToken,
+      startedAt: row.startedAt,
+      completedAt: row.completedAt,
       rejectionReason: row.rejectionReason,
       transferExpiresAt: row.transferExpiresAt,
       transferCode: row.transferCode,

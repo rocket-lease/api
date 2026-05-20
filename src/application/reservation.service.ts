@@ -4,6 +4,10 @@ import {
   ApproveReservationResponseSchema,
   type CancelReservationResponse,
   CancelReservationResponseSchema,
+  type ConfirmPickupResponse,
+  ConfirmPickupResponseSchema,
+  type ConfirmReturnResponse,
+  ConfirmReturnResponseSchema,
   type CreateReservationRequest,
   type CreateReservationResponse,
   CreateReservationResponseSchema,
@@ -60,6 +64,7 @@ import {
   ReservationForbiddenException,
   ReservationNotFoundException,
   VehicleNotAvailableException,
+  InvalidQrTokenException,
   VoucherNotFoundException,
   VoucherReservationCancelledException,
 } from '@/domain/exceptions/reservation.exception';
@@ -668,6 +673,47 @@ export class ReservationService {
     });
   }
 
+  public async confirmPickup(
+    rentadorId: string,
+    voucherToken: string,
+  ): Promise<ConfirmPickupResponse> {
+    const reservation = await this.reservationRepository.findByVoucherToken(voucherToken);
+    if (!reservation || !reservation.isConfirmed()) {
+      throw new InvalidQrTokenException();
+    }
+    if (!reservation.isOwnedByRentador(rentadorId)) {
+      throw new ReservationForbiddenException();
+    }
+    reservation.confirmPickup(this.clock.now());
+    const saved = await this.reservationRepository.update(reservation);
+    return ConfirmPickupResponseSchema.parse({
+      reservationId: saved.getId(),
+      status: RESERVATION_STATUS.in_progress,
+      startedAt: saved.getStartedAt()!.toISOString(),
+      returnQrToken: saved.getReturnQrToken()!,
+    });
+  }
+
+  public async confirmReturn(
+    conductorId: string,
+    returnQrToken: string,
+  ): Promise<ConfirmReturnResponse> {
+    const reservation = await this.reservationRepository.findByReturnQrToken(returnQrToken);
+    if (!reservation || !reservation.isInProgress()) {
+      throw new InvalidQrTokenException();
+    }
+    if (!reservation.isOwnedByConductor(conductorId)) {
+      throw new ReservationForbiddenException();
+    }
+    reservation.confirmReturn(returnQrToken, this.clock.now());
+    const saved = await this.reservationRepository.update(reservation);
+    return ConfirmReturnResponseSchema.parse({
+      reservationId: saved.getId(),
+      status: RESERVATION_STATUS.completed,
+      completedAt: saved.getCompletedAt()!.toISOString(),
+    });
+  }
+
   public async expireOverdueTransfers(): Promise<number> {
     const now = this.clock.now();
     const expired = await this.reservationRepository.findExpiredTransfers(now);
@@ -725,6 +771,9 @@ export class ReservationService {
         : null,
       paidAt: r.getPaidAt() ? r.getPaidAt()!.toISOString() : null,
       voucherToken: r.getVoucherToken() ?? null,
+      returnQrToken: r.getReturnQrToken() ?? null,
+      startedAt: r.getStartedAt() ? r.getStartedAt()!.toISOString() : null,
+      completedAt: r.getCompletedAt() ? r.getCompletedAt()!.toISOString() : null,
       rejectionReason: r.getRejectionReason(),
       transferExpiresAt: r.getTransferExpiresAt()
         ? r.getTransferExpiresAt()!.toISOString()

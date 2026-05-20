@@ -46,6 +46,7 @@ export interface ReservationRepository {
   findById(id: string): Promise<Reservation | null>;
 
   findByVoucherToken(token: string): Promise<Reservation | null>;
+  findByReturnQrToken(token: string): Promise<Reservation | null>;
 
   /**
    * Devuelve las reservas del vehículo cuyas fechas se solapan con el rango y

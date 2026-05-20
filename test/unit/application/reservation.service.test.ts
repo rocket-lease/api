@@ -16,6 +16,7 @@ import { randomUUID } from 'node:crypto';
 import {
   ContractNotAcceptedException,
   HoldExpiredException,
+  InvalidQrTokenException,
   OwnerCannotReserveOwnVehicleException,
   ReservationForbiddenException,
   ReservationNotFoundException,
@@ -990,6 +991,89 @@ describe('ReservationService', () => {
       await expect(service.verifyVoucher(randomUUID())).rejects.toThrow(
         VoucherNotFoundException,
       );
+    });
+  });
+
+  describe('confirmPickup', () => {
+    async function makeConfirmedReservation() {
+      const r = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      await service.confirmPayment(conductorA, r.id, { paymentMethod: 'credit_card' });
+      return r.id;
+    }
+
+    it('transitions confirmed to in_progress and returns returnQrToken + startedAt', async () => {
+      const id = await makeConfirmedReservation();
+      const saved = await repo.findById(id);
+      const result = await service.confirmPickup(vehicle.getOwnerId(), saved!.getVoucherToken()!);
+      expect(result.status).toBe('in_progress');
+      expect(result.startedAt).toBeDefined();
+      expect(result.returnQrToken).toBeDefined();
+    });
+
+    it('throws InvalidQrTokenException for unknown voucherToken', async () => {
+      await expect(
+        service.confirmPickup(vehicle.getOwnerId(), randomUUID()),
+      ).rejects.toThrow(InvalidQrTokenException);
+    });
+
+    it('throws InvalidQrTokenException when reservation is not confirmed', async () => {
+      const id = await makeConfirmedReservation();
+      const saved = await repo.findById(id);
+      const voucherToken = saved!.getVoucherToken()!;
+      await service.confirmPickup(vehicle.getOwnerId(), voucherToken);
+      await expect(
+        service.confirmPickup(vehicle.getOwnerId(), voucherToken),
+      ).rejects.toThrow(InvalidQrTokenException);
+    });
+
+    it('throws ReservationForbiddenException when called by wrong rentador', async () => {
+      const id = await makeConfirmedReservation();
+      const saved = await repo.findById(id);
+      await expect(
+        service.confirmPickup(randomUUID(), saved!.getVoucherToken()!),
+      ).rejects.toThrow(ReservationForbiddenException);
+    });
+  });
+
+  describe('confirmReturn', () => {
+    async function makeInProgressReservation() {
+      const r = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      await service.confirmPayment(conductorA, r.id, { paymentMethod: 'credit_card' });
+      const saved = await repo.findById(r.id);
+      await service.confirmPickup(vehicle.getOwnerId(), saved!.getVoucherToken()!);
+      return r.id;
+    }
+
+    it('transitions in_progress to completed and returns completedAt', async () => {
+      const id = await makeInProgressReservation();
+      const saved = await repo.findById(id);
+      const result = await service.confirmReturn(conductorA, saved!.getReturnQrToken()!);
+      expect(result.status).toBe('completed');
+      expect(result.completedAt).toBeDefined();
+    });
+
+    it('throws InvalidQrTokenException for unknown returnQrToken', async () => {
+      await expect(
+        service.confirmReturn(conductorA, randomUUID()),
+      ).rejects.toThrow(InvalidQrTokenException);
+    });
+
+    it('throws ReservationForbiddenException when called by wrong conductor', async () => {
+      const id = await makeInProgressReservation();
+      const saved = await repo.findById(id);
+      await expect(
+        service.confirmReturn(randomUUID(), saved!.getReturnQrToken()!),
+      ).rejects.toThrow(ReservationForbiddenException);
     });
   });
 });

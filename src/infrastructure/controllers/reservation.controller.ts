@@ -156,6 +156,28 @@ export class ReservationController {
     return await this.reservationService.getBusyRangesForVehicle(vehicleId);
   }
 
+  @Post('pickup')
+  @HttpCode(HttpStatus.OK)
+  async confirmPickup(
+    @Body() dto: Contracts.ConfirmPickupRequest,
+    @Req() req: Request,
+  ): Promise<Contracts.ConfirmPickupResponse> {
+    const rentadorId = await this.requireUserId(req);
+    const parsed = Contracts.ConfirmPickupRequestSchema.parse(dto);
+    return await this.reservationService.confirmPickup(rentadorId, parsed.voucherToken);
+  }
+
+  @Post('return')
+  @HttpCode(HttpStatus.OK)
+  async confirmReturn(
+    @Body() dto: Contracts.ConfirmReturnRequest,
+    @Req() req: Request,
+  ): Promise<Contracts.ConfirmReturnResponse> {
+    const conductorId = await this.requireUserId(req);
+    const parsed = Contracts.ConfirmReturnRequestSchema.parse(dto);
+    return await this.reservationService.confirmReturn(conductorId, parsed.returnQrToken);
+  }
+
   @Get('voucher/verify/:token')
   async verifyVoucher(
     @Param('token') token: string,
