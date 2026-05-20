@@ -121,7 +121,7 @@ describe('VehicleService', () => {
 
   it('should filter vehicles by characteristics', async () => {
     await service.getByCharacteristics(['GPS']);
-    expect(repositoryMock.findByCharacteristics).toHaveBeenCalledWith(['GPS']);
+    expect(repositoryMock.findByCharacteristics).toHaveBeenCalledWith(['GPS'], undefined);
   });
 
   it('should list only enabled vehicles when filtering by ownerId publicly', async () => {
