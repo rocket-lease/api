@@ -2,6 +2,10 @@
 export DATABASE_URL="postgresql://postgres:postgres@localhost:5435/rocket_lease_test"
 export DIRECT_URL="postgresql://postgres:postgres@localhost:5435/rocket_lease_test"
 
+# Opt-in explícito que cleanDb() exige antes de hacer DELETEs.
+# Ver test/cucumber/support/world.ts assertSafeToCleanDb().
+export CLEANDB_ALLOW=1
+
 EXTRA_ARGS="$@"
 
 cleanup() {
@@ -21,4 +25,4 @@ echo "Aplicando migraciones..."
 pnpm exec prisma migrate deploy || exit 1
 
 echo "Ejecutando tests Cucumber..."
-pnpm exec cucumber-js --tags "not @ignore" $EXTRA_ARGS
+NODE_OPTIONS='--import tsx' pnpm exec cucumber-js --tags "not @ignore" $EXTRA_ARGS

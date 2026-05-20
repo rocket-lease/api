@@ -6,6 +6,7 @@ import {
 } from '@/domain/exceptions/domain.exception';
 import { UserRepository } from '@/domain/repositories/user.repository';
 import { AuthProvider } from '@/domain/providers/auth.provider';
+import { ReservationRepository } from '@/domain/repositories/reservation.repository';
 
 const validDto = {
   name: 'Juan Pérez',
@@ -19,19 +20,38 @@ describe('AuthService', () => {
   let service: AuthService;
   let userRepoMock: jest.Mocked<UserRepository>;
   let authProviderMock: jest.Mocked<AuthProvider>;
+  let reservationRepoMock: jest.Mocked<ReservationRepository>;
 
   beforeEach(() => {
+    reservationRepoMock = {
+      save: jest.fn(),
+      update: jest.fn(),
+      findById: jest.fn(),
+      findByVoucherToken: jest.fn(),
+      findOverlapping: jest.fn(),
+      findExpiredHolds: jest.fn(),
+      findApprovalExpiredBefore: jest.fn(),
+      findOverlappingPendingApproval: jest.fn(),
+      approveWithCascade: jest.fn(),
+      findExpiredTransfers: jest.fn(),
+      findActiveByVehicleId: jest.fn(),
+      findByUser: jest.fn(),
+      hasActiveReservations: jest.fn().mockResolvedValue(false),
+      findByReturnQrToken: jest.fn().mockResolvedValue(null),
+    };
     userRepoMock = {
       save: jest.fn(),
       findByEmail: jest.fn().mockResolvedValue(null),
       findById: jest.fn().mockResolvedValue(null),
       getProfileById: jest.fn().mockResolvedValue(null),
+      findProfilesByIds: jest.fn().mockResolvedValue([]),
       updateProfile: jest.fn(),
       updateAvatar: jest.fn(),
       updateBasicInfo: jest.fn(),
       deleteById: jest.fn(),
       markPhoneVerified: jest.fn(),
       isPhoneVerified: jest.fn().mockResolvedValue(false),
+      updateAutoAccept: jest.fn(),
     };
     authProviderMock = {
       signUp: jest.fn().mockResolvedValue({ userId: 'stub-id' }),
@@ -48,7 +68,7 @@ describe('AuthService', () => {
       resendSignupOtp: jest.fn().mockResolvedValue(undefined),
       verifySignupOtp: jest.fn().mockResolvedValue({ userId: 'stub-id' }),
     };
-    service = new AuthService(userRepoMock, authProviderMock);
+    service = new AuthService(userRepoMock, authProviderMock, reservationRepoMock);
   });
 
   it('registers a user with valid data', async () => {

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { v2 as cloudinary } from 'cloudinary';
-import type { MediaProvider } from '@/domain/providers/media.provider';
+import type { MediaProvider, SignedUpload } from '@/domain/providers/media.provider';
 
 @Injectable()
 export class CloudinaryMediaProvider implements MediaProvider {
@@ -50,5 +50,35 @@ export class CloudinaryMediaProvider implements MediaProvider {
 
       upload.end(file.buffer);
     });
+  }
+
+  async signUpload(opts: { folder?: string; resourceType?: 'image' | 'video' }): Promise<SignedUpload> {
+    this.ensureConfigured();
+
+    const folder = opts.folder ?? 'rocket-lease/vehicle-photos';
+    const timestamp = Math.floor(Date.now() / 1000);
+    const paramsToSign: Record<string, string> = {
+      folder,
+      timestamp: String(timestamp),
+    };
+
+    const signature = cloudinary.utils.api_sign_request(
+      paramsToSign,
+      process.env.CLOUDINARY_API_SECRET!,
+    );
+
+    return {
+      uploadUrl: `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME!}/${opts.resourceType ?? 'image'}/upload`,
+      fields: {
+        ...paramsToSign,
+        api_key: process.env.CLOUDINARY_API_KEY!,
+        signature,
+      },
+    };
+  }
+
+  async deleteAsset(publicId: string): Promise<void> {
+    this.ensureConfigured();
+    await cloudinary.uploader.destroy(publicId);
   }
 }

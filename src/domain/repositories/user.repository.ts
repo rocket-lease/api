@@ -19,6 +19,7 @@ export interface UserProfile {
   level: UserLevel;
   reputationScore: number;
   preferences: VehiclePreferences;
+  autoAccept: boolean;
 }
 
 export interface UpdateUserProfile {
@@ -26,6 +27,7 @@ export interface UpdateUserProfile {
   phone: string;
   avatarUrl: string | null;
   preferences: VehiclePreferences;
+  autoAccept?: boolean;
 }
 
 export interface UserRepository {
@@ -37,11 +39,20 @@ export interface UserRepository {
   findByEmail(email: string): Promise<User | null>;
   findById(id: string): Promise<User | null>;
   getProfileById(id: string): Promise<UserProfile | null>;
+  findProfilesByIds(ids: string[]): Promise<UserProfile[]>;
   updateProfile(id: string, profile: UpdateUserProfile): Promise<UserProfile>;
   updateAvatar(id: string, avatarUrl: string): Promise<UserProfile>;
   deleteById(id: string): Promise<void>;
   markPhoneVerified(id: string, verifiedAt: Date): Promise<void>;
   isPhoneVerified(id: string): Promise<boolean>;
+  /**
+   * Actualiza el flag global de auto-aceptación (per-usuario). Existe también un
+   * override per-vehículo en `Vehicle.autoAccept`; ver `VehicleRepository.update`.
+   *
+   * @param id - ID del usuario.
+   * @param value - Nuevo valor del flag.
+   */
+  updateAutoAccept(id: string, value: boolean): Promise<void>;
 }
 
 export const USER_REPOSITORY = Symbol('UserRepository');

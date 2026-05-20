@@ -1,13 +1,23 @@
-import { VehicleRepository } from '@/domain/repositories/vehicle.repository';
+import { VehicleRepository, type VehicleFilter } from '@/domain/repositories/vehicle.repository';
 import { PrismaService } from '../database/prisma.service';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Characteristic } from '@rocket-lease/contracts';
+import type { Prisma } from '@prisma/client';
+
+const VEHICLE_INCLUDE = {
+  photos: true,
+  characteristics: true,
+} as const satisfies Prisma.VehicleInclude;
+
+type VehicleWithRelations = Prisma.VehicleGetPayload<{
+  include: typeof VEHICLE_INCLUDE;
+}>;
 
 @Injectable()
 export class PostgresVehicleRepository implements VehicleRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async save(vehicle: Vehicle): Promise<Vehicle> {
     const characteristics = vehicle.getCharacteristics();
@@ -18,13 +28,15 @@ export class PostgresVehicleRepository implements VehicleRepository {
         update: {
           mileage: vehicle.getMileage(),
           color: vehicle.getColor(),
-          basePrice: vehicle.getBasePrice(),
+          basePriceCents: vehicle.getBasePriceCents(),
           description: vehicle.getDescription(),
           isAccessible: vehicle.getIsAccessible(),
           enabled: vehicle.isEnabled(),
+          reservationRuleSetId: vehicle.getReservationRuleSetId(),
           province: vehicle.getProvince(),
           city: vehicle.getCity(),
           availableFrom: vehicle.getAvailableFrom(),
+          autoAccept: vehicle.getAutoAccept(),
           photos: {
             deleteMany: {},
             create: vehicle.getPhotos().map((url) => ({ url })),
@@ -43,11 +55,13 @@ export class PostgresVehicleRepository implements VehicleRepository {
           isAccessible: vehicle.getIsAccessible(),
           mileage: vehicle.getMileage(),
           color: vehicle.getColor(),
-          basePrice: vehicle.getBasePrice(),
+          basePriceCents: vehicle.getBasePriceCents(),
           description: vehicle.getDescription(),
+          reservationRuleSetId: vehicle.getReservationRuleSetId(),
           province: vehicle.getProvince(),
           city: vehicle.getCity(),
           availableFrom: vehicle.getAvailableFrom(),
+          autoAccept: vehicle.getAutoAccept(),
           photos: {
             create: vehicle.getPhotos().map((url) => ({ url })),
           },
@@ -74,7 +88,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
   async findById(id: string): Promise<Vehicle | null> {
     const raw = await this.prisma.vehicle.findUnique({
       where: { id },
-      include: { photos: true, characteristics: true },
+      include: VEHICLE_INCLUDE,
     });
 
     if (!raw) return null;
@@ -82,10 +96,19 @@ export class PostgresVehicleRepository implements VehicleRepository {
     return this.mapToDomain(raw);
   }
 
+  async findByIds(ids: string[]): Promise<Vehicle[]> {
+    if (ids.length === 0) return [];
+    const raws = await this.prisma.vehicle.findMany({
+      where: { id: { in: ids } },
+      include: VEHICLE_INCLUDE,
+    });
+    return raws.map((r) => this.mapToDomain(r));
+  }
+
   async findByPlate(plate: string): Promise<Vehicle | null> {
     const raw = await this.prisma.vehicle.findUnique({
       where: { plate },
-      include: { photos: true, characteristics: true },
+      include: VEHICLE_INCLUDE,
     });
 
     if (!raw) return null;
@@ -95,45 +118,70 @@ export class PostgresVehicleRepository implements VehicleRepository {
   async findByOwnerId(ownerId: string): Promise<Vehicle[]> {
     const raws = await this.prisma.vehicle.findMany({
       where: { ownerId },
-      include: { photos: true, characteristics: true },
+      include: VEHICLE_INCLUDE,
     });
     return raws.map((raw) => this.mapToDomain(raw));
   }
 
-  async fetchAll(): Promise<Vehicle[]> {
+  async fetchAll(filter?: VehicleFilter): Promise<Vehicle[]> {
     const raws = await this.prisma.vehicle.findMany({
-      where: { enabled: true },
-      include: { photos: true, characteristics: true },
+      where: { AND: this.buildBaseWhere(filter) },
+      include: VEHICLE_INCLUDE,
+      orderBy: { basePriceCents: 'asc' },
     });
     return raws.map((raw) => this.mapToDomain(raw));
   }
 
   async findByCharacteristics(
     characteristics: Characteristic[],
+    filter?: VehicleFilter,
   ): Promise<Vehicle[]> {
-    if (characteristics.length === 0) {
-      return this.fetchAll();
-    }
+    if (characteristics.length === 0) return this.fetchAll(filter);
 
-    const filters = characteristics.map((item) => ({
-      characteristics: { some: { characteristic: item } },
-    }));
+    const and: Prisma.VehicleWhereInput[] = [
+      ...this.buildBaseWhere(filter),
+      ...characteristics.map((item) => ({
+        characteristics: { some: { characteristic: item } },
+      })),
+    ];
 
     const raws = await this.prisma.vehicle.findMany({
-      where: {
-        enabled: true,
-        AND: filters,
-      },
-      include: { photos: true, characteristics: true },
+      where: { AND: and },
+      include: VEHICLE_INCLUDE,
+      orderBy: { basePriceCents: 'asc' },
     });
     return raws.map((raw) => this.mapToDomain(raw));
+  }
+
+  private buildBaseWhere(filter?: VehicleFilter): Prisma.VehicleWhereInput[] {
+    const and: Prisma.VehicleWhereInput[] = [{ enabled: true }];
+
+    if (filter?.city) {
+      and.push({ city: { equals: filter.city, mode: 'insensitive' } });
+    }
+
+    if (filter?.from && filter?.to) {
+      and.push({
+        NOT: {
+          reservations: {
+            some: {
+              status: { in: ['confirmed', 'in_progress'] },
+              startAt: { lt: new Date(filter.to) },
+              endAt:   { gt: new Date(filter.from) },
+            },
+          },
+        },
+      });
+    }
+
+    return and;
   }
 
   async delete(id: string): Promise<void> {
     await this.prisma.vehicle.delete({ where: { id } });
   }
 
-  private mapToDomain(raw: any): Vehicle {
+  private mapToDomain(raw: VehicleWithRelations): Vehicle {
     return new Vehicle(
       raw.id,
       raw.ownerId,
@@ -146,15 +194,17 @@ export class PostgresVehicleRepository implements VehicleRepository {
       raw.transmission,
       raw.isAccessible,
       raw.enabled,
-      raw.photos.map((p: any) => p.url),
-      raw.characteristics?.map((c: any) => c.characteristic) ?? [],
+      raw.photos.map((p) => p.url),
+      raw.characteristics.map((c) => c.characteristic),
       raw.color,
       raw.mileage,
-      raw.basePrice,
+      raw.basePriceCents,
       raw.description,
       raw.province,
       raw.city,
       raw.availableFrom,
+      raw.reservationRuleSetId,
+      raw.autoAccept,
     );
   }
 }

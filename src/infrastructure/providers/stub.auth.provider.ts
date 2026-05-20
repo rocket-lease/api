@@ -29,9 +29,13 @@ export class StubAuthProvider implements AuthProvider {
       throw new Error('Email already registered in auth provider');
     }
     this.registeredEmails.add(email);
-    this.userIdByEmail.set(email, StubAuthProvider.STUB_USER_ID);
+    const userId =
+      this.userIdByEmail.size === 0
+        ? StubAuthProvider.STUB_USER_ID
+        : randomUUID();
+    this.userIdByEmail.set(email, userId);
     this.signupOtpsSent.push(email);
-    return { userId: StubAuthProvider.STUB_USER_ID };
+    return { userId };
   }
 
   public async signIn(

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { Prisma, User as PrismaUser } from '@prisma/client';
 import { User } from '@/domain/entities/user.entity';
 import {
@@ -14,7 +14,7 @@ import { PrismaService } from '@/infrastructure/database/prisma.service';
 
 @Injectable()
 export class PostgresUserRepository implements UserRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   private mapProfile(row: PrismaUser): UserProfile {
     return {
@@ -33,6 +33,7 @@ export class PostgresUserRepository implements UserRepository {
         accessibility: row.preferredAccessibility,
         maxPriceDaily: row.preferredMaxPriceDaily,
       },
+      autoAccept: row.autoAccept,
     };
   }
 
@@ -44,6 +45,7 @@ export class PostgresUserRepository implements UserRepository {
         email: user.getEmail(),
         dni: user.getDni(),
         phone: user.getPhone(),
+        autoAccept: user.getAutoAccept(),
       },
     });
   }
@@ -63,7 +65,14 @@ export class PostgresUserRepository implements UserRepository {
       where: { email },
     });
     if (!row) return null;
-    return new User(row.id, row.name, row.email, row.dni, row.phone);
+    return new User(
+      row.id,
+      row.name,
+      row.email,
+      row.dni,
+      row.phone,
+      row.autoAccept,
+    );
   }
 
   async findById(id: string): Promise<User | null> {
@@ -71,7 +80,14 @@ export class PostgresUserRepository implements UserRepository {
       where: { id },
     });
     if (!row) return null;
-    return new User(row.id, row.name, row.email, row.dni, row.phone);
+    return new User(
+      row.id,
+      row.name,
+      row.email,
+      row.dni,
+      row.phone,
+      row.autoAccept,
+    );
   }
 
   async getProfileById(id: string): Promise<UserProfile | null> {
@@ -80,6 +96,12 @@ export class PostgresUserRepository implements UserRepository {
     });
     if (!row) return null;
     return this.mapProfile(row);
+  }
+
+  async findProfilesByIds(ids: string[]): Promise<UserProfile[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.prisma.user.findMany({ where: { id: { in: ids } } });
+    return rows.map((r) => this.mapProfile(r));
   }
 
   async updateProfile(
@@ -95,10 +117,20 @@ export class PostgresUserRepository implements UserRepository {
         preferredTransmission: profile.preferences.transmission,
         preferredAccessibility: profile.preferences.accessibility,
         preferredMaxPriceDaily: profile.preferences.maxPriceDaily,
+        ...(profile.autoAccept !== undefined
+          ? { autoAccept: profile.autoAccept }
+          : {}),
       },
     });
 
     return this.mapProfile(row);
+  }
+
+  async updateAutoAccept(id: string, value: boolean): Promise<void> {
+    await this.prisma.user.update({
+      where: { id },
+      data: { autoAccept: value },
+    });
   }
 
   async updateAvatar(id: string, avatarUrl: string): Promise<UserProfile> {

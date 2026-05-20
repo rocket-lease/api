@@ -6,7 +6,7 @@ import { AUTH_PROVIDER } from '@/domain/providers/auth.provider';
 import { StubAuthProvider } from '@/infrastructure/providers/stub.auth.provider';
 
 When(
-  'el usuario solicita recuperar contraseña para el email {string}',
+  'solicito recuperar contraseña para el email {string}',
   async function (this: MyWorld, email: string) {
     this.world.response = await api(this).post('/auth/forgot-password', {
       email,
@@ -15,7 +15,7 @@ When(
 );
 
 When(
-  'el usuario envía un reset de contraseña con token válido y nueva contraseña {string}',
+  'envío un reset de contraseña con token válido y nueva contraseña {string}',
   async function (this: MyWorld, newPassword: string) {
     this.world.response = await api(this).post('/auth/reset-password', {
       accessToken: StubAuthProvider.STUB_TOKEN,
@@ -25,7 +25,7 @@ When(
 );
 
 When(
-  'el usuario envía un reset de contraseña con token {string} y nueva contraseña {string}',
+  'envío un reset de contraseña con token {string} y nueva contraseña {string}',
   async function (this: MyWorld, accessToken: string, newPassword: string) {
     this.world.response = await api(this).post('/auth/reset-password', {
       accessToken,
@@ -63,12 +63,7 @@ Then(
   },
 );
 
-Then(
-  'el sistema rechaza la solicitud por email inválido',
-  function (this: MyWorld) {
-    expect(this.world.response.status).toBe(400);
-  },
-);
+
 
 Then(
   'el sistema rechaza el reset por contraseña débil',
