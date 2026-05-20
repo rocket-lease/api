@@ -3,6 +3,7 @@ import {
   Reservation,
   ReservationStatus,
   PaymentMethod,
+  RESERVATION_STATUS,
 } from '@/domain/entities/reservation.entity';
 import {
   ReservationRepository,
@@ -159,10 +160,10 @@ export class PostgresReservationRepository implements ReservationRepository {
   }
 
   async hasActiveReservations(userId: string): Promise<boolean> {
-    const activeStatuses: ReservationStatus[] = [
-      'confirmed',
-      'in_progress',
-      'pending_payment',
+    const activeStatuses = [
+      RESERVATION_STATUS.confirmed,
+      RESERVATION_STATUS.in_progress,
+      RESERVATION_STATUS.pending_payment,
     ];
     const count = await this.prisma.reservation.count({
       where: {

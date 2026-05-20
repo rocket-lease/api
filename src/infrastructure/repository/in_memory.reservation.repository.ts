@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   Reservation,
   ReservationStatus,
+  RESERVATION_STATUS,
 } from '@/domain/entities/reservation.entity';
 import {
   ReservationRepository,
@@ -178,7 +179,7 @@ export class InMemoryReservationRepository implements ReservationRepository {
     return Array.from(this.store.values()).some(
       (r) =>
         (r.getConductorId() === userId || r.getRentadorId() === userId) &&
-        (['confirmed', 'in_progress', 'pending_payment'] as ReservationStatus[]).includes(r.getStatus()),
+        ([RESERVATION_STATUS.confirmed, RESERVATION_STATUS.in_progress, RESERVATION_STATUS.pending_payment] as ReservationStatus[]).includes(r.getStatus()),
     )
   }
 
