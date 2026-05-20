@@ -7,7 +7,10 @@ import { Characteristic } from '@rocket-lease/contracts';
 import type { Prisma } from '@prisma/client';
 
 const VEHICLE_INCLUDE = {
-  photos: true,
+  // Photos no tienen columna de orden; ordenamos por URL para que las que
+  // siguen la convención `<modelo>-1.jpg`, `<modelo>-2.jpg`, ... salgan
+  // siempre estables. Para fotos sin sufijo numérico el orden es lex de URL.
+  photos: { orderBy: { url: 'asc' } },
   characteristics: true,
 } as const satisfies Prisma.VehicleInclude;
 
