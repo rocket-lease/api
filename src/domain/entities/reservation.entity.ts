@@ -430,7 +430,7 @@ export class Reservation {
       throw new InvalidReservationTransitionException(this.status, RESERVATION_STATUS.completed);
     }
     if (this.returnQrToken !== token) {
-      throw new InvalidQrTokenException(token);
+      throw new InvalidQrTokenException();
     }
     this.status = RESERVATION_STATUS.completed;
     this.completedAt = now;

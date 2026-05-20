@@ -61,7 +61,7 @@ export class VoucherReservationCancelledException extends DomainException {
 }
 
 export class InvalidQrTokenException extends DomainException {
-  constructor(token: string) {
-    super(`QR token ${token} is not valid for this operation`);
+  constructor() {
+    super('QR token is not valid for this operation');
   }
 }

@@ -679,7 +679,7 @@ export class ReservationService {
   ): Promise<ConfirmPickupResponse> {
     const reservation = await this.reservationRepository.findByVoucherToken(voucherToken);
     if (!reservation || !reservation.isConfirmed()) {
-      throw new InvalidQrTokenException(voucherToken);
+      throw new InvalidQrTokenException();
     }
     if (!reservation.isOwnedByRentador(rentadorId)) {
       throw new ReservationForbiddenException();
@@ -700,7 +700,7 @@ export class ReservationService {
   ): Promise<ConfirmReturnResponse> {
     const reservation = await this.reservationRepository.findByReturnQrToken(returnQrToken);
     if (!reservation || !reservation.isInProgress()) {
-      throw new InvalidQrTokenException(returnQrToken);
+      throw new InvalidQrTokenException();
     }
     if (!reservation.isOwnedByConductor(conductorId)) {
       throw new ReservationForbiddenException();
