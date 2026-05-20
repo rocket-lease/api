@@ -174,6 +174,14 @@ export class InMemoryReservationRepository implements ReservationRepository {
     };
   }
 
+  async hasActiveReservations(userId: string): Promise<boolean> {
+    return Array.from(this.store.values()).some(
+      (r) =>
+        (r.getConductorId() === userId || r.getRentadorId() === userId) &&
+        (['confirmed', 'in_progress', 'pending_payment'] as ReservationStatus[]).includes(r.getStatus()),
+    )
+  }
+
   // test helper
   clear() {
     this.store.clear();
