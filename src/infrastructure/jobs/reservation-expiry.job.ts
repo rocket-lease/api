@@ -1,10 +1,11 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ReservationService } from '@/application/reservation.service';
+import { LOGGER, type Logger } from '@/application/logger.interface';
 
 @Injectable()
 export class ReservationExpiryJob {
-  private readonly logger = new Logger(ReservationExpiryJob.name);
+  @Inject(LOGGER) private readonly logger: Logger;
 
   constructor(@Inject(ReservationService) private readonly reservationService: ReservationService) {}
 
@@ -13,7 +14,7 @@ export class ReservationExpiryJob {
     try {
       const expired = await this.reservationService.expireOverdueReservations();
       if (expired > 0) {
-        this.logger.log(`Expired ${expired} overdue reservation(s)`);
+        this.logger.info(`Expired ${expired} overdue reservation(s)`);
       }
     } catch (e) {
       this.logger.error('Failed to expire overdue reservations', e as Error);
@@ -23,7 +24,7 @@ export class ReservationExpiryJob {
       const expiredTransfers =
         await this.reservationService.expireOverdueTransfers();
       if (expiredTransfers > 0) {
-        this.logger.log(`Expired ${expiredTransfers} transfer(s)`);
+        this.logger.info(`Expired ${expiredTransfers} transfer(s)`);
       }
     } catch (e) {
       this.logger.error('Failed to expire transfers', e as Error);
@@ -36,7 +37,7 @@ export class ReservationExpiryJob {
   async expireTransfers(): Promise<number> {
     const count = await this.reservationService.expireOverdueTransfers();
     if (count > 0) {
-      this.logger.log(`Expired ${count} transfer(s) via manual trigger`);
+      this.logger.info(`Expired ${count} transfer(s) via manual trigger`);
     }
     return count;
   }

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { createClient } from '@supabase/supabase-js';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { AuthProvider } from '@/domain/providers/auth.provider';
@@ -6,10 +6,11 @@ import {
   EmailNotVerifiedException,
   InvalidEntityDataException,
 } from '@/domain/exceptions/domain.exception';
+import { LOGGER, type Logger } from '@/application/logger.interface';
 
 @Injectable()
 export class SupabaseAuthProvider implements AuthProvider {
-  private readonly logger = new Logger(SupabaseAuthProvider.name);
+  @Inject(LOGGER) private readonly logger: Logger;
 
   private readonly supabase = createClient(
     process.env.SUPABASE_URL!,
