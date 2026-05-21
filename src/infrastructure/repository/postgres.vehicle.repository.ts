@@ -5,6 +5,7 @@ import { Injectable, Inject } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { BulkPriceOperation, BulkPriceUpdateResponse, Characteristic } from '@rocket-lease/contracts';
 import {
+  BulkPriceVehicleNotOwnedException,
   BulkPriceVehicleUnavailableException,
   BulkPriceResultInvalidException,
 } from '@/domain/exceptions/bulk-price.exception';
@@ -229,7 +230,15 @@ export class PostgresVehicleRepository implements VehicleRepository {
     });
   }
 
-  async countActiveReservationsByVehicleIds(vehicleIds: string[]): Promise<Record<string, number>> {
+  async countActiveReservationsByVehicleIds(vehicleIds: string[], ownerId: string): Promise<Record<string, number>> {
+    const ownedCount = await this.prisma.vehicle.count({
+      where: { id: { in: vehicleIds }, ownerId },
+    });
+
+    if (ownedCount !== vehicleIds.length) {
+      throw new BulkPriceVehicleNotOwnedException();
+    }
+
     const rows = await this.prisma.reservation.groupBy({
       by: ['vehicleId'],
       where: {

@@ -167,15 +167,11 @@ describe('VehicleService — bulk price operations', () => {
   });
 
   describe('getActiveReservationsCount', () => {
-    it('retorna conteos cuando todos los vehículos pertenecen al owner', async () => {
+    it('retorna conteos cuando el repo valida ownership y devuelve counts', async () => {
       const id1 = randomUUID();
       const id2 = randomUUID();
       const vehicleIds = [id1, id2];
 
-      const v1 = buildVehicle({ id: id1, ownerId: OWNER_ID });
-      const v2 = buildVehicle({ id: id2, ownerId: OWNER_ID });
-
-      repositoryMock.findByIds.mockResolvedValue([v1, v2]);
       repositoryMock.countActiveReservationsByVehicleIds.mockResolvedValue({
         [id1]: 3,
         [id2]: 0,
@@ -183,41 +179,21 @@ describe('VehicleService — bulk price operations', () => {
 
       const result = await service.getActiveReservationsCount(OWNER_ID, vehicleIds);
 
+      expect(repositoryMock.countActiveReservationsByVehicleIds).toHaveBeenCalledWith(vehicleIds, OWNER_ID);
       expect(result.counts[id1]).toBe(3);
       expect(result.counts[id2]).toBe(0);
     });
 
-    it('lanza BulkPriceVehicleNotOwnedException cuando un vehículo es ajeno', async () => {
-      const id1 = randomUUID();
-      const id2 = randomUUID();
-      const vehicleIds = [id1, id2];
+    it('propaga excepción del repo cuando el ownership check falla', async () => {
+      const vehicleIds = [randomUUID(), randomUUID()];
 
-      const v1 = buildVehicle({ id: id1, ownerId: OWNER_ID });
-      const v2 = buildVehicle({ id: id2, ownerId: OTHER_OWNER_ID });
-
-      repositoryMock.findByIds.mockResolvedValue([v1, v2]);
+      repositoryMock.countActiveReservationsByVehicleIds.mockRejectedValue(
+        new Error('one or more vehicles do not belong to the current owner'),
+      );
 
       await expect(
         service.getActiveReservationsCount(OWNER_ID, vehicleIds),
       ).rejects.toThrow('one or more vehicles do not belong to the current owner');
-
-      expect(repositoryMock.countActiveReservationsByVehicleIds).not.toHaveBeenCalled();
-    });
-
-    it('lanza excepción cuando algún vehículo no existe', async () => {
-      const id1 = randomUUID();
-      const id2 = randomUUID();
-      const vehicleIds = [id1, id2];
-
-      const v1 = buildVehicle({ id: id1, ownerId: OWNER_ID });
-
-      repositoryMock.findByIds.mockResolvedValue([v1]);
-
-      await expect(
-        service.getActiveReservationsCount(OWNER_ID, vehicleIds),
-      ).rejects.toThrow();
-
-      expect(repositoryMock.countActiveReservationsByVehicleIds).not.toHaveBeenCalled();
     });
   });
 });

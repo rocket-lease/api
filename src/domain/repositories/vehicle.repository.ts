@@ -17,7 +17,7 @@ export interface VehicleRepository {
   findByCharacteristics(characteristics: Characteristic[], filter?: VehicleFilter): Promise<Vehicle[]>;
   delete(id: string): Promise<void>;
   bulkUpdatePrices(vehicleIds: string[], operation: BulkPriceOperation, ownerId: string): Promise<BulkPriceUpdateResponse>;
-  countActiveReservationsByVehicleIds(vehicleIds: string[]): Promise<Record<string, number>>;
+  countActiveReservationsByVehicleIds(vehicleIds: string[], ownerId: string): Promise<Record<string, number>>;
 }
 
 export const VEHICLE_REPOSITORY = Symbol('VehicleRepository');

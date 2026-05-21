@@ -5,7 +5,6 @@ import {
   InvalidEntityDataException,
 } from '@/domain/exceptions/domain.exception';
 import { VehicleLocationRequiredException } from '@/domain/exceptions/geo.exception';
-import { BulkPriceVehicleNotOwnedException } from '@/domain/exceptions/bulk-price.exception';
 import type { VehicleRepository, VehicleFilter } from '@/domain/repositories/vehicle.repository';
 import { VEHICLE_REPOSITORY } from '@/domain/repositories/vehicle.repository';
 import type { UserProfile, UserRepository } from '@/domain/repositories/user.repository';
@@ -16,7 +15,9 @@ import { ReservationService } from './reservation.service';
 import { UpdateVehicleRequestSchema } from '@rocket-lease/contracts';
 import {
   ActiveReservationsCountResponse,
+  ActiveReservationsCountRequestSchema,
   BulkPriceUpdateRequest,
+  BulkPriceUpdateRequestSchema,
   BulkPriceUpdateResponse,
   Characteristic,
   CreateVehicleRequest,
@@ -175,21 +176,16 @@ export class VehicleService {
     ownerId: string,
     request: BulkPriceUpdateRequest,
   ): Promise<BulkPriceUpdateResponse> {
-    return this.vehicleRepository.bulkUpdatePrices(request.vehicleIds, request.operation, ownerId);
+    const validated = BulkPriceUpdateRequestSchema.parse(request);
+    return this.vehicleRepository.bulkUpdatePrices(validated.vehicleIds, validated.operation, ownerId);
   }
 
   public async getActiveReservationsCount(
     ownerId: string,
     vehicleIds: string[],
   ): Promise<ActiveReservationsCountResponse> {
-    const owned = await this.vehicleRepository.findByIds(vehicleIds);
-    const ownedByUser = owned.filter((v) => v.getOwnerId() === ownerId);
-
-    if (ownedByUser.length !== vehicleIds.length) {
-      throw new BulkPriceVehicleNotOwnedException();
-    }
-
-    const counts = await this.vehicleRepository.countActiveReservationsByVehicleIds(vehicleIds);
+    const { vehicleIds: validatedIds } = ActiveReservationsCountRequestSchema.parse({ vehicleIds });
+    const counts = await this.vehicleRepository.countActiveReservationsByVehicleIds(validatedIds, ownerId);
     return { counts };
   }
 
