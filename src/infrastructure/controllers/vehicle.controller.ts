@@ -112,6 +112,24 @@ export class VehicleController {
     await this.vehicleService.deleteVehicle(id, ownerId);
   }
 
+  @Patch('bulk-prices')
+  async bulkUpdatePrices(
+    @Req() req: Request,
+    @Body() body: Contracts.BulkPriceUpdateRequest,
+  ): Promise<Contracts.BulkPriceUpdateResponse> {
+    const ownerId = await this.resolveUserId(req);
+    return this.vehicleService.bulkUpdatePrices(ownerId, body);
+  }
+
+  @Post('active-reservations-count')
+  async activeReservationsCount(
+    @Req() req: Request,
+    @Body() body: Contracts.ActiveReservationsCountRequest,
+  ): Promise<Contracts.ActiveReservationsCountResponse> {
+    const ownerId = await this.resolveUserId(req);
+    return this.vehicleService.getActiveReservationsCount(ownerId, body.vehicleIds);
+  }
+
   @Patch(':id')
   async updateVehicle(
     @Param('id') id: string,

@@ -63,10 +63,6 @@ import {
   USER_REPOSITORY,
   type UserRepository,
 } from '@/domain/repositories/user.repository';
-import {
-  RESERVATION_RULE_SET_REPOSITORY,
-  type ReservationRuleSetRepository,
-} from '@/domain/repositories/reservation-rule-set.repository';
 import { EntityNotFoundException } from '@/domain/exceptions/domain.exception';
 import {
   ContractNotAcceptedException,
@@ -892,7 +888,7 @@ export class ReservationService {
       id: ruleSet.getId(),
       rentalorId: ruleSet.getRentalorId(),
       cancellationPolicy: ruleSet.getCancellationPolicy(),
-      deposit: ruleSet.getDeposit(),
+      depositPercentage: ruleSet.getDepositPercentage(),
       maxKilometrage: ruleSet.getMaxKilometrage(),
       rentalTimeConstraints: ruleSet.getRentalTimeConstraints(),
     };

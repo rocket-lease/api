@@ -5,6 +5,7 @@ import {
   InvalidEntityDataException,
 } from '@/domain/exceptions/domain.exception';
 import { VehicleLocationRequiredException } from '@/domain/exceptions/geo.exception';
+import { BulkPriceVehicleNotOwnedException } from '@/domain/exceptions/bulk-price.exception';
 import type { VehicleRepository, VehicleFilter } from '@/domain/repositories/vehicle.repository';
 import { VEHICLE_REPOSITORY } from '@/domain/repositories/vehicle.repository';
 import type { UserProfile, UserRepository } from '@/domain/repositories/user.repository';
@@ -14,10 +15,13 @@ import { CLOCK, type Clock } from '@/domain/providers/clock.provider';
 import { ReservationService } from './reservation.service';
 import { UpdateVehicleRequestSchema } from '@rocket-lease/contracts';
 import {
+  ActiveReservationsCountResponse,
+  BulkPriceUpdateRequest,
+  BulkPriceUpdateResponse,
+  Characteristic,
   CreateVehicleRequest,
   CreateVehicleResponse,
   CreateVehicleResponseSchema,
-  Characteristic,
   GetVehicleResponse,
   GetVehicleResponseSchema,
   UpdateVehicleRequest,
@@ -165,6 +169,28 @@ export class VehicleService {
     }
     await this.reservationService.cancelPendingByVehicle(vehicleId);
     await this.vehicleRepository.delete(vehicleId);
+  }
+
+  public async bulkUpdatePrices(
+    ownerId: string,
+    request: BulkPriceUpdateRequest,
+  ): Promise<BulkPriceUpdateResponse> {
+    return this.vehicleRepository.bulkUpdatePrices(request.vehicleIds, request.operation, ownerId);
+  }
+
+  public async getActiveReservationsCount(
+    ownerId: string,
+    vehicleIds: string[],
+  ): Promise<ActiveReservationsCountResponse> {
+    const owned = await this.vehicleRepository.findByIds(vehicleIds);
+    const ownedByUser = owned.filter((v) => v.getOwnerId() === ownerId);
+
+    if (ownedByUser.length !== vehicleIds.length) {
+      throw new BulkPriceVehicleNotOwnedException();
+    }
+
+    const counts = await this.vehicleRepository.countActiveReservationsByVehicleIds(vehicleIds);
+    return { counts };
   }
 
   private async loadOwner(ownerId: string): Promise<VehicleOwner | undefined> {

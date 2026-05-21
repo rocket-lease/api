@@ -14,6 +14,12 @@ import {
   UserHasVehiclesException,
 } from '@/domain/exceptions/domain.exception';
 import {
+  BulkPriceVehicleNotOwnedException,
+  BulkPriceVehicleUnavailableException,
+  BulkPriceResultInvalidException,
+  BulkPriceEmptySelectionException,
+} from '@/domain/exceptions/bulk-price.exception';
+import {
   ContractNotAcceptedException,
   HoldExpiredException,
   InvalidReservationTransitionException,
@@ -66,7 +72,6 @@ export class DomainExceptionFilter implements ExceptionFilter {
     let code: ErrorCode = ErrorCodes.INTERNAL_ERROR;
     let title = 'Internal Server Error';
     let message = exception.message;
-    // let code: string | undefined;
 
     if (exception instanceof UserHasActiveReservationsException) {
       status = HttpStatus.CONFLICT;
@@ -143,6 +148,22 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.NOT_FOUND;
       code = ErrorCodes.RULESET_NOT_FOUND_FOR_OWNER;
       title = 'Not Found';
+    } else if (exception instanceof BulkPriceVehicleNotOwnedException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.BULK_PRICE_VEHICLE_NOT_OWNED;
+      title = 'Forbidden';
+    } else if (exception instanceof BulkPriceVehicleUnavailableException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.BULK_PRICE_VEHICLE_UNAVAILABLE;
+      title = 'Conflict';
+    } else if (exception instanceof BulkPriceResultInvalidException) {
+      status = HttpStatus.BAD_REQUEST;
+      code = ErrorCodes.BULK_PRICE_RESULT_INVALID;
+      title = 'Bad Request';
+    } else if (exception instanceof BulkPriceEmptySelectionException) {
+      status = HttpStatus.BAD_REQUEST;
+      code = ErrorCodes.BULK_PRICE_EMPTY_SELECTION;
+      title = 'Bad Request';
     } else if (exception instanceof EmailNotVerifiedException) {
       status = HttpStatus.FORBIDDEN;
       code = ErrorCodes.FORBIDDEN;
