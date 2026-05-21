@@ -1,6 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { ReservationStatusSchema } from '@rocket-lease/contracts';
+import {
+  CancellationPolicySchema,
+  DepositPercentageSchema,
+  MaxKilometrageSchema,
+  RentalTimeConstraintsSchema,
+  ReservationStatusSchema,
+  type CancellationPolicy,
+  type MaxKilometrage,
+  type RentalTimeConstraints,
+} from '@rocket-lease/contracts';
 import { InvalidEntityDataException } from '../exceptions/domain.exception';
 import {
   ContractNotAcceptedException,
@@ -43,9 +52,25 @@ const reservationSchema = z.object({
   transferExpiresAt: z.date().nullable(),
   transferCode: z.string().nullable(),
   transferAlias: z.string().nullable(),
+  depositPercentageSnapshot: DepositPercentageSchema,
+  basePriceCentsSnapshot: z.number().int().nonnegative(),
+  cancellationPolicySnapshot: CancellationPolicySchema,
+  maxKilometrageSnapshot: MaxKilometrageSchema,
+  rentalTimeConstraintsSnapshot: RentalTimeConstraintsSchema,
   createdAt: z.date(),
   updatedAt: z.date(),
 });
+
+/**
+ * Defaults aplicados al snapshotear una reserva cuyo vehículo no tiene set
+ * de reglas asignado (acceptance criterion 9 de US-49).
+ */
+export const RESERVATION_RULES_DEFAULTS = {
+  cancellationPolicy: 'FLEXIBLE' as CancellationPolicy,
+  maxKilometrage: { type: 'UNLIMITED' } as MaxKilometrage,
+  rentalTimeConstraints: { minDays: 1 } as RentalTimeConstraints,
+  depositPercentage: null,
+} as const;
 
 export type ReservationStatus = z.infer<typeof ReservationStatusSchema>;
 export type PaymentMethod = z.infer<typeof PaymentMethodEnum>;
@@ -87,6 +112,11 @@ export interface ReservationProps {
   transferExpiresAt?: Date | null;
   transferCode?: string | null;
   transferAlias?: string | null;
+  depositPercentageSnapshot?: number | null;
+  basePriceCentsSnapshot?: number;
+  cancellationPolicySnapshot?: CancellationPolicy;
+  maxKilometrageSnapshot?: MaxKilometrage;
+  rentalTimeConstraintsSnapshot?: RentalTimeConstraints;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -114,6 +144,11 @@ export class Reservation {
   private transferExpiresAt: Date | null;
   private transferCode: string | null;
   private transferAlias: string | null;
+  private depositPercentageSnapshot: number | null;
+  private basePriceCentsSnapshot: number;
+  private cancellationPolicySnapshot: CancellationPolicy;
+  private maxKilometrageSnapshot: MaxKilometrage;
+  private rentalTimeConstraintsSnapshot: RentalTimeConstraints;
   private readonly createdAt: Date;
   private updatedAt: Date;
 
@@ -140,6 +175,15 @@ export class Reservation {
     this.transferExpiresAt = props.transferExpiresAt ?? null;
     this.transferCode = props.transferCode ?? null;
     this.transferAlias = props.transferAlias ?? null;
+    this.depositPercentageSnapshot =
+      props.depositPercentageSnapshot ?? RESERVATION_RULES_DEFAULTS.depositPercentage;
+    this.basePriceCentsSnapshot = props.basePriceCentsSnapshot ?? 0;
+    this.cancellationPolicySnapshot =
+      props.cancellationPolicySnapshot ?? RESERVATION_RULES_DEFAULTS.cancellationPolicy;
+    this.maxKilometrageSnapshot =
+      props.maxKilometrageSnapshot ?? RESERVATION_RULES_DEFAULTS.maxKilometrage;
+    this.rentalTimeConstraintsSnapshot =
+      props.rentalTimeConstraintsSnapshot ?? RESERVATION_RULES_DEFAULTS.rentalTimeConstraints;
     this.createdAt = props.createdAt ?? new Date();
     this.updatedAt = props.updatedAt ?? this.createdAt;
     this.validate();
@@ -214,11 +258,56 @@ export class Reservation {
   public getTransferAlias() {
     return this.transferAlias;
   }
+  public getDepositPercentageSnapshot(): number | null {
+    return this.depositPercentageSnapshot;
+  }
+  public getBasePriceCentsSnapshot(): number {
+    return this.basePriceCentsSnapshot;
+  }
+  public getCancellationPolicySnapshot(): CancellationPolicy {
+    return this.cancellationPolicySnapshot;
+  }
+  public getMaxKilometrageSnapshot(): MaxKilometrage {
+    return this.maxKilometrageSnapshot;
+  }
+  public getRentalTimeConstraintsSnapshot(): RentalTimeConstraints {
+    return this.rentalTimeConstraintsSnapshot;
+  }
   public getCreatedAt() {
     return this.createdAt;
   }
   public getUpdatedAt() {
     return this.updatedAt;
+  }
+
+  /**
+   * Aplica el snapshot de reglas + precio sobre la reserva. Se invoca al
+   * confirmar (`pending_payment → confirmed`) para congelar las condiciones
+   * que ve el conductor al momento de pagar, de forma que cambios posteriores
+   * al set o al precio del vehículo no afecten reservas confirmadas
+   * (US-49 AC #2 y #3).
+   *
+   * Si el vehículo no tiene set asignado, se pasan los defaults
+   * `RESERVATION_RULES_DEFAULTS` desde el service.
+   */
+  public applyRulesSnapshot(snapshot: {
+    depositPercentage: number | null;
+    basePriceCents: number;
+    cancellationPolicy: CancellationPolicy;
+    maxKilometrage: MaxKilometrage;
+    rentalTimeConstraints: RentalTimeConstraints;
+  }): void {
+    if (!this.isPendingPayment() && !this.isPendingApproval()) {
+      throw new InvalidEntityDataException(
+        'rules snapshot can only be applied before confirmation',
+      );
+    }
+    this.depositPercentageSnapshot = snapshot.depositPercentage;
+    this.basePriceCentsSnapshot = snapshot.basePriceCents;
+    this.cancellationPolicySnapshot = snapshot.cancellationPolicy;
+    this.maxKilometrageSnapshot = snapshot.maxKilometrage;
+    this.rentalTimeConstraintsSnapshot = snapshot.rentalTimeConstraints;
+    this.validate();
   }
 
   public isOwnedByConductor(conductorId: string): boolean {
@@ -461,6 +550,11 @@ export class Reservation {
       transferExpiresAt: this.transferExpiresAt,
       transferCode: this.transferCode,
       transferAlias: this.transferAlias,
+      depositPercentageSnapshot: this.depositPercentageSnapshot,
+      basePriceCentsSnapshot: this.basePriceCentsSnapshot,
+      cancellationPolicySnapshot: this.cancellationPolicySnapshot,
+      maxKilometrageSnapshot: this.maxKilometrageSnapshot,
+      rentalTimeConstraintsSnapshot: this.rentalTimeConstraintsSnapshot,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     });
