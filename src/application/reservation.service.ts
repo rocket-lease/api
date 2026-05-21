@@ -255,9 +255,6 @@ export class ReservationService {
       ? WalletProviderEnum.parse(dto.walletProvider)
       : undefined;
 
-    // Snapshot inmutable de reglas + precio antes de transicionar a `confirmed`.
-    // A partir de acá, cambios al set o al precio del vehículo no afectan
-    // esta reserva (US-49 AC #2 y #3).
     await this.snapshotReservationRules(reservation);
 
     reservation.confirmPayment(
@@ -367,7 +364,6 @@ export class ReservationService {
     }
 
     const now = this.clock.now();
-    // Snapshot también para el flujo de transferencia bancaria.
     await this.snapshotReservationRules(reservation);
     reservation.confirmTransferPayment(now);
     const saved = await this.reservationRepository.update(reservation);
@@ -824,7 +820,6 @@ export class ReservationService {
     vehicleId: string,
     sharedRuleSetId: string | null,
   ): Promise<ReservationRuleSet | null> {
-    // Privado tiene prioridad sobre compartido.
     const privateRuleSet =
       await this.reservationRuleSetRepository.findPrivateByVehicleId(vehicleId);
     if (privateRuleSet) return privateRuleSet;

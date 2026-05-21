@@ -39,7 +39,6 @@ export class ReservationRuleSetService {
     this.assertDepositPercentageValid(data.depositPercentage);
 
     if (data.vehicleId !== null) {
-      // Set privado: validar que el vehículo es del owner.
       const vehicle = await this.vehicleRepository.findById(data.vehicleId);
       if (!vehicle || !vehicle.isOwnedBy(ownerId)) {
         throw new RuleSetPrivateCannotBeSharedException();
@@ -67,8 +66,6 @@ export class ReservationRuleSetService {
     ruleSetId: string,
     dto: UpdateReservationRuleSetRequest,
   ) {
-    // vehicleId es inmutable post-creación. Si el caller lo manda de todas formas
-    // devolvemos el error específico en lugar de dropearlo silenciosamente.
     if (
       dto &&
       typeof dto === 'object' &&
