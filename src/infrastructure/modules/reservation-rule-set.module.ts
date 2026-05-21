@@ -17,9 +17,6 @@ import { PostgresVehicleRepository } from '@/infrastructure/repository/postgres.
       provide: RESERVATION_RULE_SET_REPOSITORY,
       useClass: PostgresReservationRuleSetRepository,
     },
-    // Necesario para validar ownership al crear un set privado o al pedir el
-    // set privado de un vehículo. Se registra acá para no crear una
-    // dependencia circular con `VehicleModule`, que ya importa este módulo.
     {
       provide: VEHICLE_REPOSITORY,
       useClass: PostgresVehicleRepository,

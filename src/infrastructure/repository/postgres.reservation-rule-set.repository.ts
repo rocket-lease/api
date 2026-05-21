@@ -30,7 +30,6 @@ export class PostgresReservationRuleSetRepository implements ReservationRuleSetR
             : null,
         minRentalDays: ruleSet.getRentalTimeConstraints().minDays ?? null,
         maxRentalDays: ruleSet.getRentalTimeConstraints().maxDays ?? null,
-        // vehicleId NO se actualiza: es inmutable post-creación.
       },
       create: {
         id: ruleSet.getId(),
