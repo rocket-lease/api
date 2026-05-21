@@ -17,7 +17,6 @@ import {
   BulkPriceVehicleNotOwnedException,
   BulkPriceVehicleUnavailableException,
   BulkPriceResultInvalidException,
-  BulkPriceEmptySelectionException,
 } from '@/domain/exceptions/bulk-price.exception';
 import {
   ContractNotAcceptedException,
@@ -159,10 +158,6 @@ export class DomainExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof BulkPriceResultInvalidException) {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.BULK_PRICE_RESULT_INVALID;
-      title = 'Bad Request';
-    } else if (exception instanceof BulkPriceEmptySelectionException) {
-      status = HttpStatus.BAD_REQUEST;
-      code = ErrorCodes.BULK_PRICE_EMPTY_SELECTION;
       title = 'Bad Request';
     } else if (exception instanceof EmailNotVerifiedException) {
       status = HttpStatus.FORBIDDEN;

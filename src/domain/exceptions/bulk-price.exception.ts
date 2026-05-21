@@ -18,8 +18,3 @@ export class BulkPriceResultInvalidException extends DomainException {
   }
 }
 
-export class BulkPriceEmptySelectionException extends DomainException {
-  constructor() {
-    super('vehicle selection must not be empty');
-  }
-}

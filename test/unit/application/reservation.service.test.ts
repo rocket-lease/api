@@ -108,6 +108,8 @@ function makeVehicleRepo(vehicles: Vehicle[]): jest.Mocked<VehicleRepository> {
     findByOwnerId: jest.fn(),
     findByCharacteristics: jest.fn(),
     delete: jest.fn(),
+    bulkUpdatePrices: jest.fn(),
+    countActiveReservationsByVehicleIds: jest.fn(),
   };
 }
 
