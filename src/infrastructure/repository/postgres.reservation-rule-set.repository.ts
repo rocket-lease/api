@@ -5,6 +5,10 @@ import type { ReservationRuleSetRepository } from '@/domain/repositories/reserva
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
 
+type RowWithCount = PrismaReservationRuleSet & {
+  _count?: { vehicles: number };
+};
+
 @Injectable()
 export class PostgresReservationRuleSetRepository implements ReservationRuleSetRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -18,7 +22,7 @@ export class PostgresReservationRuleSetRepository implements ReservationRuleSetR
         name: ruleSet.getName(),
         description: ruleSet.getDescription(),
         cancellationPolicy: ruleSet.getCancellationPolicy(),
-        deposit: ruleSet.getDeposit(),
+        depositPercentage: ruleSet.getDepositPercentage(),
         maxKilometrageType: maxKilometrage.type,
         maxKilometrageValue:
           maxKilometrage.type === 'LIMITED'
@@ -26,14 +30,16 @@ export class PostgresReservationRuleSetRepository implements ReservationRuleSetR
             : null,
         minRentalDays: ruleSet.getRentalTimeConstraints().minDays ?? null,
         maxRentalDays: ruleSet.getRentalTimeConstraints().maxDays ?? null,
+        // vehicleId NO se actualiza: es inmutable post-creación.
       },
       create: {
         id: ruleSet.getId(),
         ownerId: ruleSet.getRentalorId(),
+        vehicleId: ruleSet.getVehicleId(),
         name: ruleSet.getName(),
         description: ruleSet.getDescription(),
         cancellationPolicy: ruleSet.getCancellationPolicy(),
-        deposit: ruleSet.getDeposit(),
+        depositPercentage: ruleSet.getDepositPercentage(),
         maxKilometrageType: maxKilometrage.type,
         maxKilometrageValue:
           maxKilometrage.type === 'LIMITED'
@@ -60,20 +66,26 @@ export class PostgresReservationRuleSetRepository implements ReservationRuleSetR
 
   async findByOwnerId(ownerId: string): Promise<ReservationRuleSet[]> {
     const rows = await this.prisma.reservationRuleSet.findMany({
-      where: { ownerId },
+      where: { ownerId, vehicleId: null },
       orderBy: { createdAt: 'desc' },
       include: { _count: { select: { vehicles: true } } },
     });
     return rows.map((row) => this.mapToDomain(row));
   }
 
+  async findPrivateByVehicleId(vehicleId: string): Promise<ReservationRuleSet | null> {
+    const row = await this.prisma.reservationRuleSet.findUnique({
+      where: { vehicleId },
+    });
+    if (!row) return null;
+    return this.mapToDomain(row);
+  }
+
   async delete(id: string): Promise<void> {
     await this.prisma.reservationRuleSet.delete({ where: { id } });
   }
 
-  private mapToDomain(
-    row: PrismaReservationRuleSet & { _count?: { vehicles: number } },
-  ): ReservationRuleSet {
+  private mapToDomain(row: RowWithCount): ReservationRuleSet {
     const maxKilometrage =
       row.maxKilometrageType === 'UNLIMITED'
         ? { type: 'UNLIMITED' as const }
@@ -87,10 +99,11 @@ export class PostgresReservationRuleSetRepository implements ReservationRuleSetR
 
     return new ReservationRuleSet(
       row.ownerId,
+      row.vehicleId,
       row.name,
       row.description,
       row.cancellationPolicy,
-      row.deposit,
+      row.depositPercentage,
       maxKilometrage,
       {
         minDays: row.minRentalDays ?? undefined,

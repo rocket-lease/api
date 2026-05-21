@@ -1,4 +1,7 @@
-import { computeReservationTotalCents } from '@/application/helpers/pricing';
+import {
+  computeDepositCents,
+  computeReservationTotalCents,
+} from '@/application/helpers/pricing';
 
 describe('computeReservationTotalCents', () => {
   const HOUR = 60 * 60 * 1000;
@@ -42,5 +45,32 @@ describe('computeReservationTotalCents', () => {
     expect(computeReservationTotalCents(basePrice, start, end)).toBe(
       2 * hourly,
     );
+  });
+});
+
+describe('computeDepositCents', () => {
+  it('returns 0 when depositPercentage is null (sin seña)', () => {
+    expect(computeDepositCents(100000, null)).toBe(0);
+  });
+
+  it('returns 0 when total is 0 regardless of percentage', () => {
+    expect(computeDepositCents(0, 30)).toBe(0);
+  });
+
+  it('returns floor(total * 10 / 100) at the lower bound', () => {
+    expect(computeDepositCents(12345, 10)).toBe(Math.floor(12345 * 10 / 100));
+  });
+
+  it('returns floor(total * 50 / 100) at the upper bound', () => {
+    expect(computeDepositCents(99999, 50)).toBe(Math.floor(99999 * 50 / 100));
+  });
+
+  it('floors the result to never exceed the configured pct', () => {
+    // 199 * 33 / 100 = 65.67 → floor → 65, no 66.
+    expect(computeDepositCents(199, 33)).toBe(65);
+  });
+
+  it('returns 0 when total is negative (defensive)', () => {
+    expect(computeDepositCents(-100, 30)).toBe(0);
   });
 });

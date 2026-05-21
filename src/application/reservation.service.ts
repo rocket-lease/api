@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   type ApproveReservationResponse,
   ApproveReservationResponseSchema,
@@ -42,6 +42,7 @@ import {
   CASCADE_REJECTION_REASON,
   HOLD_TTL_MS,
   Reservation,
+  RESERVATION_RULES_DEFAULTS,
   RESERVATION_STATUS,
   WalletProviderEnum,
 } from '@/domain/entities/reservation.entity';
@@ -54,13 +55,14 @@ import {
   type VehicleRepository,
 } from '@/domain/repositories/vehicle.repository';
 import {
-  USER_REPOSITORY,
-  type UserRepository,
-} from '@/domain/repositories/user.repository';
-import {
   RESERVATION_RULE_SET_REPOSITORY,
   type ReservationRuleSetRepository,
 } from '@/domain/repositories/reservation-rule-set.repository';
+import { ReservationRuleSet } from '@/domain/entities/reservation-rule-set.entity';
+import {
+  USER_REPOSITORY,
+  type UserRepository,
+} from '@/domain/repositories/user.repository';
 import { EntityNotFoundException } from '@/domain/exceptions/domain.exception';
 import {
   ContractNotAcceptedException,
@@ -93,6 +95,8 @@ import { EMAIL_PROVIDER, type EmailProvider } from '@/domain/providers/email.pro
 
 @Injectable()
 export class ReservationService {
+  private readonly logger = new Logger(ReservationService.name);
+
   constructor(
     @Inject(RESERVATION_REPOSITORY)
     private readonly reservationRepository: ReservationRepository,
@@ -246,6 +250,12 @@ export class ReservationService {
     const parsedWalletProvider = dto.walletProvider
       ? WalletProviderEnum.parse(dto.walletProvider)
       : undefined;
+
+    // Snapshot inmutable de reglas + precio antes de transicionar a `confirmed`.
+    // A partir de acá, cambios al set o al precio del vehículo no afectan
+    // esta reserva (US-49 AC #2 y #3).
+    await this.snapshotReservationRules(reservation);
+
     reservation.confirmPayment(
       dto.paymentMethod,
       now,
@@ -329,10 +339,13 @@ export class ReservationService {
           if (!r) return;
           if (!r.isPendingApproval()) return;
           if (r.isTransferExpired(this.clock.now())) return;
+          await this.snapshotReservationRules(r);
           r.confirmTransferPayment(this.clock.now());
           await this.reservationRepository.update(r);
-        } catch {
-          // auto-confirm falló (ej. solapamiento de EXCLUDE), se cancela silenciosamente
+        } catch (e) {
+          this.logger.warn(
+            `autoConfirmTransfer failed for reservation ${reservationId}: ${e instanceof Error ? e.message : String(e)}`,
+          );
         }
       })();
     }, 5000);
@@ -350,6 +363,8 @@ export class ReservationService {
     }
 
     const now = this.clock.now();
+    // Snapshot también para el flujo de transferencia bancaria.
+    await this.snapshotReservationRules(reservation);
     reservation.confirmTransferPayment(now);
     const saved = await this.reservationRepository.update(reservation);
 
@@ -770,6 +785,49 @@ export class ReservationService {
     return pending.length;
   }
 
+  /**
+   * Materializa el snapshot de reglas + precio sobre una reserva en transición
+   * a `confirmed`. Resuelve el set del vehículo (privado tiene prioridad sobre
+   * compartido; en condiciones normales solo uno está poblado) y, si no hay
+   * set, usa los defaults definidos en `RESERVATION_RULES_DEFAULTS`.
+   *
+   * El `basePriceCents` se toma del vehículo en el momento del snapshot, no
+   * del `totalCents` de la reserva (que ya fue calculado al crear con días *
+   * precio del momento).
+   */
+  private async snapshotReservationRules(reservation: Reservation): Promise<void> {
+    const vehicle = await this.vehicleRepository.findById(reservation.getVehicleId());
+    if (!vehicle) {
+      throw new EntityNotFoundException('vehicle', reservation.getVehicleId());
+    }
+
+    const ruleSet = await this.resolveRuleSetForVehicle(vehicle.getId(), vehicle.getReservationRuleSetId());
+
+    reservation.applyRulesSnapshot({
+      depositPercentage:
+        ruleSet?.getDepositPercentage() ?? RESERVATION_RULES_DEFAULTS.depositPercentage,
+      basePriceCents: vehicle.getBasePriceCents(),
+      cancellationPolicy:
+        ruleSet?.getCancellationPolicy() ?? RESERVATION_RULES_DEFAULTS.cancellationPolicy,
+      maxKilometrage:
+        ruleSet?.getMaxKilometrage() ?? RESERVATION_RULES_DEFAULTS.maxKilometrage,
+      rentalTimeConstraints:
+        ruleSet?.getRentalTimeConstraints() ?? RESERVATION_RULES_DEFAULTS.rentalTimeConstraints,
+    });
+  }
+
+  private async resolveRuleSetForVehicle(
+    vehicleId: string,
+    sharedRuleSetId: string | null,
+  ): Promise<ReservationRuleSet | null> {
+    // Privado tiene prioridad sobre compartido.
+    const privateRuleSet =
+      await this.reservationRuleSetRepository.findPrivateByVehicleId(vehicleId);
+    if (privateRuleSet) return privateRuleSet;
+    if (!sharedRuleSetId) return null;
+    return this.reservationRuleSetRepository.findById(sharedRuleSetId);
+  }
+
   private async toDTO(r: Reservation): Promise<GetReservationResponse> {
     const [vehicle, rentadorProfile] = await Promise.all([
       this.vehicleRepository.findById(r.getVehicleId()),
@@ -806,6 +864,11 @@ export class ReservationService {
         : null,
       transferCode: r.getTransferCode(),
       transferAlias: r.getTransferAlias(),
+      depositPercentageSnapshot: r.getDepositPercentageSnapshot(),
+      basePriceCentsSnapshot: r.getBasePriceCentsSnapshot(),
+      cancellationPolicySnapshot: r.getCancellationPolicySnapshot(),
+      maxKilometrageSnapshot: r.getMaxKilometrageSnapshot(),
+      rentalTimeConstraintsSnapshot: r.getRentalTimeConstraintsSnapshot(),
       createdAt: r.getCreatedAt().toISOString(),
       updatedAt: r.getUpdatedAt().toISOString(),
       vehicle: this.vehicleSummary(vehicle, r.getVehicleId(), reservationRuleSet),
@@ -830,7 +893,7 @@ export class ReservationService {
       id: ruleSet.getId(),
       rentalorId: ruleSet.getRentalorId(),
       cancellationPolicy: ruleSet.getCancellationPolicy(),
-      deposit: ruleSet.getDeposit(),
+      depositPercentage: ruleSet.getDepositPercentage(),
       maxKilometrage: ruleSet.getMaxKilometrage(),
       rentalTimeConstraints: ruleSet.getRentalTimeConstraints(),
     };

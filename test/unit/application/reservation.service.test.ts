@@ -1,5 +1,6 @@
 import { ReservationService } from '@/application/reservation.service';
 import { InMemoryReservationRepository } from '@/infrastructure/repository/in_memory.reservation.repository';
+import { InMemoryReservationRuleSetRepository } from '@/infrastructure/repository/in_memory.reservation-rule-set.repository';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { Reservation } from '@/domain/entities/reservation.entity';
 import type { VehicleRepository } from '@/domain/repositories/vehicle.repository';
@@ -178,12 +179,14 @@ function makeReservationRuleSetRepo(): jest.Mocked<ReservationRuleSetRepository>
     save: jest.fn(),
     findById: jest.fn(async (_id: string) => null),
     findByOwnerId: jest.fn(),
+    findPrivateByVehicleId: jest.fn(async (_id: string) => null),
     delete: jest.fn(),
   };
 }
 
 describe('ReservationService', () => {
   let repo: InMemoryReservationRepository;
+  let ruleSetRepo: InMemoryReservationRuleSetRepository;
   let vehicleRepo: jest.Mocked<VehicleRepository>;
   let userRepo: jest.Mocked<UserRepository>;
   let reservationRuleSetRepo: jest.Mocked<ReservationRuleSetRepository>;
@@ -202,6 +205,7 @@ describe('ReservationService', () => {
   beforeEach(() => {
     vehicle = makeVehicle();
     repo = new InMemoryReservationRepository();
+    ruleSetRepo = new InMemoryReservationRuleSetRepository();
     vehicleRepo = makeVehicleRepo([vehicle]);
     userRepo = makeUserRepo();
     reservationRuleSetRepo = makeReservationRuleSetRepo();
@@ -214,8 +218,7 @@ describe('ReservationService', () => {
       repo,
       vehicleRepo,
       userRepo,
-      reservationRuleSetRepo,
-      clock,
+      ruleSetRepo,      clock,
       voucherProvider,
       notificationProvider,
       paymentGateway,
@@ -262,8 +265,7 @@ describe('ReservationService', () => {
   it('rejects when conductor is the owner', async () => {
     const ownedByA = makeVehicle({ ownerId: conductorA });
     vehicleRepo = makeVehicleRepo([ownedByA]);
-    service = new ReservationService(repo, vehicleRepo, userRepo, reservationRuleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
-    await expect(
+    service = new ReservationService(repo, vehicleRepo, userRepo, ruleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);    await expect(
       service.createReservation(conductorA, {
         vehicleId: ownedByA.getId(),
         startAt: start,
@@ -276,8 +278,7 @@ describe('ReservationService', () => {
   it('rejects when vehicle is disabled', async () => {
     const disabled = makeVehicle({ enabled: false });
     vehicleRepo = makeVehicleRepo([disabled]);
-    service = new ReservationService(repo, vehicleRepo, userRepo, reservationRuleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
-    await expect(
+    service = new ReservationService(repo, vehicleRepo, userRepo, ruleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);    await expect(
       service.createReservation(conductorA, {
         vehicleId: disabled.getId(),
         startAt: start,
@@ -395,6 +396,165 @@ describe('ReservationService', () => {
           paymentMethod: 'credit_card',
         }),
       ).rejects.toThrow(ReservationNotFoundException);
+    });
+  });
+
+  describe('rules snapshot on confirmation (US-49)', () => {
+    it('persists defaults when vehicle has no rule set', async () => {
+      const created = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      await service.confirmPayment(conductorA, created.id, {
+        paymentMethod: 'credit_card',
+      });
+
+      const r = await repo.findById(created.id);
+      expect(r?.getDepositPercentageSnapshot()).toBeNull();
+      expect(r?.getCancellationPolicySnapshot()).toBe('FLEXIBLE');
+      expect(r?.getMaxKilometrageSnapshot()).toEqual({ type: 'UNLIMITED' });
+      expect(r?.getRentalTimeConstraintsSnapshot().minDays).toBe(1);
+      expect(r?.getBasePriceCentsSnapshot()).toBe(24000);
+    });
+
+    it('persists deposit + rules from the shared set assigned to the vehicle', async () => {
+      const ruleSetId = randomUUID();
+      const sharedSet = new (
+        await import('@/domain/entities/reservation-rule-set.entity')
+      ).ReservationRuleSet(
+        vehicle.getOwnerId(),
+        null,
+        'Premium',
+        null,
+        'MODERATE',
+        30,
+        { type: 'LIMITED', value: 200 },
+        { minDays: 2, maxDays: 14 },
+        0,
+        new Date(),
+        new Date(),
+        ruleSetId,
+      );
+      await ruleSetRepo.save(sharedSet);
+      // Asociar el set al vehículo.
+      vehicle.update({ reservationRuleSetId: ruleSetId });
+
+      const created = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      await service.confirmPayment(conductorA, created.id, {
+        paymentMethod: 'credit_card',
+      });
+
+      const r = await repo.findById(created.id);
+      expect(r?.getDepositPercentageSnapshot()).toBe(30);
+      expect(r?.getCancellationPolicySnapshot()).toBe('MODERATE');
+      expect(r?.getMaxKilometrageSnapshot()).toEqual({
+        type: 'LIMITED',
+        value: 200,
+      });
+      expect(r?.getRentalTimeConstraintsSnapshot()).toEqual({
+        minDays: 2,
+        maxDays: 14,
+      });
+    });
+
+    it('later changes to the rule set do NOT affect confirmed reservation snapshot', async () => {
+      const ruleSetId = randomUUID();
+      const sharedSet = new (
+        await import('@/domain/entities/reservation-rule-set.entity')
+      ).ReservationRuleSet(
+        vehicle.getOwnerId(),
+        null,
+        'Premium',
+        null,
+        'FLEXIBLE',
+        null,
+        { type: 'UNLIMITED' },
+        { minDays: 1 },
+        0,
+        new Date(),
+        new Date(),
+        ruleSetId,
+      );
+      await ruleSetRepo.save(sharedSet);
+      vehicle.update({ reservationRuleSetId: ruleSetId });
+
+      const created = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      await service.confirmPayment(conductorA, created.id, {
+        paymentMethod: 'credit_card',
+      });
+
+      // Tras confirmar, el rentador cambia el set: agrega 50% de seña.
+      sharedSet.update({ depositPercentage: 50 });
+      await ruleSetRepo.save(sharedSet);
+
+      const r = await repo.findById(created.id);
+      expect(r?.getDepositPercentageSnapshot()).toBeNull();
+    });
+
+    it('private rule set takes precedence over shared when both exist', async () => {
+      const sharedId = randomUUID();
+      const privateId = randomUUID();
+      const shared = new (
+        await import('@/domain/entities/reservation-rule-set.entity')
+      ).ReservationRuleSet(
+        vehicle.getOwnerId(),
+        null,
+        'Shared',
+        null,
+        'FLEXIBLE',
+        10,
+        { type: 'UNLIMITED' },
+        { minDays: 1 },
+        0,
+        new Date(),
+        new Date(),
+        sharedId,
+      );
+      const priv = new (
+        await import('@/domain/entities/reservation-rule-set.entity')
+      ).ReservationRuleSet(
+        vehicle.getOwnerId(),
+        vehicle.getId(),
+        'Private',
+        null,
+        'STRICT',
+        40,
+        { type: 'UNLIMITED' },
+        { minDays: 1 },
+        0,
+        new Date(),
+        new Date(),
+        privateId,
+      );
+      await ruleSetRepo.save(shared);
+      await ruleSetRepo.save(priv);
+      vehicle.update({ reservationRuleSetId: sharedId });
+
+      const created = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      await service.confirmPayment(conductorA, created.id, {
+        paymentMethod: 'credit_card',
+      });
+
+      const r = await repo.findById(created.id);
+      expect(r?.getDepositPercentageSnapshot()).toBe(40);
+      expect(r?.getCancellationPolicySnapshot()).toBe('STRICT');
     });
   });
 
@@ -613,8 +773,7 @@ describe('ReservationService', () => {
     it('createReservation con vehicle.autoAccept = true => pending_payment con TTL 10min', async () => {
       const v = makeVehicleWithAutoAccept(true);
       vehicleRepo = makeVehicleRepo([v]);
-      service = new ReservationService(repo, vehicleRepo, userRepo, reservationRuleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
-
+      service = new ReservationService(repo, vehicleRepo, userRepo, ruleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
       const res = await service.createReservation(conductorA, {
         vehicleId: v.getId(),
         startAt: start,
@@ -631,8 +790,7 @@ describe('ReservationService', () => {
     it('createReservation con vehicle.autoAccept = false => pending_approval con TTL 24h', async () => {
       const v = makeVehicleWithAutoAccept(false);
       vehicleRepo = makeVehicleRepo([v]);
-      service = new ReservationService(repo, vehicleRepo, userRepo, reservationRuleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
-
+      service = new ReservationService(repo, vehicleRepo, userRepo, ruleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
       const res = await service.createReservation(conductorA, {
         vehicleId: v.getId(),
         startAt: start,
@@ -652,8 +810,7 @@ describe('ReservationService', () => {
       userRepo.getProfileById = jest.fn(async (id: string) =>
         makeProfile(id, true),
       );
-      service = new ReservationService(repo, vehicleRepo, userRepo, reservationRuleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
-
+      service = new ReservationService(repo, vehicleRepo, userRepo, ruleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
       const res = await service.createReservation(conductorA, {
         vehicleId: v.getId(),
         startAt: start,
@@ -670,8 +827,7 @@ describe('ReservationService', () => {
       userRepo.getProfileById = jest.fn(async (id: string) =>
         makeProfile(id, false),
       );
-      service = new ReservationService(repo, vehicleRepo, userRepo, reservationRuleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
-
+      service = new ReservationService(repo, vehicleRepo, userRepo, ruleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
       const res = await service.createReservation(conductorA, {
         vehicleId: v.getId(),
         startAt: start,
@@ -693,8 +849,7 @@ describe('ReservationService', () => {
           autoAccept: false,
         });
         vehicleRepo = makeVehicleRepo([manualVehicle]);
-        service = new ReservationService(repo, vehicleRepo, userRepo, reservationRuleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
-      });
+        service = new ReservationService(repo, vehicleRepo, userRepo, ruleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);      });
 
       it('happy path: pending_approval => pending_payment con hold de 10 min', async () => {
         const created = await service.createReservation(conductorA, {
@@ -734,8 +889,7 @@ describe('ReservationService', () => {
           autoAccept: true,
         });
         vehicleRepo = makeVehicleRepo([auto]);
-        service = new ReservationService(repo, vehicleRepo, userRepo, reservationRuleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
-        const created = await service.createReservation(conductorA, {
+        service = new ReservationService(repo, vehicleRepo, userRepo, ruleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);        const created = await service.createReservation(conductorA, {
           vehicleId: auto.getId(),
           startAt: start,
           endAt: end,
@@ -778,8 +932,7 @@ describe('ReservationService', () => {
           autoAccept: false,
         });
         vehicleRepo = makeVehicleRepo([manualVehicle, other]);
-        service = new ReservationService(repo, vehicleRepo, userRepo, reservationRuleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
-
+        service = new ReservationService(repo, vehicleRepo, userRepo, ruleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
         const a = await service.createReservation(conductorA, {
           vehicleId: manualVehicle.getId(),
           startAt: start,
@@ -811,8 +964,7 @@ describe('ReservationService', () => {
           autoAccept: false,
         });
         vehicleRepo = makeVehicleRepo([manualVehicle]);
-        service = new ReservationService(repo, vehicleRepo, userRepo, reservationRuleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
-      });
+        service = new ReservationService(repo, vehicleRepo, userRepo, ruleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);      });
 
       it('rechaza con razón => status rejected y rejectionReason persiste', async () => {
         const created = await service.createReservation(conductorA, {
@@ -862,8 +1014,7 @@ describe('ReservationService', () => {
         const rentadorId = randomUUID();
         const v = makeVehicle({ ownerId: rentadorId, autoAccept: false });
         vehicleRepo = makeVehicleRepo([v]);
-        service = new ReservationService(repo, vehicleRepo, userRepo, reservationRuleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
-
+        service = new ReservationService(repo, vehicleRepo, userRepo, ruleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
         const created = await service.createReservation(conductorA, {
           vehicleId: v.getId(),
           startAt: start,
@@ -1079,8 +1230,7 @@ describe('ReservationService', () => {
         const rentadorId = randomUUID();
         const v = makeVehicle({ ownerId: rentadorId, autoAccept: false });
         vehicleRepo = makeVehicleRepo([v]);
-        service = new ReservationService(repo, vehicleRepo, userRepo, reservationRuleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
-
+        service = new ReservationService(repo, vehicleRepo, userRepo, ruleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
         const created = await service.createReservation(conductorA, {
           vehicleId: v.getId(),
           startAt: start,
@@ -1100,8 +1250,7 @@ describe('ReservationService', () => {
         const autoV = makeVehicle({ ownerId: rentadorId, autoAccept: true });
         const manualV = makeVehicle({ ownerId: rentadorId, autoAccept: false });
         vehicleRepo = makeVehicleRepo([autoV, manualV]);
-        service = new ReservationService(repo, vehicleRepo, userRepo, reservationRuleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
-
+        service = new ReservationService(repo, vehicleRepo, userRepo, ruleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
         await service.createReservation(conductorA, {
           vehicleId: autoV.getId(),
           startAt: start,
@@ -1130,8 +1279,7 @@ describe('ReservationService', () => {
       rentadorId = randomUUID();
       autoV = makeVehicle({ ownerId: rentadorId, autoAccept: true });
       vehicleRepo = makeVehicleRepo([autoV]);
-      service = new ReservationService(repo, vehicleRepo, userRepo, reservationRuleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);
-    });
+      service = new ReservationService(repo, vehicleRepo, userRepo, ruleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);    });
 
     it('returns a valid voucher when reservation is confirmed', async () => {
       const created = await service.createReservation(conductorA, {
