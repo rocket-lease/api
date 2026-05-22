@@ -19,6 +19,9 @@ const mapTableToDto = (rawData: any) => ({
   photos: ['https://example.com/photo1.jpg'],
   province: rawData['provincia'] || 'B',
   city: rawData['ciudad'] || 'CABA',
+  address: rawData['dirección'] || 'Av. Corrientes 1000, CABA',
+  latitude: rawData['latitud'] ? Number(rawData['latitud']) : -34.6037,
+  longitude: rawData['longitud'] ? Number(rawData['longitud']) : -58.3816,
   availableFrom: rawData['disponible desde'] || '2026-06-01',
 });
 

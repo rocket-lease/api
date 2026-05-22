@@ -23,6 +23,10 @@ import {
   InvalidQrTokenException,
 } from '@/domain/exceptions/reservation.exception';
 import {
+  InvalidMapBoundsException,
+  VehicleLocationRequiredException,
+} from '@/domain/exceptions/geo.exception';
+import {
   ExceptionFilter,
   Catch,
   ArgumentsHost,
@@ -123,6 +127,14 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.FORBIDDEN;
       code = ErrorCodes.FORBIDDEN;
       title = 'Forbidden';
+    } else if (exception instanceof VehicleLocationRequiredException) {
+      status = HttpStatus.BAD_REQUEST;
+      code = ErrorCodes.VEHICLE_LOCATION_REQUIRED;
+      title = 'Bad Request';
+    } else if (exception instanceof InvalidMapBoundsException) {
+      status = HttpStatus.BAD_REQUEST;
+      code = ErrorCodes.INVALID_MAP_BOUNDS;
+      title = 'Bad Request';
     } else if (exception instanceof InvalidEntityDataException) {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.INVALID_ENTITY_DATA;

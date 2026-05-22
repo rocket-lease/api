@@ -38,6 +38,10 @@ export class PostgresVehicleRepository implements VehicleRepository {
           reservationRuleSetId: vehicle.getReservationRuleSetId(),
           province: vehicle.getProvince(),
           city: vehicle.getCity(),
+          address: vehicle.getAddress(),
+          latitude: vehicle.getLatitude(),
+          longitude: vehicle.getLongitude(),
+          locationApproximate: vehicle.isLocationApproximate(),
           availableFrom: vehicle.getAvailableFrom(),
           autoAccept: vehicle.getAutoAccept(),
           photos: {
@@ -63,6 +67,10 @@ export class PostgresVehicleRepository implements VehicleRepository {
           reservationRuleSetId: vehicle.getReservationRuleSetId(),
           province: vehicle.getProvince(),
           city: vehicle.getCity(),
+          address: vehicle.getAddress(),
+          latitude: vehicle.getLatitude(),
+          longitude: vehicle.getLongitude(),
+          locationApproximate: vehicle.isLocationApproximate(),
           availableFrom: vehicle.getAvailableFrom(),
           autoAccept: vehicle.getAutoAccept(),
           photos: {
@@ -208,6 +216,10 @@ export class PostgresVehicleRepository implements VehicleRepository {
       raw.availableFrom,
       raw.reservationRuleSetId,
       raw.autoAccept,
+      raw.address,
+      raw.latitude,
+      raw.longitude,
+      raw.locationApproximate,
     );
   }
 }

@@ -33,6 +33,10 @@ const vehicleSchema = z.object({
   description: z.string().nullable(),
   province: z.string().min(1, 'Province is required'),
   city: z.string().min(1, 'City is required'),
+  address: z.string().min(1, 'Address is required').nullable(),
+  latitude: z.number().min(-90).max(90).nullable(),
+  longitude: z.number().min(-180).max(180).nullable(),
+  locationApproximate: z.boolean(),
   availableFrom: z.string().date('Invalid date format'),
   autoAccept: z.boolean().nullable(),
   characteristics: z.array(
@@ -82,6 +86,10 @@ export class Vehicle {
     private availableFrom: string,
     private reservationRuleSetId: string | null = null,
     private autoAccept: boolean | null = null,
+    private address: string | null = null,
+    private latitude: number | null = null,
+    private longitude: number | null = null,
+    private locationApproximate: boolean = false,
   ) {
     this.validate();
   }
@@ -158,6 +166,18 @@ export class Vehicle {
   public getAutoAccept(): boolean | null {
     return this.autoAccept;
   }
+  public getAddress(): string | null {
+    return this.address;
+  }
+  public getLatitude(): number | null {
+    return this.latitude;
+  }
+  public getLongitude(): number | null {
+    return this.longitude;
+  }
+  public isLocationApproximate(): boolean {
+    return this.locationApproximate;
+  }
 
   public isEnabled(): boolean {
     return this.enabled;
@@ -193,6 +213,13 @@ export class Vehicle {
     if (data.enabled !== undefined) this.enabled = data.enabled;
     if (data.province !== undefined) this.province = data.province;
     if (data.city !== undefined) this.city = data.city;
+    if (data.address !== undefined) this.address = data.address;
+    // Si el rentador fija coordenadas, deja de ser una ubicación aproximada.
+    if (data.latitude !== undefined && data.longitude !== undefined) {
+      this.latitude = data.latitude;
+      this.longitude = data.longitude;
+      this.locationApproximate = false;
+    }
     if (data.availableFrom !== undefined)
       this.availableFrom = data.availableFrom;
     if (data.autoAccept !== undefined) this.autoAccept = data.autoAccept;
@@ -220,6 +247,10 @@ export class Vehicle {
       description: this.description,
       province: this.province,
       city: this.city,
+      address: this.address,
+      latitude: this.latitude,
+      longitude: this.longitude,
+      locationApproximate: this.locationApproximate,
       availableFrom: this.availableFrom,
       autoAccept: this.autoAccept,
       characteristics: this.characteristics,

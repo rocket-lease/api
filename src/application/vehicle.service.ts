@@ -4,6 +4,7 @@ import {
   EntityNotFoundException,
   InvalidEntityDataException,
 } from '@/domain/exceptions/domain.exception';
+import { VehicleLocationRequiredException } from '@/domain/exceptions/geo.exception';
 import type { VehicleRepository, VehicleFilter } from '@/domain/repositories/vehicle.repository';
 import { VEHICLE_REPOSITORY } from '@/domain/repositories/vehicle.repository';
 import type { UserProfile, UserRepository } from '@/domain/repositories/user.repository';
@@ -41,6 +42,16 @@ export class VehicleService {
     const exists = await this.vehicleRepository.findByPlate(data.plate);
     if (exists) throw new EntityAlreadyExistsException('vehicle', data.plate);
 
+    if (
+      data.latitude === undefined ||
+      data.latitude === null ||
+      data.longitude === undefined ||
+      data.longitude === null ||
+      !data.address
+    ) {
+      throw new VehicleLocationRequiredException();
+    }
+
     const vehicle = new Vehicle(
       undefined,
       ownerId,
@@ -64,6 +75,10 @@ export class VehicleService {
       data.availableFrom,
       null,
       data.autoAccept ?? null,
+      data.address,
+      data.latitude,
+      data.longitude,
+      false,
     );
 
     const savedVehicle = await this.vehicleRepository.save(vehicle);
@@ -211,6 +226,10 @@ export class VehicleService {
       description: vehicle.getDescription(),
       province: vehicle.getProvince(),
       city: vehicle.getCity(),
+      address: vehicle.getAddress(),
+      latitude: vehicle.getLatitude(),
+      longitude: vehicle.getLongitude(),
+      locationApproximate: vehicle.isLocationApproximate(),
       availableFrom: vehicle.getAvailableFrom(),
       reservationRuleSetId: vehicle.getReservationRuleSetId(),
       autoAccept: vehicle.getAutoAccept(),
