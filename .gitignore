@@ -4,9 +4,11 @@ coverage/
 *.tsbuildinfo
 .eslintcache
 
+# Variables de entorno: nunca se versionan, salvo las plantillas *.example.
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.test.example
 reports/
 
 *.log

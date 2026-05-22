@@ -44,6 +44,9 @@ async function ensureVehiclePublished(
     description: null,
     province: 'B',
     city: 'CABA',
+    address: 'Av. Corrientes 1000, CABA',
+    latitude: -34.6037,
+    longitude: -58.3816,
     availableFrom: '2026-06-01',
     autoAccept,
   });

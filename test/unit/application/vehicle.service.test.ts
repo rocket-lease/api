@@ -25,6 +25,9 @@ const validDto = {
   description: null,
   province: 'Buenos Aires',
   city: 'La Plata',
+  address: 'Calle 7 1234, La Plata',
+  latitude: -34.9215,
+  longitude: -57.9545,
   availableFrom: '2025-01-01',
   characteristics: ['GPS', 'BLUETOOTH'] as Array<'GPS' | 'BLUETOOTH'>,
 };
