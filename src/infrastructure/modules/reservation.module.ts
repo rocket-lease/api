@@ -4,9 +4,11 @@ import { ReservationService } from '@/application/reservation.service';
 import { RESERVATION_REPOSITORY } from '@/domain/repositories/reservation.repository';
 import { VEHICLE_REPOSITORY } from '@/domain/repositories/vehicle.repository';
 import { USER_REPOSITORY } from '@/domain/repositories/user.repository';
+import { RESERVATION_RULE_SET_REPOSITORY } from '@/domain/repositories/reservation-rule-set.repository';
 import { PostgresReservationRepository } from '@/infrastructure/repository/postgres.reservation.repository';
 import { PostgresVehicleRepository } from '@/infrastructure/repository/postgres.vehicle.repository';
 import { PostgresUserRepository } from '@/infrastructure/repository/postgres.user.repository';
+import { PostgresReservationRuleSetRepository } from '@/infrastructure/repository/postgres.reservation-rule-set.repository';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 import { CLOCK, SystemClock } from '@/domain/providers/clock.provider';
 import {
@@ -46,6 +48,10 @@ import { SmtpEmailProvider } from '@/infrastructure/providers/smtp.email.provide
     {
       provide: USER_REPOSITORY,
       useClass: PostgresUserRepository,
+    },
+    {
+      provide: RESERVATION_RULE_SET_REPOSITORY,
+      useClass: PostgresReservationRuleSetRepository,
     },
     {
       provide: CLOCK,
