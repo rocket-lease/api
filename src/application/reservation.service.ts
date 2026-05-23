@@ -31,6 +31,7 @@ import {
   type ConfirmTransferResponse,
   ConfirmTransferResponseSchema,
   type Voucher,
+  type ReservationRuleSetPublic,
   VoucherSchema,
   type VerifyVoucherResponse,
   VerifyVoucherResponseSchema,
@@ -56,6 +57,10 @@ import {
   USER_REPOSITORY,
   type UserRepository,
 } from '@/domain/repositories/user.repository';
+import {
+  RESERVATION_RULE_SET_REPOSITORY,
+  type ReservationRuleSetRepository,
+} from '@/domain/repositories/reservation-rule-set.repository';
 import { EntityNotFoundException } from '@/domain/exceptions/domain.exception';
 import {
   ContractNotAcceptedException,
@@ -82,6 +87,7 @@ import {
 } from '@/domain/providers/payment-gateway.provider';
 import { CLOCK, type Clock } from '@/domain/providers/clock.provider';
 import { computeReservationTotalCents } from './helpers/pricing';
+import { calculateCancellationRefund } from './helpers/cancellation-refund';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { EMAIL_PROVIDER, type EmailProvider } from '@/domain/providers/email.provider';
 
@@ -94,6 +100,8 @@ export class ReservationService {
     private readonly vehicleRepository: VehicleRepository,
     @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepository,
+    @Inject(RESERVATION_RULE_SET_REPOSITORY)
+    private readonly reservationRuleSetRepository: ReservationRuleSetRepository,
     @Inject(CLOCK)
     private readonly clock: Clock,
     @Inject(VOUCHER_PROVIDER)
@@ -663,13 +671,29 @@ export class ReservationService {
       throw new ReservationForbiddenException();
     }
 
+    const vehicle = await this.vehicleRepository.findById(reservation.getVehicleId());
+    const reservationRuleSet = await this.getVehicleReservationRuleSet(vehicle);
     const now = this.clock.now();
+    const refund = calculateCancellationRefund({
+      startAt: reservation.getStartAt(),
+      paidAt: reservation.getPaidAt(),
+      totalCents: reservation.getTotalCents(),
+      cancellationPolicy: reservationRuleSet?.cancellationPolicy,
+      now,
+    });
     reservation.cancel(now);
     const saved = await this.reservationRepository.update(reservation);
+    const updatedProfile = await this.userRepository.creditBalance(
+      conductorId,
+      refund.refundCents,
+    );
 
     return CancelReservationResponseSchema.parse({
       id: saved.getId(),
       status: RESERVATION_STATUS.cancelled,
+      refundCents: refund.refundCents,
+      balanceInCents: updatedProfile.balanceInCents,
+      currency: 'ARS',
     });
   }
 
@@ -747,10 +771,12 @@ export class ReservationService {
   }
 
   private async toDTO(r: Reservation): Promise<GetReservationResponse> {
-    const vehicle = await this.vehicleRepository.findById(r.getVehicleId());
-    const rentadorProfile = await this.userRepository.getProfileById(
-      r.getRentadorId(),
-    );
+    const [vehicle, rentadorProfile] = await Promise.all([
+      this.vehicleRepository.findById(r.getVehicleId()),
+      this.userRepository.getProfileById(r.getRentadorId()),
+    ]);
+    const reservationRuleSet = await this.getVehicleReservationRuleSet(vehicle);
+
     return GetReservationResponseSchema.parse({
       id: r.getId(),
       vehicleId: r.getVehicleId(),
@@ -782,13 +808,32 @@ export class ReservationService {
       transferAlias: r.getTransferAlias(),
       createdAt: r.getCreatedAt().toISOString(),
       updatedAt: r.getUpdatedAt().toISOString(),
-      vehicle: this.vehicleSummary(vehicle, r.getVehicleId()),
+      vehicle: this.vehicleSummary(vehicle, r.getVehicleId(), reservationRuleSet),
       rentador: {
         id: r.getRentadorId(),
         name: rentadorProfile?.name ?? 'Rentador',
         avatarUrl: rentadorProfile?.avatarUrl ?? null,
       },
     });
+  }
+
+  private async getVehicleReservationRuleSet(
+    vehicle: Vehicle | null,
+  ): Promise<ReservationRuleSetPublic | null> {
+    const ruleSetId = vehicle?.getReservationRuleSetId();
+    if (!ruleSetId) return null;
+
+    const ruleSet = await this.reservationRuleSetRepository.findById(ruleSetId);
+    if (!ruleSet) return null;
+
+    return {
+      id: ruleSet.getId(),
+      rentalorId: ruleSet.getRentalorId(),
+      cancellationPolicy: ruleSet.getCancellationPolicy(),
+      deposit: ruleSet.getDeposit(),
+      maxKilometrage: ruleSet.getMaxKilometrage(),
+      rentalTimeConstraints: ruleSet.getRentalTimeConstraints(),
+    };
   }
 
   private toListItemDTO(
@@ -829,7 +874,11 @@ export class ReservationService {
     };
   }
 
-  private vehicleSummary(vehicle: Vehicle | null, vehicleId: string) {
+  private vehicleSummary(
+    vehicle: Vehicle | null,
+    vehicleId: string,
+    reservationRuleSet: ReservationRuleSetPublic | null = null,
+  ) {
     if (!vehicle) {
       return {
         id: vehicleId,
@@ -837,6 +886,7 @@ export class ReservationService {
         model: '—',
         year: 0,
         photo: null,
+        reservationRuleSet,
       };
     }
     const photos = vehicle.getPhotos();
@@ -846,6 +896,7 @@ export class ReservationService {
       model: vehicle.getModel(),
       year: vehicle.getYear(),
       photo: photos.length > 0 ? photos[0] : null,
+      reservationRuleSet,
     };
   }
 }

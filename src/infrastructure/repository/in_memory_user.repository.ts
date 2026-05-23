@@ -25,6 +25,7 @@ export class InMemoryUserRepository implements UserRepository {
       verificationStatus: 'pending',
       level: 'bronze',
       reputationScore: 0,
+      balanceInCents: 0,
       preferences: {
         transmission: null,
         accessibility: [],
@@ -114,6 +115,24 @@ export class InMemoryUserRepository implements UserRepository {
     const nextProfile: UserProfile = {
       ...existing,
       avatarUrl,
+    };
+
+    this.profiles.set(id, nextProfile);
+    return nextProfile;
+  }
+
+  public async creditBalance(
+    id: string,
+    amountInCents: number,
+  ): Promise<UserProfile> {
+    const existing = this.profiles.get(id);
+    if (!existing) {
+      throw new Error('User profile not found');
+    }
+
+    const nextProfile: UserProfile = {
+      ...existing,
+      balanceInCents: existing.balanceInCents + amountInCents,
     };
 
     this.profiles.set(id, nextProfile);
