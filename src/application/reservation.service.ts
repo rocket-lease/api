@@ -87,6 +87,7 @@ import {
 } from '@/domain/providers/payment-gateway.provider';
 import { CLOCK, type Clock } from '@/domain/providers/clock.provider';
 import { computeReservationTotalCents } from './helpers/pricing';
+import { calculateCancellationRefund } from './helpers/cancellation-refund';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { EMAIL_PROVIDER, type EmailProvider } from '@/domain/providers/email.provider';
 
@@ -670,13 +671,29 @@ export class ReservationService {
       throw new ReservationForbiddenException();
     }
 
+    const vehicle = await this.vehicleRepository.findById(reservation.getVehicleId());
+    const reservationRuleSet = await this.getVehicleReservationRuleSet(vehicle);
     const now = this.clock.now();
+    const refund = calculateCancellationRefund({
+      startAt: reservation.getStartAt(),
+      paidAt: reservation.getPaidAt(),
+      totalCents: reservation.getTotalCents(),
+      cancellationPolicy: reservationRuleSet?.cancellationPolicy,
+      now,
+    });
     reservation.cancel(now);
     const saved = await this.reservationRepository.update(reservation);
+    const updatedProfile = await this.userRepository.creditBalance(
+      conductorId,
+      refund.refundCents,
+    );
 
     return CancelReservationResponseSchema.parse({
       id: saved.getId(),
       status: RESERVATION_STATUS.cancelled,
+      refundCents: refund.refundCents,
+      balanceInCents: updatedProfile.balanceInCents,
+      currency: 'ARS',
     });
   }
 

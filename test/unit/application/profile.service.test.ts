@@ -17,6 +17,7 @@ describe('ProfileService', () => {
       findProfilesByIds: jest.fn().mockResolvedValue([]),
       updateProfile: jest.fn(),
       updateAvatar: jest.fn(),
+      creditBalance: jest.fn(),
       updateBasicInfo: jest.fn(),
       deleteById: jest.fn(),
       markPhoneVerified: jest.fn(),
@@ -42,6 +43,7 @@ describe('ProfileService', () => {
       verificationStatus: 'verified',
       level: 'silver',
       reputationScore: 4.5,
+      balanceInCents: 125000,
       preferences: {
         transmission: 'automatic',
         accessibility: ['movilidad-reducida'],
@@ -79,6 +81,7 @@ describe('ProfileService', () => {
       verificationStatus: 'verified',
       level: 'gold',
       reputationScore: 4.9,
+      balanceInCents: 0,
       preferences: {
         transmission: null,
         accessibility: [],
@@ -124,6 +127,7 @@ describe('ProfileService', () => {
       verificationStatus: 'verified',
       level: 'gold',
       reputationScore: 4.9,
+      balanceInCents: 0,
       preferences: {
         transmission: null,
         accessibility: [],

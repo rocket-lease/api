@@ -18,6 +18,7 @@ model User {
   verificationStatus    String     @default("pending") @map("verification_status")
   level                 String     @default("bronze")
   reputationScore       Float      @default(0) @map("reputation_score")
+  balanceInCents        Int        @default(0) @map("balance_in_cents")
   preferredTransmission String?    @map("preferred_transmission")
   preferredAccessibility String[]  @default([]) @map("preferred_accessibility")
   preferredMaxPriceDaily Int?      @map("preferred_max_price_daily")

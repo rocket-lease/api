@@ -27,6 +27,7 @@ export class PostgresUserRepository implements UserRepository {
         row.verificationStatus as UserProfile['verificationStatus'],
       level: row.level as UserProfile['level'],
       reputationScore: row.reputationScore,
+      balanceInCents: row.balanceInCents ?? 0,
       preferences: {
         transmission: (row.preferredTransmission ??
           null) as UserProfile['preferences']['transmission'],
@@ -137,6 +138,19 @@ export class PostgresUserRepository implements UserRepository {
     const row = await this.prisma.user.update({
       where: { id },
       data: { avatarUrl },
+    });
+
+    return this.mapProfile(row);
+  }
+
+  async creditBalance(id: string, amountInCents: number): Promise<UserProfile> {
+    const row = await this.prisma.user.update({
+      where: { id },
+      data: {
+        balanceInCents: {
+          increment: amountInCents,
+        },
+      },
     });
 
     return this.mapProfile(row);
