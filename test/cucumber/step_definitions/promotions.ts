@@ -172,7 +172,6 @@ Then(
 Then(
   'el vehículo aparece antes que los no promocionados en los resultados de búsqueda',
   async function (this: MyWorld) {
-    const ctx = this.world as any;
     const vehicleId = getVehicleId(this);
 
     // Create a second non-promoted vehicle so we can verify ordering

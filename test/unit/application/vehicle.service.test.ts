@@ -111,8 +111,8 @@ describe('VehicleService', () => {
     service = new VehicleService(
       repositoryMock,
       userRepoMock,
-      promotionRepoMock as any,
-      clockMock as any,
+      promotionRepoMock,
+      clockMock,
       reservationServiceMock,
       reservationRuleSetServiceMock as unknown as ReservationRuleSetService,
     );

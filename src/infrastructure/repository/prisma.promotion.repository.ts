@@ -1,7 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import {
-  PROMOTION_REPOSITORY,
   type PromotionRepository,
   type PromotionDuration,
 } from '@/domain/repositories/promotion.repository';
