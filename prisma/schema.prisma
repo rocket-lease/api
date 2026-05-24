@@ -29,6 +29,7 @@ model User {
   vehicles              Vehicle[]
   reservationRuleSets   ReservationRuleSet[]
   reservations          Reservation[] @relation("conductor_reservations")
+  messages              Message[]
 
   @@map("users")
 }
@@ -131,12 +132,27 @@ model Reservation {
   transferAlias       String?            @map("transfer_alias")
   createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  messages            Message[]
 
   @@index([vehicleId, status])
   @@index([conductorId])
   @@index([rentadorId, status])
   @@index([status, createdAt])
   @@map("reservations")
+}
+
+model Message {
+  id            String      @id @default(uuid())
+  reservationId String      @map("reservation_id")
+  senderId      String      @map("sender_id")
+  body          String      @db.Text
+  sentAt        DateTime    @default(now()) @map("sent_at") @db.Timestamptz(6)
+
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  sender        User        @relation(fields: [senderId], references: [id])
+
+  @@index([reservationId, sentAt])
+  @@map("messages")
 }
 
 model Photo {
