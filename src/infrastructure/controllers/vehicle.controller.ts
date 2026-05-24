@@ -50,6 +50,7 @@ export class VehicleController {
     @Query('city') city?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('promoted') promoted?: string,
   ): Promise<Array<Contracts.GetVehicleResponse>> {
     if (ownerId !== undefined) {
       const parsed = z.string().uuid().safeParse(ownerId);
@@ -83,6 +84,11 @@ export class VehicleController {
 
     const filter = { city: city?.trim() || undefined, from, to };
     const unique = Array.from(new Set(parsedList));
+
+    if (promoted === 'true') {
+      return await this.vehicleService.getAllPromoted(filter);
+    }
+
     if (unique.length > 0) {
       return await this.vehicleService.getByCharacteristics(unique, filter);
     }
