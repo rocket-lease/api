@@ -1,9 +1,21 @@
 import { Before, After } from '@cucumber/cucumber';
 import { MyWorld } from './world';
+import { PrismaService } from '@/infrastructure/database/prisma.service';
 
 Before(async function (this: MyWorld) {
   await this.initNest();
   await this.cleanDb();
+
+  const prisma = this.app.get<PrismaService>(PrismaService);
+
+  await prisma.promotionLengthInDays.createMany({
+    data: [
+      { days: 7, valueInCents: 5000 },
+      { days: 14, valueInCents: 9000 },
+      { days: 30, valueInCents: 15000 },
+    ],
+    skipDuplicates: true,
+  });
 });
 
 After(async function (
