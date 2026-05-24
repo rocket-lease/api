@@ -29,6 +29,7 @@ model User {
   vehicles              Vehicle[]
   reservationRuleSets   ReservationRuleSet[]
   reservations          Reservation[] @relation("conductor_reservations")
+  paymentMethods        UserPaymentMethod[]
 
   @@map("users")
 }
@@ -182,6 +183,22 @@ enum PaymentMethod {
   debit_card
   bank_transfer
   digital_wallet
+  card // Adding card type to align with contracts
+}
+
+model UserPaymentMethod {
+  id        String        @id @default(uuid())
+  userId    String        @map("user_id")
+  type      PaymentMethod
+  details   Json
+  isDefault Boolean       @default(false) @map("is_default")
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_payment_methods")
 }
 
 enum Characteristic {

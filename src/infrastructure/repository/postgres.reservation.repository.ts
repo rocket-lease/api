@@ -24,7 +24,7 @@ type Row = {
   holdExpiresAt: Date | null;
   totalCents: number;
   currency: string;
-  paymentMethod: PaymentMethod | null;
+  paymentMethod: any;
   walletProvider: string | null;
   contractAcceptedAt: Date | null;
   paidAt: Date | null;
