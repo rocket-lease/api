@@ -133,6 +133,18 @@ export class ReservationRuleSetService {
   }
 
   /**
+   * Devuelve el set privado de un vehículo en formato público, o null si no
+   * tiene uno asignado. Usado por VehicleService para mostrar reglas efectivas
+   * al conductor: el set privado tiene prioridad sobre el compartido.
+   */
+  public async getPublicRuleSetForVehicle(vehicleId: string) {
+    const ruleSet =
+      await this.reservationRuleSetRepository.findPrivateByVehicleId(vehicleId);
+    if (!ruleSet) return null;
+    return this.toPublicDTO(ruleSet);
+  }
+
+  /**
    * Obtiene el set privado asociado a un vehículo del rentador. Si el
    * vehículo no existe o pertenece a otro owner, devuelve 404 desambiguado.
    * Si el vehículo existe y es del owner pero no tiene set privado, devuelve
