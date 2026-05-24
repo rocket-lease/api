@@ -9,6 +9,7 @@ import { ReservationRuleSetModule } from './reservation-rule-set.module';
 import { ReservationModule } from './reservation.module';
 import { UploadsModule } from './uploads.module';
 import { GeoModule } from './geo.module';
+import { PromotionModule } from './promotion.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { GeoModule } from './geo.module';
     ReservationModule,
     UploadsModule,
     GeoModule,
+    PromotionModule,
   ],
 })
 export class AppModule {}
