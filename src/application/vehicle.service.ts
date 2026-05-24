@@ -224,11 +224,11 @@ export class VehicleService {
     };
   }
 
-  private async loadReservationRuleSet(ruleSetId: string | null) {
-    if (!ruleSetId) {
-      return null;
-    }
-
+  private async loadReservationRuleSet(vehicleId: string, ruleSetId: string | null) {
+    const privateSet =
+      await this.reservationRuleSetService.getPublicRuleSetForVehicle(vehicleId);
+    if (privateSet) return privateSet;
+    if (!ruleSetId) return null;
     return this.reservationRuleSetService.getPublicRuleSet(ruleSetId);
   }
 
@@ -239,7 +239,10 @@ export class VehicleService {
     isPromoted = false,
   ): Promise<GetVehicleResponse> {
     const reservationRuleSet = includeReservationRuleSet
-      ? await this.loadReservationRuleSet(vehicle.getReservationRuleSetId())
+      ? await this.loadReservationRuleSet(
+          vehicle.getId(),
+          vehicle.getReservationRuleSetId(),
+        )
       : undefined;
     return GetVehicleResponseSchema.parse({
       id: vehicle.getId(),
