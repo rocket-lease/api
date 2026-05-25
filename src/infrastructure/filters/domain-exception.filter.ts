@@ -8,6 +8,7 @@ import {
   FavoriteAlreadyExistsException,
   FavoriteNotFoundException,
   InvalidEntityDataException,
+  IdentityVerificationRequiredException,
   RuleSetNotFoundForOwnerException,
   RuleSetPrivateCannotBeSharedException,
   RuleSetVehicleIdImmutableException,
@@ -80,6 +81,10 @@ export class DomainExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof BankAccountRequiredException) {
       status = HttpStatus.FORBIDDEN;
       code = ErrorCodes.BANK_ACCOUNT_REQUIRED;
+      title = 'Forbidden';
+    } else if (exception instanceof IdentityVerificationRequiredException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.IDENTITY_VERIFICATION_REQUIRED;
       title = 'Forbidden';
     } else if (exception instanceof UserHasVehiclesException) {
       status = HttpStatus.CONFLICT;

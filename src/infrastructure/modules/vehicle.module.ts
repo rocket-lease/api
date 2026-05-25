@@ -10,9 +10,10 @@ import { AuthModule } from './auth.module';
 import { ReservationRuleSetModule } from './reservation-rule-set.module';
 import { ReservationModule } from './reservation.module';
 import { BankAccountModule } from './bank-account.module';
+import { IdentityModule } from './identity.module';
 
 @Module({
-  imports: [AuthModule, ReservationModule, ReservationRuleSetModule, BankAccountModule],
+  imports: [AuthModule, ReservationModule, ReservationRuleSetModule, BankAccountModule, IdentityModule],
   controllers: [VehicleController],
   providers: [
     VehicleService,

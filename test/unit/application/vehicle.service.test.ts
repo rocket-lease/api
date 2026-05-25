@@ -4,6 +4,7 @@ import { UserRepository } from '@/domain/repositories/user.repository';
 import { VehicleService } from '@/application/vehicle.service';
 import { ReservationRuleSetService } from '@/application/reservation-rule-set.service';
 import { ReservationService } from '@/application/reservation.service';
+import { IdentityService } from '@/application/identity.service';
 import { CreateVehicleResponseSchema } from '@rocket-lease/contracts';
 import { randomUUID } from 'crypto';
 
@@ -63,6 +64,7 @@ describe('VehicleService', () => {
   let repositoryMock: jest.Mocked<VehicleRepository>;
   let userRepoMock: jest.Mocked<UserRepository>;
   let reservationRuleSetServiceMock: jest.Mocked<Pick<ReservationRuleSetService, 'getRuleSetDetails'>>;
+  let identityServiceMock: jest.Mocked<Pick<IdentityService, 'assertVerified' | 'getSummaryByUserId' | 'getSummariesByUserIds'>>;
 
   beforeEach(() => {
     repositoryMock = {
@@ -93,6 +95,20 @@ describe('VehicleService', () => {
     reservationRuleSetServiceMock = {
       getRuleSetDetails: jest.fn().mockResolvedValue(null),
     };
+    identityServiceMock = {
+      assertVerified: jest.fn().mockResolvedValue(undefined),
+      getSummaryByUserId: jest.fn().mockResolvedValue({
+        status: 'verified',
+        providerName: 'stub-identity-provider',
+        providerRequestId: 'req-1',
+        rejectionReason: null,
+        submittedAt: '2026-05-25T12:00:00.000Z',
+        reviewAfterAt: '2026-05-25T12:00:30.000Z',
+        reviewedAt: '2026-05-25T12:00:30.000Z',
+        verifiedAt: '2026-05-25T12:00:30.000Z',
+      }),
+      getSummariesByUserIds: jest.fn().mockResolvedValue(new Map()),
+    };
     const reservationServiceMock = {
       cancelPendingByVehicle: jest.fn().mockResolvedValue(0),
     } as unknown as ReservationService;
@@ -115,6 +131,7 @@ describe('VehicleService', () => {
       clockMock,
       reservationServiceMock,
       reservationRuleSetServiceMock as unknown as ReservationRuleSetService,
+      identityServiceMock as IdentityService,
     );
   });
 

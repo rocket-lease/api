@@ -93,6 +93,7 @@ import { computeReservationTotalCents } from './helpers/pricing';
 import { calculateCancellationRefund } from './helpers/cancellation-refund';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { EMAIL_PROVIDER, type EmailProvider } from '@/domain/providers/email.provider';
+import { IdentityService } from '@/application/identity.service';
 
 @Injectable()
 export class ReservationService {
@@ -117,6 +118,10 @@ export class ReservationService {
     private readonly paymentGateway: PaymentGatewayProvider,
     @Inject(EMAIL_PROVIDER)
     private readonly emailProvider: EmailProvider,
+    @Inject(IdentityService)
+    private readonly identityService: Pick<IdentityService, 'assertVerified'> = {
+      assertVerified: async () => undefined,
+    },
   ) {}
 
   /**
@@ -136,6 +141,8 @@ export class ReservationService {
     conductorId: string,
     dto: CreateReservationRequest,
   ): Promise<CreateReservationResponse> {
+    await this.identityService.assertVerified(conductorId);
+
     const vehicle = await this.vehicleRepository.findById(dto.vehicleId);
     if (!vehicle) throw new EntityNotFoundException('vehicle', dto.vehicleId);
     if (!vehicle.isEnabled()) {
