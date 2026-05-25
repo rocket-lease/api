@@ -3,7 +3,6 @@ import { z } from 'zod';
 import {
   ReservationRuleSetSchema,
   type CancellationPolicy,
-  type Deposit,
   type MaxKilometrage,
   type RentalTimeConstraints,
 } from '@rocket-lease/contracts';
@@ -16,10 +15,11 @@ const reservationRuleSetEntitySchema = ReservationRuleSetSchema.extend({
 export class ReservationRuleSet {
   constructor(
     private readonly rentalorId: string,
+    private readonly vehicleId: string | null,
     private name: string,
     private description: string | null,
     private cancellationPolicy: CancellationPolicy,
-    private deposit: Deposit,
+    private depositPercentage: number | null,
     private maxKilometrage: MaxKilometrage,
     private rentalTimeConstraints: RentalTimeConstraints,
     private vehicleCount: number = 0,
@@ -38,6 +38,19 @@ export class ReservationRuleSet {
     return this.rentalorId;
   }
 
+  public getVehicleId(): string | null {
+    return this.vehicleId;
+  }
+
+  /**
+   * Un set es "privado" cuando está atado a un vehículo específico
+   * (vehicleId != null). Estos sets no aparecen al listar los sets compartidos
+   * del rentador en "Perfil → Sets de reglas".
+   */
+  public isPrivate(): boolean {
+    return this.vehicleId !== null;
+  }
+
   public getName(): string {
     return this.name;
   }
@@ -50,8 +63,8 @@ export class ReservationRuleSet {
     return this.cancellationPolicy;
   }
 
-  public getDeposit(): Deposit {
-    return this.deposit;
+  public getDepositPercentage(): number | null {
+    return this.depositPercentage;
   }
 
   public getMaxKilometrage(): MaxKilometrage {
@@ -78,7 +91,7 @@ export class ReservationRuleSet {
     name?: string;
     description?: string | null;
     cancellationPolicy?: CancellationPolicy;
-    deposit?: Deposit;
+    depositPercentage?: number | null;
     maxKilometrage?: MaxKilometrage;
     rentalTimeConstraints?: RentalTimeConstraints;
   }): void {
@@ -87,7 +100,9 @@ export class ReservationRuleSet {
     if (data.cancellationPolicy !== undefined) {
       this.cancellationPolicy = data.cancellationPolicy;
     }
-    if (data.deposit !== undefined) this.deposit = data.deposit;
+    if (data.depositPercentage !== undefined) {
+      this.depositPercentage = data.depositPercentage;
+    }
     if (data.maxKilometrage !== undefined) this.maxKilometrage = data.maxKilometrage;
     if (data.rentalTimeConstraints !== undefined) {
       this.rentalTimeConstraints = data.rentalTimeConstraints;
@@ -99,10 +114,11 @@ export class ReservationRuleSet {
   public withVehicleCount(vehicleCount: number): ReservationRuleSet {
     return new ReservationRuleSet(
       this.rentalorId,
+      this.vehicleId,
       this.name,
       this.description,
       this.cancellationPolicy,
-      this.deposit,
+      this.depositPercentage,
       this.maxKilometrage,
       this.rentalTimeConstraints,
       vehicleCount,
@@ -116,10 +132,11 @@ export class ReservationRuleSet {
     const result = reservationRuleSetEntitySchema.safeParse({
       id: this.id,
       rentalorId: this.rentalorId,
+      vehicleId: this.vehicleId,
       name: this.name,
-      description: this.description,
+      description: this.description ?? undefined,
       cancellationPolicy: this.cancellationPolicy,
-      deposit: this.deposit,
+      depositPercentage: this.depositPercentage,
       maxKilometrage: this.maxKilometrage,
       rentalTimeConstraints: this.rentalTimeConstraints,
       vehicleCount: this.vehicleCount,

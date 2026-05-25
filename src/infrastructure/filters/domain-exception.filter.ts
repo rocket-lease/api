@@ -1,4 +1,5 @@
 import {
+  DepositPercentageOutOfRangeException,
   EmailNotVerifiedException,
   EmailUnverifiedPendingException,
   BankAccountRequiredException,
@@ -7,6 +8,10 @@ import {
   FavoriteAlreadyExistsException,
   FavoriteNotFoundException,
   InvalidEntityDataException,
+  RuleSetNotFoundForOwnerException,
+  RuleSetPrivateCannotBeSharedException,
+  RuleSetVehicleIdImmutableException,
+  VehicleAlreadyHasPrivateRuleSetException,
   UserHasActiveReservationsException,
   UserHasVehiclesException,
 } from '@/domain/exceptions/domain.exception';
@@ -63,7 +68,6 @@ export class DomainExceptionFilter implements ExceptionFilter {
     let code: ErrorCode = ErrorCodes.INTERNAL_ERROR;
     let title = 'Internal Server Error';
     let message = exception.message;
-    // let code: string | undefined;
 
     if (exception instanceof UserHasActiveReservationsException) {
       status = HttpStatus.CONFLICT;
@@ -128,6 +132,26 @@ export class DomainExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof InvalidQrTokenException) {
       status = HttpStatus.NOT_FOUND;
       code = ErrorCodes.RESERVATION_INVALID_QR_TOKEN;
+    } else if (exception instanceof DepositPercentageOutOfRangeException) {
+      status = HttpStatus.BAD_REQUEST;
+      code = ErrorCodes.DEPOSIT_PERCENTAGE_OUT_OF_RANGE;
+      title = 'Bad Request';
+    } else if (exception instanceof RuleSetVehicleIdImmutableException) {
+      status = HttpStatus.BAD_REQUEST;
+      code = ErrorCodes.RULESET_VEHICLE_ID_IMMUTABLE;
+      title = 'Bad Request';
+    } else if (exception instanceof RuleSetPrivateCannotBeSharedException) {
+      status = HttpStatus.BAD_REQUEST;
+      code = ErrorCodes.RULESET_PRIVATE_CANNOT_BE_SHARED;
+      title = 'Bad Request';
+    } else if (exception instanceof RuleSetNotFoundForOwnerException) {
+      status = HttpStatus.NOT_FOUND;
+      code = ErrorCodes.RULESET_NOT_FOUND_FOR_OWNER;
+      title = 'Not Found';
+    } else if (exception instanceof VehicleAlreadyHasPrivateRuleSetException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.VEHICLE_ALREADY_HAS_PRIVATE_RULESET;
+      title = 'Conflict';
     } else if (exception instanceof EmailNotVerifiedException) {
       status = HttpStatus.FORBIDDEN;
       code = ErrorCodes.FORBIDDEN;
