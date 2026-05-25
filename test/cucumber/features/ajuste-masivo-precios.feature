@@ -23,8 +23,8 @@ Característica: Ajuste masivo de precios (US-54)
     Dado que publiqué 1 vehículos con precio base 10000 centavos
     Y que existe un vehículo de otro rentador
     Cuando aplico un ajuste de precio SET con valor 5000 centavos incluyendo el vehículo ajeno
-    Entonces el sistema responde con error 409
-    Y el código de error es "BULK_PRICE_VEHICLE_UNAVAILABLE"
+    Entonces el sistema responde con error 403
+    Y el código de error es "BULK_PRICE_VEHICLE_NOT_OWNED"
 
   Escenario: Cálculo daría precio negativo, rollback completo
     Dado que publiqué 2 vehículos con precio base 10000 centavos

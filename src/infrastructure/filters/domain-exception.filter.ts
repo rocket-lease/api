@@ -17,7 +17,6 @@ import {
 } from '@/domain/exceptions/domain.exception';
 import {
   BulkPriceVehicleNotOwnedException,
-  BulkPriceVehicleUnavailableException,
   BulkPriceResultInvalidException,
 } from '@/domain/exceptions/bulk-price.exception';
 import {
@@ -161,10 +160,6 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.FORBIDDEN;
       code = ErrorCodes.BULK_PRICE_VEHICLE_NOT_OWNED;
       title = 'Forbidden';
-    } else if (exception instanceof BulkPriceVehicleUnavailableException) {
-      status = HttpStatus.CONFLICT;
-      code = ErrorCodes.BULK_PRICE_VEHICLE_UNAVAILABLE;
-      title = 'Conflict';
     } else if (exception instanceof BulkPriceResultInvalidException) {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.BULK_PRICE_RESULT_INVALID;

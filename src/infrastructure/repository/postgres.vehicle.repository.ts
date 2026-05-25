@@ -6,7 +6,6 @@ import { randomUUID } from 'node:crypto';
 import { BulkPriceOperation, BulkPriceUpdateResponse, Characteristic } from '@rocket-lease/contracts';
 import {
   BulkPriceVehicleNotOwnedException,
-  BulkPriceVehicleUnavailableException,
   BulkPriceResultInvalidException,
 } from '@/domain/exceptions/bulk-price.exception';
 import type { Prisma } from '@prisma/client';
@@ -194,40 +193,38 @@ export class PostgresVehicleRepository implements VehicleRepository {
   }
 
   async bulkUpdatePrices(vehicleIds: string[], operation: BulkPriceOperation, ownerId: string): Promise<BulkPriceUpdateResponse> {
-    return this.prisma.$transaction(async (tx) => {
-      const vehicles = await tx.vehicle.findMany({
-        where: { id: { in: vehicleIds }, ownerId },
-        select: { id: true, basePriceCents: true },
-      });
+    const vehicles = await this.prisma.vehicle.findMany({
+      where: { id: { in: vehicleIds }, ownerId },
+      select: { id: true, basePriceCents: true },
+    });
 
-      if (vehicles.length !== vehicleIds.length) {
-        throw new BulkPriceVehicleUnavailableException();
+    if (vehicles.length !== vehicleIds.length) {
+      throw new BulkPriceVehicleNotOwnedException();
+    }
+
+    const updates = vehicles.map((v) => {
+      const newPriceCents =
+        operation.type === 'SET'
+          ? operation.valueCents
+          : Math.round(v.basePriceCents * (1 + operation.delta / 100));
+
+      if (newPriceCents <= 0) {
+        throw new BulkPriceResultInvalidException(v.id);
       }
 
-      const updates = vehicles.map((v) => {
-        const newPriceCents =
-          operation.type === 'SET'
-            ? operation.valueCents
-            : Math.round(v.basePriceCents * (1 + operation.delta / 100));
-
-        if (newPriceCents <= 0) {
-          throw new BulkPriceResultInvalidException(v.id);
-        }
-
-        return { id: v.id, previousPriceCents: v.basePriceCents, newPriceCents };
-      });
-
-      await Promise.all(
-        updates.map((u) =>
-          tx.vehicle.update({
-            where: { id: u.id },
-            data: { basePriceCents: u.newPriceCents },
-          }),
-        ),
-      );
-
-      return { updated: updates };
+      return { id: v.id, previousPriceCents: v.basePriceCents, newPriceCents };
     });
+
+    await this.prisma.$transaction(
+      updates.map((u) =>
+        this.prisma.vehicle.update({
+          where: { id: u.id },
+          data: { basePriceCents: u.newPriceCents },
+        }),
+      ),
+    );
+
+    return { updated: updates };
   }
 
   async countActiveReservationsByVehicleIds(vehicleIds: string[], ownerId: string): Promise<Record<string, number>> {
