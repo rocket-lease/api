@@ -25,8 +25,8 @@ export function computeReservationTotalCents(
  *   `round`) para garantizar que la seña nunca exceda el total —el conductor
  *   paga *como mucho* el porcentaje pactado—.
  *
- * El resto a cobrar al retiro (US-49 desglose en `PagarReservaPage`) se
- * calcula como `total - deposit`, no se materializa acá.
+ * El resto a cobrar al retiro se calcula como `total - deposit`, no se
+ * materializa acá.
  */
 export function computeDepositCents(
   totalCents: number,

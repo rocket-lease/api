@@ -63,7 +63,7 @@ const reservationSchema = z.object({
 
 /**
  * Defaults aplicados al snapshotear una reserva cuyo vehículo no tiene set
- * de reglas asignado (acceptance criterion 9 de US-49).
+ * de reglas asignado.
  */
 export const RESERVATION_RULES_DEFAULTS = {
   cancellationPolicy: 'FLEXIBLE' as CancellationPolicy,
@@ -284,8 +284,7 @@ export class Reservation {
    * Aplica el snapshot de reglas + precio sobre la reserva. Se invoca al
    * confirmar (`pending_payment → confirmed`) para congelar las condiciones
    * que ve el conductor al momento de pagar, de forma que cambios posteriores
-   * al set o al precio del vehículo no afecten reservas confirmadas
-   * (US-49 AC #2 y #3).
+   * al set o al precio del vehículo no afecten reservas confirmadas.
    *
    * Si el vehículo no tiene set asignado, se pasan los defaults
    * `RESERVATION_RULES_DEFAULTS` desde el service.

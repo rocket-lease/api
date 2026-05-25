@@ -15,7 +15,7 @@ import { ReservationRuleSetService } from '@/application/reservation-rule-set.se
  * del set de reglas dentro de `ReservationRuleSetModule`.
  *
  * Contract: `ReservationRuleSetEndpoints.getPrivateByVehicle(id)`
- * → `/vehicles/:id/private-rule-set`.
+ * → `/vehicle/:id/private-rule-set`.
  */
 @Controller('vehicle')
 export class PrivateRuleSetVehicleController {
