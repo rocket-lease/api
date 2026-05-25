@@ -63,6 +63,15 @@ function isZodError(error: Error): error is Error & { issues: ZodIssue[] } {
   );
 }
 
+function prefixValidationError(message: string): string {
+  const normalized = message.trim();
+  if (/^validation error:/i.test(normalized)) {
+    return normalized;
+  }
+
+  return `Validation error: ${normalized}`;
+}
+
 @Catch(Error)
 export class DomainExceptionFilter implements ExceptionFilter {
   catch(exception: Error, host: ArgumentsHost) {
@@ -194,7 +203,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.INVALID_ENTITY_DATA;
       title = 'Bad Request';
-      message = exception.issues.map((i) => i.message).join('; ');
+      message = prefixValidationError(exception.issues.map((i) => i.message).join('; '));
     } else if (exception instanceof UnauthorizedException) {
       status = HttpStatus.UNAUTHORIZED;
       code = ErrorCodes.UNAUTHORIZED;
@@ -215,6 +224,10 @@ export class DomainExceptionFilter implements ExceptionFilter {
       if (status === HttpStatus.UNAUTHORIZED) code = ErrorCodes.UNAUTHORIZED;
       if (status === HttpStatus.FORBIDDEN) code = ErrorCodes.FORBIDDEN;
       title = HttpStatus[status] ?? 'Error';
+    }
+
+    if (status === HttpStatus.BAD_REQUEST) {
+      message = prefixValidationError(message);
     }
 
     const problem = ProblemDetailsSchema.parse({
