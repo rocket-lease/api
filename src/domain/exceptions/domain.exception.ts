@@ -59,3 +59,9 @@ export class EmailUnverifiedPendingException extends DomainException {
     super(`email ${email} is already registered but pending verification`);
   }
 }
+
+export class BankAccountRequiredException extends DomainException {
+  constructor() {
+    super('rentador must link a bank account');
+  }
+}
