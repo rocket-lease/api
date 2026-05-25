@@ -104,3 +104,14 @@ export class RuleSetPrivateCannotBeSharedException extends DomainException {
     super('private reservation rule sets cannot be assigned to other vehicles');
   }
 }
+
+/**
+ * Se intentó crear un segundo set privado para un vehículo que ya tiene uno
+ * asignado. Cada vehículo puede tener como máximo un set privado activo
+ * (UNIQUE constraint en DB). Mapea a 409 `VEHICLE_ALREADY_HAS_PRIVATE_RULESET`.
+ */
+export class VehicleAlreadyHasPrivateRuleSetException extends DomainException {
+  constructor(vehicleId: string) {
+    super(`vehicle ${vehicleId} already has a private reservation rule set`);
+  }
+}

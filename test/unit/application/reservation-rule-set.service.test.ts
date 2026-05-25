@@ -9,6 +9,7 @@ import {
   RuleSetNotFoundForOwnerException,
   RuleSetPrivateCannotBeSharedException,
   RuleSetVehicleIdImmutableException,
+  VehicleAlreadyHasPrivateRuleSetException,
 } from '@/domain/exceptions/domain.exception';
 
 function makeVehicle(ownerId: string): Vehicle {
@@ -114,6 +115,26 @@ describe('ReservationRuleSetService', () => {
           vehicleId: otherVehicle.getId(),
         }),
       ).rejects.toThrow(RuleSetPrivateCannotBeSharedException);
+    });
+
+    it('rejects creating a second private set for a vehicle that already has one', async () => {
+      const vehicle = makeVehicle(ownerId);
+      vehicleRepo = makeVehicleRepo([vehicle]);
+      service = new ReservationRuleSetService(ruleSetRepo, vehicleRepo);
+
+      await service.createRuleSet(ownerId, {
+        ...baseDto,
+        vehicleId: vehicle.getId(),
+        depositPercentage: 20,
+      });
+
+      await expect(
+        service.createRuleSet(ownerId, {
+          ...baseDto,
+          vehicleId: vehicle.getId(),
+          depositPercentage: 30,
+        }),
+      ).rejects.toThrow(VehicleAlreadyHasPrivateRuleSetException);
     });
 
     it('rejects depositPercentage out of range', async () => {

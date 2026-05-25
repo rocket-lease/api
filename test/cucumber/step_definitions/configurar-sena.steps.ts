@@ -81,7 +81,7 @@ Given(
         year: 2023,
         passengers: 5,
         trunkLiters: 400,
-        transmission: 'Automática',
+        transmission: 'Automatico',
         isAccessible: false,
         photos: ['https://example.com/photo1.jpg'],
         color: 'Blanco',
@@ -90,6 +90,9 @@ Given(
         description: null,
         province: 'B',
         city: 'CABA',
+        address: 'Av. Corrientes 1234',
+        latitude: -34.6037,
+        longitude: -58.3816,
         availableFrom: '2026-06-01',
       });
       expect(res.status).toBe(201);

@@ -14,6 +14,7 @@ import {
   RuleSetNotFoundForOwnerException,
   RuleSetPrivateCannotBeSharedException,
   RuleSetVehicleIdImmutableException,
+  VehicleAlreadyHasPrivateRuleSetException,
 } from '@/domain/exceptions/domain.exception';
 import { ReservationRuleSet } from '@/domain/entities/reservation-rule-set.entity';
 import {
@@ -35,13 +36,24 @@ export class ReservationRuleSetService {
   ) {}
 
   public async createRuleSet(ownerId: string, dto: CreateReservationRuleSetRequest) {
-    const data = CreateReservationRuleSetRequestSchema.parse(dto);
+    let data: CreateReservationRuleSetRequest;
+    try {
+      data = CreateReservationRuleSetRequestSchema.parse(dto);
+    } catch (err) {
+      this.rethrowDepositPercentageError(err, (dto as { depositPercentage?: unknown }).depositPercentage);
+      throw err;
+    }
     this.assertDepositPercentageValid(data.depositPercentage);
 
     if (data.vehicleId !== null) {
       const vehicle = await this.vehicleRepository.findById(data.vehicleId);
       if (!vehicle || !vehicle.isOwnedBy(ownerId)) {
         throw new RuleSetPrivateCannotBeSharedException();
+      }
+      const existingPrivate =
+        await this.reservationRuleSetRepository.findPrivateByVehicleId(data.vehicleId);
+      if (existingPrivate) {
+        throw new VehicleAlreadyHasPrivateRuleSetException(data.vehicleId);
       }
     }
 
@@ -73,7 +85,13 @@ export class ReservationRuleSetService {
     ) {
       throw new RuleSetVehicleIdImmutableException();
     }
-    const data = UpdateReservationRuleSetRequestSchema.parse(dto);
+    let data: UpdateReservationRuleSetRequest;
+    try {
+      data = UpdateReservationRuleSetRequestSchema.parse(dto);
+    } catch (err) {
+      this.rethrowDepositPercentageError(err, (dto as { depositPercentage?: unknown }).depositPercentage);
+      throw err;
+    }
     if (data.depositPercentage !== undefined) {
       this.assertDepositPercentageValid(data.depositPercentage);
     }
@@ -98,8 +116,7 @@ export class ReservationRuleSetService {
 
   /**
    * Lista los sets *compartidos* del rentador (vehicleId IS NULL). Los
-   * privados se acceden vía `getPrivateForVehicle` y no aparecen acá
-   * (US-49 AC #6).
+   * privados se acceden vía `getPrivateForVehicle` y no aparecen acá.
    */
   public async listRuleSets(ownerId: string) {
     const ruleSets = await this.reservationRuleSetRepository.findByOwnerId(ownerId);
@@ -174,6 +191,24 @@ export class ReservationRuleSetService {
     if (!Number.isInteger(value) || value < 10 || value > 50) {
       throw new DepositPercentageOutOfRangeException(value);
     }
+  }
+
+  /**
+   * Si el ZodError es por `depositPercentage` fuera de rango, lo convertimos
+   * en `DepositPercentageOutOfRangeException` para que el cliente reciba el
+   * code específico (`DEPOSIT_PERCENTAGE_OUT_OF_RANGE`) en lugar del genérico
+   * `INVALID_ENTITY_DATA`. Identificamos el ZodError por shape, no por
+   * `instanceof`, porque contracts y api pueden tener instancias distintas de
+   * la clase aunque la versión sea la misma.
+   */
+  private rethrowDepositPercentageError(err: unknown, rawValue: unknown): void {
+    const issues = (err as { issues?: Array<{ path: Array<string | number> }> })?.issues;
+    if (!Array.isArray(issues)) return;
+    const offending = issues.some((i) => i.path?.includes('depositPercentage'));
+    if (!offending) return;
+    throw new DepositPercentageOutOfRangeException(
+      typeof rawValue === 'number' ? rawValue : NaN,
+    );
   }
 
   private toDTO(ruleSet: ReservationRuleSet) {
