@@ -67,7 +67,6 @@ export class DomainExceptionFilter implements ExceptionFilter {
     let code: ErrorCode = ErrorCodes.INTERNAL_ERROR;
     let title = 'Internal Server Error';
     let message = exception.message;
-    // let code: string | undefined;
 
     if (exception instanceof UserHasActiveReservationsException) {
       status = HttpStatus.CONFLICT;
