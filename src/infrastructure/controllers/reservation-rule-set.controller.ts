@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Headers, Param, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Inject, Param, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import * as Contracts from '@rocket-lease/contracts';
 import { AuthService } from '@/application/auth.service';
 import { ReservationRuleSetService } from '@/application/reservation-rule-set.service';
@@ -6,8 +6,8 @@ import { ReservationRuleSetService } from '@/application/reservation-rule-set.se
 @Controller('reservation-rules')
 export class ReservationRuleSetController {
   constructor(
-    private readonly authService: AuthService,
-    private readonly reservationRuleSetService: ReservationRuleSetService,
+    @Inject(AuthService) private readonly authService: AuthService,
+    @Inject(ReservationRuleSetService) private readonly reservationRuleSetService: ReservationRuleSetService,
   ) {}
 
   private async resolveUserId(authorization?: string): Promise<string> {
