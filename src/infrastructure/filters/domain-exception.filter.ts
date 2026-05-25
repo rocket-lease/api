@@ -2,6 +2,7 @@ import {
   DepositPercentageOutOfRangeException,
   EmailNotVerifiedException,
   EmailUnverifiedPendingException,
+  BankAccountRequiredException,
   EntityAlreadyExistsException,
   EntityNotFoundException,
   FavoriteAlreadyExistsException,
@@ -14,6 +15,10 @@ import {
   UserHasActiveReservationsException,
   UserHasVehiclesException,
 } from '@/domain/exceptions/domain.exception';
+import {
+  BulkPriceVehicleNotOwnedException,
+  BulkPriceResultInvalidException,
+} from '@/domain/exceptions/bulk-price.exception';
 import {
   ContractNotAcceptedException,
   HoldExpiredException,
@@ -77,6 +82,10 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.CONFLICT;
       code = ErrorCodes.EMAIL_UNVERIFIED_PENDING;
       title = 'Conflict';
+    } else if (exception instanceof BankAccountRequiredException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.BANK_ACCOUNT_REQUIRED;
+      title = 'Forbidden';
     } else if (exception instanceof UserHasVehiclesException) {
       status = HttpStatus.CONFLICT;
       code = ErrorCodes.USER_HAS_VEHICLES;
@@ -148,6 +157,14 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.CONFLICT;
       code = ErrorCodes.VEHICLE_ALREADY_HAS_PRIVATE_RULESET;
       title = 'Conflict';
+    } else if (exception instanceof BulkPriceVehicleNotOwnedException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.BULK_PRICE_VEHICLE_NOT_OWNED;
+      title = 'Forbidden';
+    } else if (exception instanceof BulkPriceResultInvalidException) {
+      status = HttpStatus.BAD_REQUEST;
+      code = ErrorCodes.BULK_PRICE_RESULT_INVALID;
+      title = 'Bad Request';
     } else if (exception instanceof EmailNotVerifiedException) {
       status = HttpStatus.FORBIDDEN;
       code = ErrorCodes.FORBIDDEN;

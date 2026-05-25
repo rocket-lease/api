@@ -9,9 +9,10 @@ import { PrismaPromotionRepository } from '../repository/prisma.promotion.reposi
 import { AuthModule } from './auth.module';
 import { ReservationRuleSetModule } from './reservation-rule-set.module';
 import { ReservationModule } from './reservation.module';
+import { BankAccountModule } from './bank-account.module';
 
 @Module({
-  imports: [AuthModule, ReservationModule, ReservationRuleSetModule],
+  imports: [AuthModule, ReservationModule, ReservationRuleSetModule, BankAccountModule],
   controllers: [VehicleController],
   providers: [
     VehicleService,

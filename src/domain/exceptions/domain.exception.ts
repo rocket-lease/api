@@ -60,6 +60,11 @@ export class EmailUnverifiedPendingException extends DomainException {
   }
 }
 
+export class BankAccountRequiredException extends DomainException {
+  constructor() {
+    super('rentador must link a bank account');
+  }
+}
 /**
  * El % de seña configurado en un set de reglas está fuera del rango
  * aceptado (10-50) o tiene formato inválido. Mapea a 400
