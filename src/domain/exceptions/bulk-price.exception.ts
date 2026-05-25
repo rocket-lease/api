@@ -6,15 +6,8 @@ export class BulkPriceVehicleNotOwnedException extends DomainException {
   }
 }
 
-export class BulkPriceVehicleUnavailableException extends DomainException {
-  constructor() {
-    super('one or more vehicles are unavailable for bulk price update');
-  }
-}
-
 export class BulkPriceResultInvalidException extends DomainException {
   constructor(vehicleId: string) {
     super(`computed price for vehicle ${vehicleId} would be zero or negative`);
   }
 }
-

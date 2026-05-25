@@ -147,6 +147,36 @@ describe('VehicleService — bulk price operations', () => {
         }),
       ).rejects.toThrow();
     });
+
+    it('rechaza vehicleIds vacío en el schema antes de tocar el repo', async () => {
+      await expect(
+        service.bulkUpdatePrices(OWNER_ID, {
+          vehicleIds: [],
+          operation: { type: 'SET', valueCents: 10000 },
+        }),
+      ).rejects.toThrow();
+      expect(repositoryMock.bulkUpdatePrices).not.toHaveBeenCalled();
+    });
+
+    it('rechaza delta PERCENTAGE fuera del rango permitido', async () => {
+      await expect(
+        service.bulkUpdatePrices(OWNER_ID, {
+          vehicleIds: [randomUUID()],
+          operation: { type: 'PERCENTAGE', delta: -101 },
+        }),
+      ).rejects.toThrow();
+      expect(repositoryMock.bulkUpdatePrices).not.toHaveBeenCalled();
+    });
+
+    it('rechaza SET con valueCents no positivo', async () => {
+      await expect(
+        service.bulkUpdatePrices(OWNER_ID, {
+          vehicleIds: [randomUUID()],
+          operation: { type: 'SET', valueCents: 0 },
+        }),
+      ).rejects.toThrow();
+      expect(repositoryMock.bulkUpdatePrices).not.toHaveBeenCalled();
+    });
   });
 
   describe('getActiveReservationsCount', () => {

@@ -180,6 +180,15 @@ export class VehicleService {
     return this.vehicleRepository.bulkUpdatePrices(validated.vehicleIds, validated.operation, ownerId);
   }
 
+  /**
+   * Devuelve el conteo de reservas en estado `confirmed` o `in_progress` por
+   * cada vehículo. Usado por el preview del ajuste masivo de precios para
+   * avisar al rentador cuántas reservas activas mantendrán el precio snapshot
+   * y por ende no se verán afectadas por el cambio.
+   *
+   * Lanza `BulkPriceVehicleNotOwnedException` (403) si alguno de los vehículos
+   * no pertenece al rentador autenticado.
+   */
   public async getActiveReservationsCount(
     ownerId: string,
     vehicleIds: string[],

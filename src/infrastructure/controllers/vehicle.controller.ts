@@ -96,6 +96,19 @@ export class VehicleController {
     return await this.vehicleService.getAll(filter);
   }
 
+  @Get('active-reservations-count')
+  async activeReservationsCount(
+    @Req() req: Request,
+    @Query('vehicleIds') vehicleIdsParam?: string,
+  ): Promise<Contracts.ActiveReservationsCountResponse> {
+    const ownerId = await this.resolveUserId(req);
+    const vehicleIds = (vehicleIdsParam ?? '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter((id) => id.length > 0);
+    return this.vehicleService.getActiveReservationsCount(ownerId, vehicleIds);
+  }
+
   @Get(':id')
   async getVehicleById(
     @Param('id') id: string,
@@ -103,13 +116,13 @@ export class VehicleController {
     return await this.vehicleService.getById(id);
   }
 
-  @Delete(':id')
-  async deleteVehicle(
-    @Param('id') id: string,
+  @Post()
+  async publishVehicle(
+    @Body() dto: Contracts.CreateVehicleRequest,
     @Req() req: Request,
-  ): Promise<void> {
+  ): Promise<Contracts.CreateVehicleResponse> {
     const ownerId = await this.resolveUserId(req);
-    await this.vehicleService.deleteVehicle(id, ownerId);
+    return await this.vehicleService.createVehicle(ownerId, dto);
   }
 
   @Patch('bulk-prices')
@@ -119,15 +132,6 @@ export class VehicleController {
   ): Promise<Contracts.BulkPriceUpdateResponse> {
     const ownerId = await this.resolveUserId(req);
     return this.vehicleService.bulkUpdatePrices(ownerId, body);
-  }
-
-  @Post('active-reservations-count')
-  async activeReservationsCount(
-    @Req() req: Request,
-    @Body() body: Contracts.ActiveReservationsCountRequest,
-  ): Promise<Contracts.ActiveReservationsCountResponse> {
-    const ownerId = await this.resolveUserId(req);
-    return this.vehicleService.getActiveReservationsCount(ownerId, body.vehicleIds);
   }
 
   @Patch(':id')
@@ -140,12 +144,12 @@ export class VehicleController {
     return await this.vehicleService.updateVehicle(id, ownerId, dto);
   }
 
-  @Post()
-  async publishVehicle(
-    @Body() dto: Contracts.CreateVehicleRequest,
+  @Delete(':id')
+  async deleteVehicle(
+    @Param('id') id: string,
     @Req() req: Request,
-  ): Promise<Contracts.CreateVehicleResponse> {
+  ): Promise<void> {
     const ownerId = await this.resolveUserId(req);
-    return await this.vehicleService.createVehicle(ownerId, dto);
+    await this.vehicleService.deleteVehicle(id, ownerId);
   }
 }

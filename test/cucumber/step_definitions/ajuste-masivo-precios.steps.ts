@@ -131,7 +131,9 @@ When(
     const bw = getBulkWorld(this);
     const vehicleIds = bw.bulk_vehicle_ids ?? [];
 
-    const res = await api(this).post('/vehicle/active-reservations-count', { vehicleIds });
+    const res = await api(this).get(
+      `/vehicle/active-reservations-count?vehicleIds=${vehicleIds.join(',')}`,
+    );
     bw.bulk_count_response = res;
   },
 );
