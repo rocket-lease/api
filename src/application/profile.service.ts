@@ -68,7 +68,13 @@ export class ProfileService {
       autoAccept: dto.autoAccept,
     });
 
-    return UpdateMyProfileResponseSchema.parse(updated);
+    const identityVerification = await this.identityService.getSummaryByUserId(userId);
+
+    return UpdateMyProfileResponseSchema.parse({
+      ...updated,
+      verificationStatus: identityVerification.status,
+      identityVerification,
+    });
   }
 
   public async updateAvatar(
@@ -83,6 +89,12 @@ export class ProfileService {
     const avatarUrl = await this.mediaProvider.uploadAvatar(file);
     const updated = await this.userRepository.updateAvatar(userId, avatarUrl);
 
-    return GetMyProfileResponseSchema.parse(updated);
+    const identityVerification = await this.identityService.getSummaryByUserId(userId);
+
+    return GetMyProfileResponseSchema.parse({
+      ...updated,
+      verificationStatus: identityVerification.status,
+      identityVerification,
+    });
   }
 }
