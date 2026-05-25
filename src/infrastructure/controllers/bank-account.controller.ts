@@ -7,7 +7,6 @@ import {
   HttpCode,
   Inject,
   Param,
-  Patch,
   Post,
   UnauthorizedException,
 } from '@nestjs/common';
