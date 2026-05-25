@@ -134,7 +134,25 @@ export class IdentityService {
     let processed = 0;
 
     for (const verification of due) {
-      verification.markVerified(now);
+      const providerRequestId = verification.getProviderRequestId();
+      if (!providerRequestId) continue;
+
+      const providerResult = await this.identityVerificationProvider.checkVerification({
+        providerRequestId,
+        checkedAt: now,
+      });
+
+      if (providerResult.status === 'verified') {
+        verification.markVerified(now);
+      } else if (providerResult.status === 'rejected') {
+        verification.markRejected(
+          providerResult.rejectionReason ?? 'Verification rejected by provider',
+          now,
+        );
+      } else {
+        verification.markPending(providerResult.reviewAfterAt ?? now, now);
+      }
+
       await this.identityVerificationRepository.save(verification);
       processed += 1;
     }

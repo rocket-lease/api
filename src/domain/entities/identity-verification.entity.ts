@@ -129,6 +129,18 @@ export class IdentityVerification {
     };
   }
 
+  public markPending(reviewAfterAt: Date, reviewedAt: Date): void {
+    this.props = {
+      ...this.props,
+      status: 'pending',
+      rejectionReason: null,
+      reviewAfterAt,
+      reviewedAt,
+      verifiedAt: null,
+      updatedAt: reviewedAt,
+    };
+  }
+
   public markRejected(rejectionReason: string, rejectedAt: Date): void {
     this.props = {
       ...this.props,

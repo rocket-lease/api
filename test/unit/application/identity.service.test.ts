@@ -44,6 +44,11 @@ describe('IdentityService', () => {
         providerRequestId: 'req-1',
         reviewAfterAt: new Date('2026-05-25T12:00:30.000Z'),
       }),
+      checkVerification: jest.fn().mockResolvedValue({
+        providerName: 'stub-identity-provider',
+        providerRequestId: 'req-1',
+        status: 'verified',
+      }),
     };
     clock = {
       now: jest.fn().mockReturnValue(new Date('2026-05-25T12:00:00.000Z')),
@@ -87,7 +92,7 @@ describe('IdentityService', () => {
     );
   });
 
-  it('marks due pending verifications as verified', async () => {
+  it('marks due pending verifications based on the provider result', async () => {
     const pending = IdentityVerification.pending({
       userId,
       providerName: 'stub-identity-provider',
@@ -122,5 +127,55 @@ describe('IdentityService', () => {
 
     expect(processed).toBe(1);
     expect(repository.save).toHaveBeenCalledTimes(1);
+    expect(provider.checkVerification).toHaveBeenCalledWith({
+      providerRequestId: 'req-1',
+      checkedAt: new Date('2026-05-25T12:00:30.000Z'),
+    });
+  });
+
+  it('reschedules a pending verification when the provider still needs time', async () => {
+    const pending = IdentityVerification.pending({
+      userId,
+      providerName: 'stub-identity-provider',
+      providerRequestId: 'req-1',
+      reviewAfterAt: new Date('2026-05-25T12:00:01.000Z'),
+      submittedAt: new Date('2026-05-25T12:00:00.000Z'),
+      documents: {
+        frontDni: {
+          fileName: 'front.jpg',
+          mimeType: 'image/jpeg',
+          dataUrl: 'data:image/jpeg;base64,AAAA',
+        },
+        backDni: {
+          fileName: 'back.jpg',
+          mimeType: 'image/jpeg',
+          dataUrl: 'data:image/jpeg;base64,BBBB',
+        },
+        selfie: {
+          fileName: 'selfie.jpg',
+          mimeType: 'image/jpeg',
+          dataUrl: 'data:image/jpeg;base64,CCCC',
+        },
+      },
+    });
+
+    repository.findDueForReview.mockResolvedValue([pending]);
+    repository.save.mockImplementation(async (value) => value);
+    provider.checkVerification.mockResolvedValueOnce({
+      providerName: 'stub-identity-provider',
+      providerRequestId: 'req-1',
+      status: 'pending',
+      reviewAfterAt: new Date('2026-05-25T12:01:00.000Z'),
+    });
+
+    const processed = await service.processDueVerifications(
+      new Date('2026-05-25T12:00:30.000Z'),
+    );
+
+    expect(processed).toBe(1);
+    expect(repository.save).toHaveBeenCalledTimes(1);
+    const saved = repository.save.mock.calls[0]?.[0] as IdentityVerification;
+    expect(saved.getStatus()).toBe('pending');
+    expect(saved.getReviewAfterAt()?.toISOString()).toBe('2026-05-25T12:01:00.000Z');
   });
 });
