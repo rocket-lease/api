@@ -33,6 +33,9 @@ async function publishVehicle(world: MyWorld, basePriceCents: number): Promise<s
     description: null,
     province: 'Buenos Aires',
     city: 'CABA',
+    address: 'Av. Corrientes 1234',
+    latitude: -34.6037,
+    longitude: -58.3816,
     availableFrom: '2026-06-01',
   });
   expect(res.status).toBe(201);

@@ -1,4 +1,3 @@
-import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { VehicleRepository } from '@/domain/repositories/vehicle.repository';
 import { UserRepository } from '@/domain/repositories/user.repository';
 import { VehicleService } from '@/application/vehicle.service';
@@ -10,33 +9,6 @@ import {
 import { randomUUID } from 'crypto';
 
 const OWNER_ID = randomUUID();
-const OTHER_OWNER_ID = randomUUID();
-
-const buildVehicle = (
-  overrides: Partial<{ id: string; ownerId: string; basePriceCents: number }> = {},
-) =>
-  new Vehicle(
-    overrides.id ?? randomUUID(),
-    overrides.ownerId ?? OWNER_ID,
-    'ABC-123',
-    'Toyota',
-    'Corolla',
-    2020,
-    5,
-    400,
-    'Manual',
-    false,
-    true,
-    ['https://example.com/photo.jpg'],
-    [],
-    'Blue',
-    100,
-    overrides.basePriceCents ?? 5000,
-    null,
-    'Buenos Aires',
-    'La Plata',
-    '2025-01-01',
-  );
 
 describe('VehicleService — bulk price operations', () => {
   let service: VehicleService;
