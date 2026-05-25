@@ -29,6 +29,7 @@ model User {
   vehicles              Vehicle[]
   reservationRuleSets   ReservationRuleSet[]
   reservations          Reservation[] @relation("conductor_reservations")
+  bankAccounts          BankAccount[]
 
   @@map("users")
 }
@@ -86,6 +87,24 @@ model Vehicle {
 
   @@index([latitude, longitude])
   @@map("vehicles")
+}
+
+model BankAccount {
+  id         String   @id @default(uuid())
+  ownerId    String   @map("owner_id")
+  provider   String
+  alias      String
+  cbu        String
+  isActive   Boolean  @default(true) @map("is_active")
+  isVerified Boolean  @default(true) @map("is_verified")
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, deletedAt])
+  @@map("bank_accounts")
 }
 
 model ReservationRuleSet {

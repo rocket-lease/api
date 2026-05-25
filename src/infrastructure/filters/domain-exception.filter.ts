@@ -2,6 +2,7 @@ import {
   DepositPercentageOutOfRangeException,
   EmailNotVerifiedException,
   EmailUnverifiedPendingException,
+  BankAccountRequiredException,
   EntityAlreadyExistsException,
   EntityNotFoundException,
   FavoriteAlreadyExistsException,
@@ -81,6 +82,10 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.CONFLICT;
       code = ErrorCodes.EMAIL_UNVERIFIED_PENDING;
       title = 'Conflict';
+    } else if (exception instanceof BankAccountRequiredException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.BANK_ACCOUNT_REQUIRED;
+      title = 'Forbidden';
     } else if (exception instanceof UserHasVehiclesException) {
       status = HttpStatus.CONFLICT;
       code = ErrorCodes.USER_HAS_VEHICLES;
