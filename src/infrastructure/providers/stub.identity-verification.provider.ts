@@ -16,7 +16,7 @@ export class StubIdentityVerificationProvider implements IdentityVerificationPro
 
   private readonly verifications = new Map<string, StubVerificationRecord>();
 
-  async submitVerification(input: {
+  async submitVerification(_input: {
     userId: string;
     submittedAt: Date;
     documents: unknown;
