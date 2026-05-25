@@ -14,10 +14,15 @@ import { CLOCK, type Clock } from '@/domain/providers/clock.provider';
 import { ReservationService } from './reservation.service';
 import { UpdateVehicleRequestSchema } from '@rocket-lease/contracts';
 import {
+  ActiveReservationsCountResponse,
+  ActiveReservationsCountRequestSchema,
+  BulkPriceUpdateRequest,
+  BulkPriceUpdateRequestSchema,
+  BulkPriceUpdateResponse,
+  Characteristic,
   CreateVehicleRequest,
   CreateVehicleResponse,
   CreateVehicleResponseSchema,
-  Characteristic,
   GetVehicleResponse,
   GetVehicleResponseSchema,
   UpdateVehicleRequest,
@@ -165,6 +170,23 @@ export class VehicleService {
     }
     await this.reservationService.cancelPendingByVehicle(vehicleId);
     await this.vehicleRepository.delete(vehicleId);
+  }
+
+  public async bulkUpdatePrices(
+    ownerId: string,
+    request: BulkPriceUpdateRequest,
+  ): Promise<BulkPriceUpdateResponse> {
+    const validated = BulkPriceUpdateRequestSchema.parse(request);
+    return this.vehicleRepository.bulkUpdatePrices(validated.vehicleIds, validated.operation, ownerId);
+  }
+
+  public async getActiveReservationsCount(
+    ownerId: string,
+    vehicleIds: string[],
+  ): Promise<ActiveReservationsCountResponse> {
+    const { vehicleIds: validatedIds } = ActiveReservationsCountRequestSchema.parse({ vehicleIds });
+    const counts = await this.vehicleRepository.countActiveReservationsByVehicleIds(validatedIds, ownerId);
+    return { counts };
   }
 
   private async loadOwner(ownerId: string): Promise<VehicleOwner | undefined> {
