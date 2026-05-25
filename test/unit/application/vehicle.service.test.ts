@@ -131,7 +131,7 @@ describe('VehicleService', () => {
       clockMock,
       reservationServiceMock,
       reservationRuleSetServiceMock as unknown as ReservationRuleSetService,
-      identityServiceMock as IdentityService,
+      identityServiceMock as unknown as IdentityService,
     );
   });
 

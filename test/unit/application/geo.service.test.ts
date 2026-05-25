@@ -40,16 +40,6 @@ function profile(id: string, name: string): UserProfile {
     avatarUrl: null,
     balanceInCents: 0,
     verificationStatus: 'verified',
-    identityVerification: {
-      status: 'verified',
-      providerName: 'stub-identity-provider',
-      providerRequestId: 'req-1',
-      rejectionReason: null,
-      submittedAt: '2026-05-25T12:00:00.000Z',
-      reviewAfterAt: '2026-05-25T12:00:30.000Z',
-      reviewedAt: '2026-05-25T12:00:30.000Z',
-      verifiedAt: '2026-05-25T12:00:30.000Z',
-    },
     level: 'gold',
     reputationScore: 4.5,
     preferences: { transmission: null, accessibility: [], maxPriceDaily: null },
@@ -72,7 +62,7 @@ describe('GeoService', () => {
     service = new GeoService(
       geoRepo,
       userRepo as unknown as UserRepository,
-      identityService as IdentityService,
+      identityService as unknown as IdentityService,
     );
   });
 
