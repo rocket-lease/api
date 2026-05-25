@@ -2,7 +2,6 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   Prisma,
   IdentityVerification as PrismaIdentityVerification,
-  IdentityVerificationStatus,
 } from '@prisma/client';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 import { IdentityVerification } from '@/domain/entities/identity-verification.entity';
@@ -22,7 +21,7 @@ export class PostgresIdentityVerificationRepository implements IdentityVerificat
     return IdentityVerification.fromPersistence({
       id: row.id,
       userId: row.userId,
-      status: row.status as any,
+      status: row.status,
       providerName: row.providerName,
       providerRequestId: row.providerRequestId,
       rejectionReason: row.rejectionReason,
@@ -42,7 +41,7 @@ export class PostgresIdentityVerificationRepository implements IdentityVerificat
       where: { userId: props.userId },
       create: {
         userId: props.userId,
-        status: props.status as IdentityVerificationStatus,
+        status: props.status,
         providerName: props.providerName,
         providerRequestId: props.providerRequestId,
         rejectionReason: props.rejectionReason,
@@ -50,10 +49,10 @@ export class PostgresIdentityVerificationRepository implements IdentityVerificat
         reviewAfterAt: props.reviewAfterAt,
         reviewedAt: props.reviewedAt,
         verifiedAt: props.verifiedAt,
-        documents: props.documents as Prisma.InputJsonValue,
+        documents: props.documents,
       },
       update: {
-        status: props.status as IdentityVerificationStatus,
+        status: props.status,
         providerName: props.providerName,
         providerRequestId: props.providerRequestId,
         rejectionReason: props.rejectionReason,
@@ -61,7 +60,7 @@ export class PostgresIdentityVerificationRepository implements IdentityVerificat
         reviewAfterAt: props.reviewAfterAt,
         reviewedAt: props.reviewedAt,
         verifiedAt: props.verifiedAt,
-        documents: props.documents as Prisma.InputJsonValue,
+        documents: props.documents,
       },
     });
 

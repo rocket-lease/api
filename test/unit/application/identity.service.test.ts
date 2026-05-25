@@ -20,7 +20,7 @@ describe('IdentityService', () => {
       save: jest.fn(),
       updateBasicInfo: jest.fn(),
       findByEmail: jest.fn(),
-      findById: jest.fn().mockResolvedValue({} as never),
+      findById: jest.fn().mockResolvedValue({}),
       getProfileById: jest.fn(),
       findProfilesByIds: jest.fn().mockResolvedValue([]),
       updateProfile: jest.fn(),
@@ -174,7 +174,7 @@ describe('IdentityService', () => {
 
     expect(processed).toBe(1);
     expect(repository.save).toHaveBeenCalledTimes(1);
-    const saved = repository.save.mock.calls[0]?.[0] as IdentityVerification;
+    const saved = repository.save.mock.calls[0]?.[0];
     expect(saved.getStatus()).toBe('pending');
     expect(saved.getReviewAfterAt()?.toISOString()).toBe('2026-05-25T12:01:00.000Z');
   });
