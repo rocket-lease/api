@@ -41,7 +41,6 @@ function profile(id: string, name: string): UserProfile {
     verificationStatus: 'verified',
     level: 'gold',
     reputationScore: 4.5,
-    balanceInCents: 0,
     preferences: { transmission: null, accessibility: [], maxPriceDaily: null },
     autoAccept: false,
   };
