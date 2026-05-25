@@ -87,6 +87,7 @@ Given('que estoy autenticado', async function (this: MyWorld) {
     password: 'Passw0rd!',
   });
   this.world.access_token = loginRes.body.access_token;
+  await verifyCurrentIdentity(this);
 });
 
 Given(
@@ -107,6 +108,7 @@ Given(
 
     expect(loginResponse.status).toBe(201);
     this.world.access_token = loginResponse.body.access_token;
+    await verifyCurrentIdentity(this);
   },
 );
 
