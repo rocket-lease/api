@@ -73,10 +73,14 @@ model Vehicle {
   ownerId      String
   owner        User         @relation(fields: [ownerId], references: [id])
   reservationRuleSetId String? @map("reservation_rule_set_id")
-  reservationRuleSet ReservationRuleSet? @relation(fields: [reservationRuleSetId], references: [id], onDelete: SetNull)
-  photos       Photo[]      
+  // Set "compartido" (vehicleId IS NULL en RuleSet) — el vehículo apunta al set.
+  reservationRuleSet ReservationRuleSet? @relation("SharedRuleSet", fields: [reservationRuleSetId], references: [id], onDelete: SetNull)
+  // Set "privado" (RuleSet.vehicleId apunta al vehículo). Cascade en DB.
+  privateRuleSet     ReservationRuleSet? @relation("PrivateRuleSet")
+  photos       Photo[]
   characteristics VehicleCharacteristic[]
   reservations    Reservation[]
+  promotion       PromotionActive?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -88,10 +92,16 @@ model Vehicle {
 model ReservationRuleSet {
   id                  String             @id @default(uuid())
   ownerId             String             @map("owner_id")
+  // `vehicleId` define el scope del set: NULL = compartido (puede aplicarse a
+  // varios vehículos del owner); UUID = privado de ese vehículo (UNIQUE +
+  // ON DELETE CASCADE). Inmutable post-creación (validado en la service).
+  vehicleId           String?            @unique @map("vehicle_id")
   name                String
   description         String?            @db.Text
   cancellationPolicy  CancellationPolicy @map("cancellation_policy")
-  deposit             Deposit
+  // Porcentaje de seña entero entre 10 y 50, o NULL para "sin seña".
+  // Reemplaza al enum `Deposit` (US-49).
+  depositPercentage   Int?               @map("deposit_percentage")
   maxKilometrageType  MaxKilometrageType @map("max_kilometrage_type")
   maxKilometrageValue Int?               @map("max_kilometrage_value")
   minRentalDays       Int?               @map("min_rental_days")
@@ -100,7 +110,12 @@ model ReservationRuleSet {
   updatedAt           DateTime           @updatedAt @map("updated_at")
 
   owner               User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  vehicles            Vehicle[]
+  // Vehículo "privado" — solo cuando vehicleId != null. Cascade: si se borra
+  // el vehículo, el set privado se borra con él (US-49 AC #8).
+  privateVehicle      Vehicle?           @relation("PrivateRuleSet", fields: [vehicleId], references: [id], onDelete: Cascade)
+  // Vehículos que apuntan a este set como `reservation_rule_set_id`
+  // (solo aplica si es compartido).
+  vehicles            Vehicle[]          @relation("SharedRuleSet")
 
   @@map("reservation_rule_sets")
 }
@@ -130,6 +145,16 @@ model Reservation {
   transferExpiresAt   DateTime?          @map("transfer_expires_at") @db.Timestamptz(6)
   transferCode        String?            @map("transfer_code")
   transferAlias       String?            @map("transfer_alias")
+  // Snapshot inmutable de reglas + precio al confirmar la reserva (US-49).
+  // Si el rentador cambia el set o el precio post-confirmación, la reserva
+  // mantiene los valores con que se firmó el contrato.
+  depositPercentageSnapshot     Int?    @map("deposit_percentage_snapshot")
+  basePriceCentsSnapshot        Int     @default(0) @map("base_price_cents_snapshot")
+  cancellationPolicySnapshot    String  @default("FLEXIBLE") @map("cancellation_policy_snapshot")
+  maxKilometrageTypeSnapshot    String  @default("UNLIMITED") @map("max_kilometrage_type_snapshot")
+  maxKilometrageValueSnapshot   Int?    @map("max_kilometrage_value_snapshot")
+  minRentalDaysSnapshot         Int     @default(1) @map("min_rental_days_snapshot")
+  maxRentalDaysSnapshot         Int?    @map("max_rental_days_snapshot")
   createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
   messages            Message[]
@@ -176,6 +201,31 @@ model VehicleCharacteristic {
   @@map("vehicle_characteristics")
 }
 
+model PromotionActive {
+  vehicleId          String    @id @map("vehicle_id")
+  durationDays       Int       @map("duration_days")
+  totalCents         Int       @map("total_cents")
+  status             String    @map("status")
+  paymentMethod      String    @map("payment_method")
+  paidAt             DateTime? @map("paid_at")
+  transactionId      String?   @map("transaction_id")
+  transferCode       String?   @map("transfer_code")
+  transferAlias      String?   @map("transfer_alias")
+  transferExpiresAt  DateTime? @map("transfer_expires_at")
+  startDate          DateTime  @map("start_date")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  vehicle            Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@map("promotions_active")
+}
+
+model PromotionLengthInDays {
+  days             Int         @id
+  valueInCents     Int         @map("value_in_cents")
+  @@map("promotion_length_in_days")
+}
+
 enum Transmission {
   Manual
   Automatico
@@ -215,12 +265,6 @@ enum CancellationPolicy {
   FLEXIBLE
   MODERATE
   STRICT
-}
-
-enum Deposit {
-  NONE
-  TEN_PERCENT
-  FIFTY_PERCENT
 }
 
 enum MaxKilometrageType {

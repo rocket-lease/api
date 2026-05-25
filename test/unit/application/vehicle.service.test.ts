@@ -97,9 +97,22 @@ describe('VehicleService', () => {
       cancelPendingByVehicle: jest.fn().mockResolvedValue(0),
     } as unknown as ReservationService;
 
+    const promotionRepoMock = {
+      findAllDurations: jest.fn(),
+      findAllPercentages: jest.fn(),
+      findAllActive: jest.fn().mockResolvedValue([]),
+      findByVehicleId: jest.fn(),
+      save: jest.fn(),
+      delete: jest.fn(),
+    };
+
+    const clockMock = { now: jest.fn().mockReturnValue(new Date()) };
+
     service = new VehicleService(
       repositoryMock,
       userRepoMock,
+      promotionRepoMock,
+      clockMock,
       reservationServiceMock,
       reservationRuleSetServiceMock as unknown as ReservationRuleSetService,
     );

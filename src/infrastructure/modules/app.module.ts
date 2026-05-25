@@ -10,6 +10,7 @@ import { ReservationModule } from './reservation.module';
 import { UploadsModule } from './uploads.module';
 import { GeoModule } from './geo.module';
 import { MessagingModule } from './messaging.module';
+import { PromotionModule } from './promotion.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { MessagingModule } from './messaging.module';
     UploadsModule,
     GeoModule,
     MessagingModule,
+    PromotionModule,
   ],
 })
 export class AppModule {}
