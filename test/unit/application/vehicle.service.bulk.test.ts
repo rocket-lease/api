@@ -3,6 +3,7 @@ import { UserRepository } from '@/domain/repositories/user.repository';
 import { VehicleService } from '@/application/vehicle.service';
 import { ReservationRuleSetService } from '@/application/reservation-rule-set.service';
 import { ReservationService } from '@/application/reservation.service';
+import { IdentityService } from '@/application/identity.service';
 import {
   BulkPriceUpdateResponse,
 } from '@rocket-lease/contracts';
@@ -61,6 +62,21 @@ describe('VehicleService — bulk price operations', () => {
       getRuleSetDetails: jest.fn().mockResolvedValue(null),
     } as unknown as ReservationRuleSetService;
 
+    const identityServiceMock = {
+      assertVerified: jest.fn().mockResolvedValue(undefined),
+      getSummaryByUserId: jest.fn().mockResolvedValue({
+        status: 'verified',
+        providerName: 'stub-identity-provider',
+        providerRequestId: 'req-1',
+        rejectionReason: null,
+        submittedAt: '2026-05-25T12:00:00.000Z',
+        reviewAfterAt: '2026-05-25T12:00:30.000Z',
+        reviewedAt: '2026-05-25T12:00:30.000Z',
+        verifiedAt: '2026-05-25T12:00:30.000Z',
+      }),
+      getSummariesByUserIds: jest.fn().mockResolvedValue(new Map()),
+    };
+
     service = new VehicleService(
       repositoryMock,
       userRepoMock,
@@ -68,6 +84,7 @@ describe('VehicleService — bulk price operations', () => {
       clockMock,
       reservationServiceMock,
       reservationRuleSetServiceMock,
+      identityServiceMock as unknown as IdentityService,
     );
   });
 

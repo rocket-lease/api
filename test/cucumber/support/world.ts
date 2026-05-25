@@ -52,6 +52,7 @@ interface GlobalContext {
   pre_made_reservations?: Array<{ alias: string; status: string }>;
   voucher_token?: string;
   verification_response?: any;
+  identity_verified_by_alias?: Record<string, boolean>;
 }
 
 export interface MyWorld extends World {

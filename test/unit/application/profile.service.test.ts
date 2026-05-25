@@ -2,11 +2,13 @@ import { ProfileService } from '@/application/profile.service';
 import { UserRepository } from '@/domain/repositories/user.repository';
 import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
 import { MediaProvider } from '@/domain/providers/media.provider';
+import { IdentityService } from '@/application/identity.service';
 
 describe('ProfileService', () => {
   let service: ProfileService;
   let userRepoMock: jest.Mocked<UserRepository>;
   let mediaProviderMock: jest.Mocked<MediaProvider>;
+  let identityServiceMock: jest.Mocked<Pick<IdentityService, 'getSummaryByUserId'>>;
 
   beforeEach(() => {
     userRepoMock = {
@@ -29,8 +31,24 @@ describe('ProfileService', () => {
       signUpload: jest.fn(),
       deleteAsset: jest.fn(),
     };
+    identityServiceMock = {
+      getSummaryByUserId: jest.fn().mockResolvedValue({
+        status: 'verified',
+        providerName: 'stub-identity-provider',
+        providerRequestId: 'req-1',
+        rejectionReason: null,
+        submittedAt: '2026-05-25T12:00:00.000Z',
+        reviewAfterAt: '2026-05-25T12:00:30.000Z',
+        reviewedAt: '2026-05-25T12:00:30.000Z',
+        verifiedAt: '2026-05-25T12:00:30.000Z',
+      }),
+    };
 
-    service = new ProfileService(userRepoMock, mediaProviderMock);
+    service = new ProfileService(
+      userRepoMock,
+      mediaProviderMock,
+      identityServiceMock as unknown as IdentityService,
+    );
   });
 
   it('returns profile data when user exists', async () => {

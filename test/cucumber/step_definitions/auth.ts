@@ -2,6 +2,7 @@ import { Given, When, Then } from '@cucumber/cucumber';
 import { MyWorld } from '../support/world';
 import { api } from '../support/http-client';
 import { expect } from 'expect';
+import { IdentityService } from '@/application/identity.service';
 
 export async function registerAndLogin(
   world: MyWorld,
@@ -31,6 +32,34 @@ export function useAlias(world: MyWorld, alias: string): void {
   world.world.access_token = token;
 }
 
+async function verifyCurrentIdentity(world: MyWorld): Promise<void> {
+  const response = await api(world).uploadFields('/identity/me/verification', [
+    { fieldName: 'frontDni', buffer: Buffer.from('dni-front'), filename: 'dni-front.jpg' },
+    { fieldName: 'backDni', buffer: Buffer.from('dni-back'), filename: 'dni-back.jpg' },
+    { fieldName: 'selfie', buffer: Buffer.from('dni-selfie'), filename: 'dni-selfie.jpg' },
+  ]);
+
+  expect(response.status).toBe(200);
+  world.clock.advanceMs(31_000);
+  await world.app.get(IdentityService).processDueVerifications();
+}
+
+export async function registerAndLoginVerified(
+  world: MyWorld,
+  alias: string,
+): Promise<string> {
+  const token = await registerAndLogin(world, alias);
+  useAlias(world, alias);
+  await verifyCurrentIdentity(world);
+
+  if (!world.world.identity_verified_by_alias) {
+    world.world.identity_verified_by_alias = {};
+  }
+  world.world.identity_verified_by_alias[alias] = true;
+
+  return token;
+}
+
 Given(
   'que existe un usuario registrado con email {string} y contraseña {string}',
   async function (this: MyWorld, email: string, password: string) {
@@ -58,6 +87,7 @@ Given('que estoy autenticado', async function (this: MyWorld) {
     password: 'Passw0rd!',
   });
   this.world.access_token = loginRes.body.access_token;
+  await verifyCurrentIdentity(this);
 });
 
 Given(
@@ -78,13 +108,14 @@ Given(
 
     expect(loginResponse.status).toBe(201);
     this.world.access_token = loginResponse.body.access_token;
+    await verifyCurrentIdentity(this);
   },
 );
 
 Given(
   'que soy un conductor {string} autenticado',
   async function (this: MyWorld, alias: string) {
-    await registerAndLogin(this, alias);
+    await registerAndLoginVerified(this, alias);
     useAlias(this, alias);
   },
 );

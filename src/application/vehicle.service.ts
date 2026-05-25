@@ -30,6 +30,7 @@ import {
 } from '@rocket-lease/contracts';
 import { ReservationRuleSetService } from './reservation-rule-set.service';
 import { PROMOTION_REPOSITORY, type PromotionRepository } from '@/domain/repositories/promotion.repository';
+import { IdentityService } from '@/application/identity.service';
 
 @Injectable()
 export class VehicleService {
@@ -43,12 +44,15 @@ export class VehicleService {
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(ReservationService) private readonly reservationService: ReservationService,
     @Inject(ReservationRuleSetService) private readonly reservationRuleSetService: ReservationRuleSetService,
+    @Inject(IdentityService) private readonly identityService: IdentityService,
   ) {}
 
   public async createVehicle(
     ownerId: string,
     data: CreateVehicleRequest,
   ): Promise<CreateVehicleResponse> {
+    await this.identityService.assertVerified(ownerId);
+
     const exists = await this.vehicleRepository.findByPlate(data.plate);
     if (exists) throw new EntityAlreadyExistsException('vehicle', data.plate);
 
@@ -201,21 +205,23 @@ export class VehicleService {
   private async loadOwner(ownerId: string): Promise<VehicleOwner | undefined> {
     const profile = await this.userRepository.getProfileById(ownerId);
     if (!profile) return undefined;
+    const identityVerification = await this.identityService.getSummaryByUserId(ownerId);
     return {
       id: profile.id,
       name: profile.name,
       avatarUrl: profile.avatarUrl,
       level: profile.level,
       reputationScore: profile.reputationScore,
-      verified: profile.verificationStatus === 'verified',
+      verified: identityVerification.status === 'verified',
     };
   }
 
   private async toListDTO(vehicles: Vehicle[]): Promise<GetVehicleResponse[]> {
     const ownerIds = Array.from(new Set(vehicles.map((v) => v.getOwnerId())));
     const profiles = await this.userRepository.findProfilesByIds(ownerIds);
+    const verifications = await this.identityService.getSummariesByUserIds(ownerIds);
     const owners = new Map<string, VehicleOwner>(
-      profiles.map((p) => [p.id, this.profileToOwner(p)]),
+      profiles.map((p) => [p.id, this.profileToOwner(p, verifications.get(p.id))]),
     );
     return Promise.all(vehicles.map((v) => this.toDTO(v, owners.get(v.getOwnerId()))));
   }
@@ -227,8 +233,9 @@ export class VehicleService {
 
     const ownerIds = Array.from(new Set(vehicles.map((v) => v.getOwnerId())));
     const profiles = await this.userRepository.findProfilesByIds(ownerIds);
+    const verifications = await this.identityService.getSummariesByUserIds(ownerIds);
     const owners = new Map<string, VehicleOwner>(
-      profiles.map((p) => [p.id, this.profileToOwner(p)]),
+      profiles.map((p) => [p.id, this.profileToOwner(p, verifications.get(p.id))]),
     );
 
     const sorted = [...vehicles].sort((a, b) => {
@@ -244,14 +251,14 @@ export class VehicleService {
     );
   }
 
-  private profileToOwner(profile: UserProfile): VehicleOwner {
+  private profileToOwner(profile: UserProfile, identityVerification?: { status: string } ): VehicleOwner {
     return {
       id: profile.id,
       name: profile.name,
       avatarUrl: profile.avatarUrl,
       level: profile.level,
       reputationScore: profile.reputationScore,
-      verified: profile.verificationStatus === 'verified',
+      verified: identityVerification?.status === 'verified',
     };
   }
 

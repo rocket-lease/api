@@ -2,7 +2,7 @@ import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from 'expect';
 import { api } from '../support/http-client';
 import { MyWorld } from '../support/world';
-import { registerAndLogin, useAlias } from './auth';
+import { registerAndLoginVerified, useAlias } from './auth';
 
 interface BulkPriceWorld {
   bulk_vehicle_ids?: string[];
@@ -45,7 +45,7 @@ async function publishVehicle(world: MyWorld, basePriceCents: number): Promise<s
 Given(
   'que soy un rentador {string} autenticado',
   async function (this: MyWorld, alias: string) {
-    await registerAndLogin(this, alias);
+    await registerAndLoginVerified(this, alias);
     useAlias(this, alias);
   },
 );
@@ -67,7 +67,7 @@ Given('que existe un vehículo de otro rentador', async function (this: MyWorld)
   const bw = getBulkWorld(this);
   const savedToken = this.world.access_token;
 
-  await registerAndLogin(this, '__other_owner__');
+  await registerAndLoginVerified(this, '__other_owner__');
   useAlias(this, '__other_owner__');
 
   const id = await publishVehicle(this, 9999);

@@ -4,6 +4,8 @@ import {
   BadRequestException,
   Body,
   Controller,
+  HttpCode,
+  HttpStatus,
   Post,
   Get,
   Req,
@@ -117,12 +119,14 @@ export class VehicleController {
   }
 
   @Post()
+  @HttpCode(HttpStatus.CREATED)
   async publishVehicle(
     @Body() dto: Contracts.CreateVehicleRequest,
     @Req() req: Request,
   ): Promise<Contracts.CreateVehicleResponse> {
     const ownerId = await this.resolveUserId(req);
-    return await this.vehicleService.createVehicle(ownerId, dto);
+    const parsed = Contracts.CreateVehicleRequestSchema.parse(dto);
+    return await this.vehicleService.createVehicle(ownerId, parsed);
   }
 
   @Patch('bulk-prices')

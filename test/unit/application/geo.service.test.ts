@@ -1,4 +1,5 @@
 import { GeoService } from '@/application/geo.service';
+import { IdentityService } from '@/application/identity.service';
 import type {
   GeoRepository,
   GeoVehicle,
@@ -49,14 +50,19 @@ function profile(id: string, name: string): UserProfile {
 describe('GeoService', () => {
   let geoRepo: jest.Mocked<GeoRepository>;
   let userRepo: jest.Mocked<Pick<UserRepository, 'findProfilesByIds'>>;
+  let identityService: jest.Mocked<Pick<IdentityService, 'getSummariesByUserIds'>>;
   let service: GeoService;
 
   beforeEach(() => {
     geoRepo = { findAvailableVehiclesInArea: jest.fn() };
     userRepo = { findProfilesByIds: jest.fn().mockResolvedValue([]) };
+    identityService = {
+      getSummariesByUserIds: jest.fn().mockResolvedValue(new Map()),
+    };
     service = new GeoService(
       geoRepo,
       userRepo as unknown as UserRepository,
+      identityService as unknown as IdentityService,
     );
   });
 

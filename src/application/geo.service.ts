@@ -16,6 +16,7 @@ import {
   type UserProfile,
   type UserRepository,
 } from '@/domain/repositories/user.repository';
+import { IdentityService } from './identity.service';
 import { InvalidMapBoundsException } from '@/domain/exceptions/geo.exception';
 import {
   boundingBoxForRadius,
@@ -33,6 +34,7 @@ export class GeoService {
   constructor(
     @Inject(GEO_REPOSITORY) private readonly geoRepository: GeoRepository,
     @Inject(USER_REPOSITORY) private readonly userRepository: UserRepository,
+    @Inject(IdentityService) private readonly identityService: IdentityService,
   ) {}
 
   public async searchRentadoras(
@@ -142,6 +144,7 @@ export class GeoService {
 
     const ownerIds = Array.from(new Set(vehicles.map((v) => v.ownerId)));
     const profiles = await this.userRepository.findProfilesByIds(ownerIds);
+    const verifications = await this.identityService.getSummariesByUserIds(ownerIds);
     const profileById = new Map<string, UserProfile>(
       profiles.map((p) => [p.id, p]),
     );
@@ -163,7 +166,7 @@ export class GeoService {
         currency: 'ARS',
         reputationScore: profile.reputationScore,
         level: profile.level,
-        verified: profile.verificationStatus === 'verified',
+        verified: verifications.get(ownerId)?.status === 'verified',
       });
     }
     // Distintas rentadoras en la misma ubicación (o tan cerca que sus pines

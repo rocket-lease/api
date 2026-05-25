@@ -65,6 +65,12 @@ export class BankAccountRequiredException extends DomainException {
     super('rentador must link a bank account');
   }
 }
+
+export class IdentityVerificationRequiredException extends DomainException {
+  constructor() {
+    super('identity verification is required to continue');
+  }
+}
 /**
  * El % de seña configurado en un set de reglas está fuera del rango
  * aceptado (10-50) o tiene formato inválido. Mapea a 400

@@ -12,6 +12,7 @@ import { GeoModule } from './geo.module';
 import { MessagingModule } from './messaging.module';
 import { BankAccountModule } from './bank-account.module';
 import { PromotionModule } from './promotion.module';
+import { IdentityModule } from './identity.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { PromotionModule } from './promotion.module';
     AuthModule,
     FavoriteModule,
     ProfileModule,
+    IdentityModule,
     VerificationModule,
     ReservationRuleSetModule,
     ReservationModule,

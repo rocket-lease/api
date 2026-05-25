@@ -6,6 +6,7 @@ import {
   UpdateMyProfileResponse,
   UpdateMyProfileResponseSchema,
 } from '@rocket-lease/contracts';
+import { IdentityService } from '@/application/identity.service';
 import type { MediaProvider } from '@/domain/providers/media.provider';
 import { MEDIA_PROVIDER } from '@/domain/providers/media.provider';
 import type { UserRepository } from '@/domain/repositories/user.repository';
@@ -17,6 +18,7 @@ export class ProfileService {
   constructor(
     @Inject(USER_REPOSITORY) private readonly userRepository: UserRepository,
     @Inject(MEDIA_PROVIDER) private readonly mediaProvider: MediaProvider,
+    @Inject(IdentityService) private readonly identityService: IdentityService,
   ) {}
 
   public async getMyProfile(userId: string): Promise<GetMyProfileResponse> {
@@ -25,7 +27,13 @@ export class ProfileService {
       throw new InvalidEntityDataException('User not found');
     }
 
-    return GetMyProfileResponseSchema.parse(profile);
+    const identityVerification = await this.identityService.getSummaryByUserId(userId);
+
+    return GetMyProfileResponseSchema.parse({
+      ...profile,
+      verificationStatus: identityVerification.status,
+      identityVerification,
+    });
   }
 
   public async getProfileById(userId: string): Promise<GetMyProfileResponse> {
@@ -34,7 +42,13 @@ export class ProfileService {
       throw new InvalidEntityDataException('User not found');
     }
 
-    return GetMyProfileResponseSchema.parse(profile);
+    const identityVerification = await this.identityService.getSummaryByUserId(userId);
+
+    return GetMyProfileResponseSchema.parse({
+      ...profile,
+      verificationStatus: identityVerification.status,
+      identityVerification,
+    });
   }
 
   public async updateMyProfile(
@@ -54,7 +68,13 @@ export class ProfileService {
       autoAccept: dto.autoAccept,
     });
 
-    return UpdateMyProfileResponseSchema.parse(updated);
+    const identityVerification = await this.identityService.getSummaryByUserId(userId);
+
+    return UpdateMyProfileResponseSchema.parse({
+      ...updated,
+      verificationStatus: identityVerification.status,
+      identityVerification,
+    });
   }
 
   public async updateAvatar(
@@ -69,6 +89,12 @@ export class ProfileService {
     const avatarUrl = await this.mediaProvider.uploadAvatar(file);
     const updated = await this.userRepository.updateAvatar(userId, avatarUrl);
 
-    return GetMyProfileResponseSchema.parse(updated);
+    const identityVerification = await this.identityService.getSummaryByUserId(userId);
+
+    return GetMyProfileResponseSchema.parse({
+      ...updated,
+      verificationStatus: identityVerification.status,
+      identityVerification,
+    });
   }
 }
