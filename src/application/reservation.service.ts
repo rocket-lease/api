@@ -682,14 +682,12 @@ export class ReservationService {
       throw new ReservationForbiddenException();
     }
 
-    const vehicle = await this.vehicleRepository.findById(reservation.getVehicleId());
-    const reservationRuleSet = await this.getVehicleReservationRuleSet(vehicle);
     const now = this.clock.now();
     const refund = calculateCancellationRefund({
       startAt: reservation.getStartAt(),
       paidAt: reservation.getPaidAt(),
       totalCents: reservation.getTotalCents(),
-      cancellationPolicy: reservationRuleSet?.cancellationPolicy,
+      cancellationPolicy: reservation.getCancellationPolicySnapshot(),
       now,
     });
     reservation.cancel(now);
@@ -878,10 +876,12 @@ export class ReservationService {
   private async getVehicleReservationRuleSet(
     vehicle: Vehicle | null,
   ): Promise<ReservationRuleSetPublic | null> {
-    const ruleSetId = vehicle?.getReservationRuleSetId();
-    if (!ruleSetId) return null;
+    if (!vehicle) return null;
 
-    const ruleSet = await this.reservationRuleSetRepository.findById(ruleSetId);
+    const ruleSet = await this.resolveRuleSetForVehicle(
+      vehicle.getId(),
+      vehicle.getReservationRuleSetId(),
+    );
     if (!ruleSet) return null;
 
     return {
