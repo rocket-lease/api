@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -61,7 +62,15 @@ export class MessagingController {
     @Query('after') after?: string,
   ): Promise<ListMessagesResponse> {
     const userId = await this.resolveUserId(auth);
-    const afterDate = after ? new Date(after) : undefined;
+    let afterDate: Date | undefined;
+    if (after !== undefined) {
+      afterDate = new Date(after);
+      if (isNaN(afterDate.getTime())) {
+        throw new BadRequestException(
+          `Query param 'after' must be a valid ISO 8601 date string`,
+        );
+      }
+    }
     return this.messagingService.listMessages(userId, reservationId, afterDate);
   }
 }

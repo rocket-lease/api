@@ -178,9 +178,9 @@ export class DomainExceptionFilter implements ExceptionFilter {
       code = ErrorCodes.INVALID_MAP_BOUNDS;
       title = 'Bad Request';
     } else if (exception instanceof ChatNotAllowedException) {
-      status = HttpStatus.FORBIDDEN;
+      status = HttpStatus.UNPROCESSABLE_ENTITY;
       code = ErrorCodes.CHAT_NOT_ALLOWED;
-      title = 'Forbidden';
+      title = 'Unprocessable Entity';
     } else if (exception instanceof InvalidEntityDataException) {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.INVALID_ENTITY_DATA;

@@ -195,7 +195,7 @@ model Message {
   reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
   sender        User        @relation(fields: [senderId], references: [id])
 
-  @@index([reservationId, sentAt])
+  @@index([reservationId, sentAt, id])
   @@map("messages")
 }
 

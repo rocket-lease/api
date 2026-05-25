@@ -47,7 +47,7 @@ export class PostgresMessageRepository implements MessageRepository {
         reservationId,
         ...(after ? { sentAt: { gt: after } } : {}),
       },
-      orderBy: { sentAt: 'asc' },
+      orderBy: [{ sentAt: 'asc' }, { id: 'asc' }],
     });
     return rows.map((r) => this.reconstitute(r));
   }
