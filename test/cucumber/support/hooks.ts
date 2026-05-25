@@ -1,6 +1,11 @@
-import { Before, After } from '@cucumber/cucumber';
+import { Before, After, setDefaultTimeout } from '@cucumber/cucumber';
 import { MyWorld } from './world';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
+
+// Algunos steps levantan toda la app Nest, aplican migraciones y orquestan
+// múltiples requests HTTP (registrar/loguear, crear vehículo, reservar, pagar).
+// 5s default no alcanza en CI, donde el primer hit del módulo es lento.
+setDefaultTimeout(30 * 1000);
 
 Before(async function (this: MyWorld) {
   await this.initNest();

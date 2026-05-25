@@ -81,7 +81,7 @@ Given(
         year: 2023,
         passengers: 5,
         trunkLiters: 400,
-        transmission: 'Automática',
+        transmission: 'Automatico',
         isAccessible: false,
         photos: ['https://example.com/photo1.jpg'],
         color: 'Blanco',
