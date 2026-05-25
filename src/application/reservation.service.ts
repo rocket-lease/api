@@ -67,6 +67,7 @@ import { EntityNotFoundException } from '@/domain/exceptions/domain.exception';
 import {
   ContractNotAcceptedException,
   HoldExpiredException,
+  InvalidReservationTransitionException,
   OwnerCannotReserveOwnVehicleException,
   ReservationForbiddenException,
   ReservationNotFoundException,
@@ -250,6 +251,13 @@ export class ReservationService {
     const parsedWalletProvider = dto.walletProvider
       ? WalletProviderEnum.parse(dto.walletProvider)
       : undefined;
+
+    if (!reservation.isPendingPayment() && !reservation.isPendingApproval()) {
+      throw new InvalidReservationTransitionException(
+        reservation.getStatus(),
+        RESERVATION_STATUS.confirmed,
+      );
+    }
 
     await this.snapshotReservationRules(reservation);
 
