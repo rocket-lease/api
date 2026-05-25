@@ -14,6 +14,7 @@ import {
   RuleSetNotFoundForOwnerException,
   RuleSetPrivateCannotBeSharedException,
   RuleSetVehicleIdImmutableException,
+  VehicleAlreadyHasPrivateRuleSetException,
 } from '@/domain/exceptions/domain.exception';
 import { ReservationRuleSet } from '@/domain/entities/reservation-rule-set.entity';
 import {
@@ -42,6 +43,11 @@ export class ReservationRuleSetService {
       const vehicle = await this.vehicleRepository.findById(data.vehicleId);
       if (!vehicle || !vehicle.isOwnedBy(ownerId)) {
         throw new RuleSetPrivateCannotBeSharedException();
+      }
+      const existingPrivate =
+        await this.reservationRuleSetRepository.findPrivateByVehicleId(data.vehicleId);
+      if (existingPrivate) {
+        throw new VehicleAlreadyHasPrivateRuleSetException(data.vehicleId);
       }
     }
 
@@ -98,8 +104,7 @@ export class ReservationRuleSetService {
 
   /**
    * Lista los sets *compartidos* del rentador (vehicleId IS NULL). Los
-   * privados se acceden vía `getPrivateForVehicle` y no aparecen acá
-   * (US-49 AC #6).
+   * privados se acceden vía `getPrivateForVehicle` y no aparecen acá.
    */
   public async listRuleSets(ownerId: string) {
     const ruleSets = await this.reservationRuleSetRepository.findByOwnerId(ownerId);

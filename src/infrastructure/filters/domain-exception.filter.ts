@@ -10,6 +10,7 @@ import {
   RuleSetNotFoundForOwnerException,
   RuleSetPrivateCannotBeSharedException,
   RuleSetVehicleIdImmutableException,
+  VehicleAlreadyHasPrivateRuleSetException,
   UserHasActiveReservationsException,
   UserHasVehiclesException,
 } from '@/domain/exceptions/domain.exception';
@@ -143,6 +144,10 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.NOT_FOUND;
       code = ErrorCodes.RULESET_NOT_FOUND_FOR_OWNER;
       title = 'Not Found';
+    } else if (exception instanceof VehicleAlreadyHasPrivateRuleSetException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.VEHICLE_ALREADY_HAS_PRIVATE_RULESET;
+      title = 'Conflict';
     } else if (exception instanceof EmailNotVerifiedException) {
       status = HttpStatus.FORBIDDEN;
       code = ErrorCodes.FORBIDDEN;
