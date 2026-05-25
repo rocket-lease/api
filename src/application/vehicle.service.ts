@@ -37,7 +37,7 @@ export class VehicleService {
     private readonly promotionRepository: PromotionRepository,
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(ReservationService) private readonly reservationService: ReservationService,
-    private readonly reservationRuleSetService: ReservationRuleSetService,
+    @Inject(ReservationRuleSetService) private readonly reservationRuleSetService: ReservationRuleSetService,
   ) {}
 
   public async createVehicle(

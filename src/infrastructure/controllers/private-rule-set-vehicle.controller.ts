@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Headers,
+  Inject,
   Param,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -20,8 +21,8 @@ import { ReservationRuleSetService } from '@/application/reservation-rule-set.se
 @Controller('vehicle')
 export class PrivateRuleSetVehicleController {
   constructor(
-    private readonly authService: AuthService,
-    private readonly reservationRuleSetService: ReservationRuleSetService,
+    @Inject(AuthService) private readonly authService: AuthService,
+    @Inject(ReservationRuleSetService) private readonly reservationRuleSetService: ReservationRuleSetService,
   ) {}
 
   private async resolveUserId(authorization?: string): Promise<string> {

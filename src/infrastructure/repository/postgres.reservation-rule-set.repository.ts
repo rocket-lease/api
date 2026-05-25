@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ReservationRuleSet as PrismaReservationRuleSet } from '@prisma/client';
 import { ReservationRuleSet } from '@/domain/entities/reservation-rule-set.entity';
 import type { ReservationRuleSetRepository } from '@/domain/repositories/reservation-rule-set.repository';
@@ -11,7 +11,7 @@ type RowWithCount = PrismaReservationRuleSet & {
 
 @Injectable()
 export class PostgresReservationRuleSetRepository implements ReservationRuleSetRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async save(ruleSet: ReservationRuleSet): Promise<ReservationRuleSet> {
     const maxKilometrage = ruleSet.getMaxKilometrage();
