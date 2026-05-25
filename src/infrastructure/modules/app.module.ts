@@ -9,6 +9,7 @@ import { ReservationRuleSetModule } from './reservation-rule-set.module';
 import { ReservationModule } from './reservation.module';
 import { UploadsModule } from './uploads.module';
 import { GeoModule } from './geo.module';
+import { BankAccountModule } from './bank-account.module';
 import { PromotionModule } from './promotion.module';
 
 @Module({
@@ -23,6 +24,7 @@ import { PromotionModule } from './promotion.module';
     ReservationModule,
     UploadsModule,
     GeoModule,
+    BankAccountModule,
     PromotionModule,
   ],
 })
