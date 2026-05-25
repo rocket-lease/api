@@ -73,6 +73,7 @@ pending_payment ──(payment ok)──▶ confirmed ──(QR pickup)──▶
 ## Module Map (api)
 
 `auth`, `users`, `vehicles`, `search`, `reservations`, `payments`, `contracts` (digital signing), `reviews`, `reputation`, `levels`, `notifications`, `support` (FAQ/chat/disputes), `dashboard` (rentador metrics), `geo` (maps/nearby), `pricing` (bulk + tiered), `identity` (DNI/license verification — stubbed).
+`bank-accounts` (rentador payout accounts).
 
 ## Sprint allocation (from Cronograma)
 
