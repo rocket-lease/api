@@ -2,7 +2,7 @@ import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from 'expect';
 import { api } from '../support/http-client';
 import { MyWorld } from '../support/world';
-import { registerAndLogin, useAlias } from './auth';
+import { registerAndLoginVerified, useAlias } from './auth';
 
 const RENTADOR_ALIAS = '__rentador_snapshot__';
 const CONDUCTOR_A_ALIAS = 'A';
@@ -41,7 +41,7 @@ function setReservationId(world: MyWorld, alias: string, id: string): void {
 
 async function ensureRentador(world: MyWorld): Promise<void> {
   if (!world.world.tokens_by_alias?.[RENTADOR_ALIAS]) {
-    await registerAndLogin(world, RENTADOR_ALIAS);
+    await registerAndLoginVerified(world, RENTADOR_ALIAS);
   }
   useAlias(world, RENTADOR_ALIAS);
 }
@@ -88,7 +88,7 @@ async function publishVehicle(
  */
 async function conductorAConfirmsReservation(world: MyWorld, plate: string): Promise<string> {
   if (!world.world.tokens_by_alias?.[CONDUCTOR_A_ALIAS]) {
-    await registerAndLogin(world, CONDUCTOR_A_ALIAS);
+    await registerAndLoginVerified(world, CONDUCTOR_A_ALIAS);
   }
   useAlias(world, CONDUCTOR_A_ALIAS);
 
@@ -186,7 +186,7 @@ Given(
     if (alias !== CONDUCTOR_A_ALIAS) {
       // Ensure the conductor is registered under the given alias
       if (!this.world.tokens_by_alias?.[alias]) {
-        await registerAndLogin(this, alias);
+        await registerAndLoginVerified(this, alias);
       }
     }
     await conductorAConfirmsReservation(this, plate);
@@ -228,7 +228,7 @@ When(
   async function (this: MyWorld, alias: string, plate: string) {
     if (alias !== CONDUCTOR_A_ALIAS) {
       if (!this.world.tokens_by_alias?.[alias]) {
-        await registerAndLogin(this, alias);
+        await registerAndLoginVerified(this, alias);
       }
     }
     await conductorAConfirmsReservation(this, plate);

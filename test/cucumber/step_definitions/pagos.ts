@@ -2,7 +2,7 @@ import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from 'expect';
 import { MyWorld } from '../support/world';
 import { api } from '../support/http-client';
-import { registerAndLogin, useAlias } from './auth';
+import { registerAndLoginVerified, useAlias } from './auth';
 
 function getReservationId(world: MyWorld, alias: string): string {
   const id = world.world.reservations_by_alias?.[alias];
@@ -138,7 +138,7 @@ async function setupConductorAReservation(
   world: MyWorld,
 ): Promise<void> {
   if (!world.world.tokens_by_alias?.['A']) {
-    await registerAndLogin(world, 'A');
+    await registerAndLoginVerified(world, 'A');
   }
   useAlias(world, 'A');
 

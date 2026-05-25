@@ -2,6 +2,7 @@ import { Given, When, Then } from '@cucumber/cucumber';
 import { MyWorld } from '../support/world';
 import { api } from '../support/http-client';
 import { expect } from 'expect';
+import { IdentityService } from '@/application/identity.service';
 
 export async function registerAndLogin(
   world: MyWorld,
@@ -29,6 +30,34 @@ export function useAlias(world: MyWorld, alias: string): void {
   const token = world.world.tokens_by_alias?.[alias];
   if (!token) throw new Error(`conductor ${alias} no autenticado`);
   world.world.access_token = token;
+}
+
+async function verifyCurrentIdentity(world: MyWorld): Promise<void> {
+  const response = await api(world).uploadFields('/identity/me/verification', [
+    { fieldName: 'frontDni', buffer: Buffer.from('dni-front'), filename: 'dni-front.jpg' },
+    { fieldName: 'backDni', buffer: Buffer.from('dni-back'), filename: 'dni-back.jpg' },
+    { fieldName: 'selfie', buffer: Buffer.from('dni-selfie'), filename: 'dni-selfie.jpg' },
+  ]);
+
+  expect(response.status).toBe(200);
+  world.clock.advanceMs(31_000);
+  await world.app.get(IdentityService).processDueVerifications();
+}
+
+export async function registerAndLoginVerified(
+  world: MyWorld,
+  alias: string,
+): Promise<string> {
+  const token = await registerAndLogin(world, alias);
+  useAlias(world, alias);
+  await verifyCurrentIdentity(world);
+
+  if (!world.world.identity_verified_by_alias) {
+    world.world.identity_verified_by_alias = {};
+  }
+  world.world.identity_verified_by_alias[alias] = true;
+
+  return token;
 }
 
 Given(
@@ -84,7 +113,7 @@ Given(
 Given(
   'que soy un conductor {string} autenticado',
   async function (this: MyWorld, alias: string) {
-    await registerAndLogin(this, alias);
+    await registerAndLoginVerified(this, alias);
     useAlias(this, alias);
   },
 );

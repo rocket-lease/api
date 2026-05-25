@@ -2,7 +2,7 @@ import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from 'expect';
 import { api } from '../support/http-client';
 import { MyWorld } from '../support/world';
-import { registerAndLogin, useAlias } from './auth';
+import { registerAndLoginVerified, useAlias } from './auth';
 
 const RENTADOR_ALIAS = '__rentador_us49__';
 
@@ -11,7 +11,7 @@ const RENTADOR_ALIAS = '__rentador_us49__';
  */
 async function ensureRentador(world: MyWorld): Promise<void> {
   if (!world.world.tokens_by_alias?.[RENTADOR_ALIAS]) {
-    await registerAndLogin(world, RENTADOR_ALIAS);
+    await registerAndLoginVerified(world, RENTADOR_ALIAS);
   }
   useAlias(world, RENTADOR_ALIAS);
 }
