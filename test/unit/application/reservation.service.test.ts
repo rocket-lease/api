@@ -180,6 +180,7 @@ function makeReservationRuleSetRepo(): jest.Mocked<ReservationRuleSetRepository>
     save: jest.fn(),
     findById: jest.fn(async (_id: string) => null),
     findByOwnerId: jest.fn(),
+    findPrivateByVehicleId: jest.fn(async (_id: string) => null),
     delete: jest.fn(),
   };
 }

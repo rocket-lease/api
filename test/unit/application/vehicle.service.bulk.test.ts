@@ -70,7 +70,16 @@ describe('VehicleService — bulk price operations', () => {
       markPhoneVerified: jest.fn(),
       isPhoneVerified: jest.fn().mockResolvedValue(false),
       updateAutoAccept: jest.fn(),
+      creditBalance: jest.fn(),
     };
+
+    const promotionRepoMock = {
+      findAllActive: jest.fn().mockResolvedValue([]),
+      save: jest.fn(),
+      findByVehicleId: jest.fn().mockResolvedValue(null),
+    } as any;
+
+    const clockMock = { now: () => new Date() };
 
     const reservationServiceMock = {
       cancelPendingByVehicle: jest.fn().mockResolvedValue(0),
@@ -83,6 +92,8 @@ describe('VehicleService — bulk price operations', () => {
     service = new VehicleService(
       repositoryMock,
       userRepoMock,
+      promotionRepoMock,
+      clockMock,
       reservationServiceMock,
       reservationRuleSetServiceMock,
     );
