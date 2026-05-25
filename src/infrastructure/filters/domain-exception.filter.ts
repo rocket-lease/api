@@ -36,6 +36,7 @@ import {
   InvalidMapBoundsException,
   VehicleLocationRequiredException,
 } from '@/domain/exceptions/geo.exception';
+import { ChatNotAllowedException } from '@/domain/exceptions/messaging.exception';
 import {
   ExceptionFilter,
   Catch,
@@ -176,6 +177,10 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.INVALID_MAP_BOUNDS;
       title = 'Bad Request';
+    } else if (exception instanceof ChatNotAllowedException) {
+      status = HttpStatus.UNPROCESSABLE_ENTITY;
+      code = ErrorCodes.CHAT_NOT_ALLOWED;
+      title = 'Unprocessable Entity';
     } else if (exception instanceof InvalidEntityDataException) {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.INVALID_ENTITY_DATA;
