@@ -1,6 +1,6 @@
 CREATE TABLE "messages" (
-  "id"             UUID        NOT NULL DEFAULT gen_random_uuid(),
-  "reservation_id" UUID        NOT NULL,
+  "id"             TEXT        NOT NULL DEFAULT gen_random_uuid()::TEXT,
+  "reservation_id" TEXT        NOT NULL,
   "sender_id"      TEXT        NOT NULL,
   "body"           TEXT        NOT NULL,
   "sent_at"        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
