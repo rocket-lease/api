@@ -17,6 +17,10 @@ import {
   UserHasVehiclesException,
 } from '@/domain/exceptions/domain.exception';
 import {
+  BulkPriceVehicleNotOwnedException,
+  BulkPriceResultInvalidException,
+} from '@/domain/exceptions/bulk-price.exception';
+import {
   ContractNotAcceptedException,
   HoldExpiredException,
   InvalidReservationTransitionException,
@@ -33,6 +37,7 @@ import {
   InvalidMapBoundsException,
   VehicleLocationRequiredException,
 } from '@/domain/exceptions/geo.exception';
+import { ChatNotAllowedException } from '@/domain/exceptions/messaging.exception';
 import {
   ExceptionFilter,
   Catch,
@@ -157,6 +162,14 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.CONFLICT;
       code = ErrorCodes.VEHICLE_ALREADY_HAS_PRIVATE_RULESET;
       title = 'Conflict';
+    } else if (exception instanceof BulkPriceVehicleNotOwnedException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.BULK_PRICE_VEHICLE_NOT_OWNED;
+      title = 'Forbidden';
+    } else if (exception instanceof BulkPriceResultInvalidException) {
+      status = HttpStatus.BAD_REQUEST;
+      code = ErrorCodes.BULK_PRICE_RESULT_INVALID;
+      title = 'Bad Request';
     } else if (exception instanceof EmailNotVerifiedException) {
       status = HttpStatus.FORBIDDEN;
       code = ErrorCodes.FORBIDDEN;
@@ -169,6 +182,10 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.INVALID_MAP_BOUNDS;
       title = 'Bad Request';
+    } else if (exception instanceof ChatNotAllowedException) {
+      status = HttpStatus.UNPROCESSABLE_ENTITY;
+      code = ErrorCodes.CHAT_NOT_ALLOWED;
+      title = 'Unprocessable Entity';
     } else if (exception instanceof InvalidEntityDataException) {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.INVALID_ENTITY_DATA;

@@ -25,4 +25,5 @@ echo "Aplicando migraciones..."
 pnpm exec prisma migrate deploy || exit 1
 
 echo "Ejecutando tests Cucumber..."
-NODE_OPTIONS='--import tsx' pnpm exec cucumber-js --tags "not @ignore" $EXTRA_ARGS
+# Bypass `pnpm exec` para no contaminarlo con `--import tsx`, que rompe el loader interno de pnpm.
+NODE_OPTIONS='--import tsx' ./node_modules/.bin/cucumber-js --tags "not @ignore" $EXTRA_ARGS

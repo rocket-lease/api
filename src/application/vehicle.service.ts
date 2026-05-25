@@ -14,10 +14,15 @@ import { CLOCK, type Clock } from '@/domain/providers/clock.provider';
 import { ReservationService } from './reservation.service';
 import { UpdateVehicleRequestSchema } from '@rocket-lease/contracts';
 import {
+  ActiveReservationsCountResponse,
+  ActiveReservationsCountRequestSchema,
+  BulkPriceUpdateRequest,
+  BulkPriceUpdateRequestSchema,
+  BulkPriceUpdateResponse,
+  Characteristic,
   CreateVehicleRequest,
   CreateVehicleResponse,
   CreateVehicleResponseSchema,
-  Characteristic,
   GetVehicleResponse,
   GetVehicleResponseSchema,
   UpdateVehicleRequest,
@@ -169,6 +174,32 @@ export class VehicleService {
     }
     await this.reservationService.cancelPendingByVehicle(vehicleId);
     await this.vehicleRepository.delete(vehicleId);
+  }
+
+  public async bulkUpdatePrices(
+    ownerId: string,
+    request: BulkPriceUpdateRequest,
+  ): Promise<BulkPriceUpdateResponse> {
+    const validated = BulkPriceUpdateRequestSchema.parse(request);
+    return this.vehicleRepository.bulkUpdatePrices(validated.vehicleIds, validated.operation, ownerId);
+  }
+
+  /**
+   * Devuelve el conteo de reservas en estado `confirmed` o `in_progress` por
+   * cada vehículo. Usado por el preview del ajuste masivo de precios para
+   * avisar al rentador cuántas reservas activas mantendrán el precio snapshot
+   * y por ende no se verán afectadas por el cambio.
+   *
+   * Lanza `BulkPriceVehicleNotOwnedException` (403) si alguno de los vehículos
+   * no pertenece al rentador autenticado.
+   */
+  public async getActiveReservationsCount(
+    ownerId: string,
+    vehicleIds: string[],
+  ): Promise<ActiveReservationsCountResponse> {
+    const { vehicleIds: validatedIds } = ActiveReservationsCountRequestSchema.parse({ vehicleIds });
+    const counts = await this.vehicleRepository.countActiveReservationsByVehicleIds(validatedIds, ownerId);
+    return { counts };
   }
 
   private async loadOwner(ownerId: string): Promise<VehicleOwner | undefined> {

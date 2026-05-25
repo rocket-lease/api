@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import {
-  BankAccountIdentifierSchema,
   BankAccountCbuSchema,
   type BankAccountInput,
 } from '@rocket-lease/contracts';
