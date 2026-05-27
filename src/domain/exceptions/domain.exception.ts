@@ -126,3 +126,23 @@ export class VehicleAlreadyHasPrivateRuleSetException extends DomainException {
     super(`vehicle ${vehicleId} already has a private reservation rule set`);
   }
 }
+
+/**
+ * Se buscó la verificación documental de un vehículo pero no existe.
+ * Mapea a 404 `VEHICLE_DOCUMENT_NOT_FOUND`.
+ */
+export class VehicleDocumentNotFoundException extends DomainException {
+  constructor(vehicleId: string) {
+    super(`vehicle document verification for vehicle ${vehicleId} not found`);
+  }
+}
+
+/**
+ * El vehículo ya tiene documentos subidos y está pendiente de verificación.
+ * Mapea a 409 `VEHICLE_DOCUMENTS_ALREADY_PENDING`.
+ */
+export class VehicleDocumentsAlreadyPendingException extends DomainException {
+  constructor(vehicleId: string) {
+    super(`vehicle ${vehicleId} already has documents pending verification`);
+  }
+}
