@@ -49,9 +49,14 @@ export class PaymentMethodController {
     @Headers('authorization') authorization: string | undefined,
     @Body() body: unknown,
   ) {
-    const userId = await this.resolveUserId(authorization);
-    const dto = CreateSavedPaymentMethodSchema.parse(body);
-    return this.paymentMethodService.createPaymentMethod(userId, dto);
+    try {
+      const userId = await this.resolveUserId(authorization);
+      const dto = CreateSavedPaymentMethodSchema.parse(body);
+      return await this.paymentMethodService.createPaymentMethod(userId, dto);
+    } catch (error) {
+      console.error('Error in createPaymentMethod:', error);
+      throw error;
+    }
   }
 
   @Patch(':id')

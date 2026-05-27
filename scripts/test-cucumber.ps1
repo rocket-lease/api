@@ -10,8 +10,12 @@ try {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
     $exitCode = 0
-    Write-Host "Aplicando migraciones..."
+    Write-Host "Aplicando migraciones..." -ForegroundColor Cyan
     pnpm exec prisma migrate deploy
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    Write-Host "Generando cliente Prisma..." -ForegroundColor Cyan
+    pnpm exec prisma generate
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
     Write-Host "Ejecutando tests Cucumber..."

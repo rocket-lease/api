@@ -24,6 +24,9 @@ docker compose -f docker-compose.test.yml up -d --wait || exit 1
 echo "Aplicando migraciones..."
 pnpm exec prisma migrate deploy || exit 1
 
+echo "Generando cliente Prisma..."
+pnpm exec prisma generate || exit 1
+
 echo "Ejecutando tests Cucumber..."
 # Bypass `pnpm exec` para no contaminarlo con `--import tsx`, que rompe el loader interno de pnpm.
 NODE_OPTIONS='--import tsx' ./node_modules/.bin/cucumber-js --tags "not @ignore" $EXTRA_ARGS
