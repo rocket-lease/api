@@ -29,14 +29,11 @@ model User {
   vehicles              Vehicle[]
   reservationRuleSets   ReservationRuleSet[]
   reservations          Reservation[] @relation("conductor_reservations")
-<<<<<<< feature/us-10-manage-payment-method
   paymentMethods        UserPaymentMethod[]
-=======
   messages              Message[]
   bankAccounts          BankAccount[]
   identityVerification  IdentityVerification?
   driverLicenseVerification DriverLicenseVerification?
->>>>>>> dev
 
   @@map("users")
 }
