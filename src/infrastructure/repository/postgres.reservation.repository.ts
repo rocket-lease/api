@@ -2,7 +2,6 @@ import { Injectable, Inject } from '@nestjs/common';
 import {
   Reservation,
   ReservationStatus,
-  PaymentMethod,
   RESERVATION_STATUS,
 } from '@/domain/entities/reservation.entity';
 import type {
