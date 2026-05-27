@@ -1,0 +1,1 @@
+-- Migration placeholder: fields applied in subsequent migrations (20260513033228, 20260521000000)

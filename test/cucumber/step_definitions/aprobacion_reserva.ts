@@ -2,7 +2,7 @@ import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from 'expect';
 import { api } from '../support/http-client';
 import { MyWorld } from '../support/world';
-import { registerAndLogin, useAlias } from './auth';
+import { registerAndLoginVerified, useAlias } from './auth';
 
 const RENTADOR_ALIAS = '__owner_us40__';
 const RENTADOR_AJENO_ALIAS = '__owner_us40_other__';
@@ -16,7 +16,7 @@ async function ensureRentadorWithVehicle(
     return world.world.vehicle_by_plate[plate];
   }
   if (!world.world.tokens_by_alias?.[RENTADOR_ALIAS]) {
-    await registerAndLogin(world, RENTADOR_ALIAS);
+    await registerAndLoginVerified(world, RENTADOR_ALIAS);
   }
   useAlias(world, RENTADOR_ALIAS);
   const res = await api(world).post('/vehicle', {
@@ -44,6 +44,22 @@ async function ensureRentadorWithVehicle(
   expect(res.status).toBe(201);
   if (!world.world.vehicle_by_plate) world.world.vehicle_by_plate = {};
   world.world.vehicle_by_plate[plate] = res.body.id;
+
+  const vehicleId = res.body.id;
+  const dummyBuffer = Buffer.from('/9j/4AAQ...', 'base64');
+  const docsResponse = await api(world).uploadFields(
+    `/vehicle/${vehicleId}/documents`,
+    [
+      { fieldName: 'title', buffer: dummyBuffer, filename: 'title.jpg' },
+      { fieldName: 'greenCard', buffer: dummyBuffer, filename: 'green-card.jpg' },
+    ],
+  );
+  expect(docsResponse.status).toBe(201);
+
+  world.clock.advanceMs(60_000);
+  const processResponse = await api(world).post('/vehicle/documents/process');
+  expect(processResponse.status).toBe(200);
+
   return res.body.id;
 }
 
@@ -70,7 +86,7 @@ async function createSolicitud(
   const vehicleId = world.world.vehicle_by_plate?.[plate];
   if (!vehicleId) throw new Error(`vehículo ${plate} no creado`);
   if (!world.world.tokens_by_alias?.[conductorAlias]) {
-    await registerAndLogin(world, conductorAlias);
+    await registerAndLoginVerified(world, conductorAlias);
   }
   useAlias(world, conductorAlias);
   const res = await api(world).post('/reservations', {
@@ -111,7 +127,7 @@ When(
     const vehicleId = this.world.vehicle_by_plate?.[plate];
     if (!vehicleId) throw new Error(`vehículo ${plate} no creado`);
     if (!this.world.tokens_by_alias?.[alias]) {
-      await registerAndLogin(this, alias);
+        await registerAndLoginVerified(this, alias);
     }
     useAlias(this, alias);
     const res = await api(this).post('/reservations', {
@@ -253,7 +269,7 @@ When(
   'un rentador ajeno intenta aprobar la solicitud',
   async function (this: MyWorld) {
     if (!this.world.tokens_by_alias?.[RENTADOR_AJENO_ALIAS]) {
-      await registerAndLogin(this, RENTADOR_AJENO_ALIAS);
+       await registerAndLoginVerified(this, RENTADOR_AJENO_ALIAS);
     }
     useAlias(this, RENTADOR_AJENO_ALIAS);
     const id = this.world.reservation_response.body.id;

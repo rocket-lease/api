@@ -3,7 +3,11 @@ import { PrismaService } from '../database/prisma.service';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { Injectable, Inject } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { Characteristic } from '@rocket-lease/contracts';
+import { BulkPriceOperation, BulkPriceUpdateResponse, Characteristic } from '@rocket-lease/contracts';
+import {
+  BulkPriceVehicleNotOwnedException,
+  BulkPriceResultInvalidException,
+} from '@/domain/exceptions/bulk-price.exception';
 import type { Prisma } from '@prisma/client';
 
 const VEHICLE_INCLUDE = {
@@ -60,6 +64,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
           trunkLiters: vehicle.getTrunkLiters(),
           transmission: vehicle.getTransmission() as any,
           isAccessible: vehicle.getIsAccessible(),
+          enabled: vehicle.isEnabled(),
           mileage: vehicle.getMileage(),
           color: vehicle.getColor(),
           basePriceCents: vehicle.getBasePriceCents(),
@@ -186,6 +191,70 @@ export class PostgresVehicleRepository implements VehicleRepository {
     }
 
     return and;
+  }
+
+  async bulkUpdatePrices(vehicleIds: string[], operation: BulkPriceOperation, ownerId: string): Promise<BulkPriceUpdateResponse> {
+    const vehicles = await this.prisma.vehicle.findMany({
+      where: { id: { in: vehicleIds }, ownerId },
+      select: { id: true, basePriceCents: true },
+    });
+
+    if (vehicles.length !== vehicleIds.length) {
+      throw new BulkPriceVehicleNotOwnedException();
+    }
+
+    const updates = vehicles.map((v) => {
+      const newPriceCents =
+        operation.type === 'SET'
+          ? operation.valueCents
+          : Math.round(v.basePriceCents * (1 + operation.delta / 100));
+
+      if (newPriceCents <= 0) {
+        throw new BulkPriceResultInvalidException(v.id);
+      }
+
+      return { id: v.id, previousPriceCents: v.basePriceCents, newPriceCents };
+    });
+
+    await this.prisma.$transaction(
+      updates.map((u) =>
+        this.prisma.vehicle.update({
+          where: { id: u.id },
+          data: { basePriceCents: u.newPriceCents },
+        }),
+      ),
+    );
+
+    return { updated: updates };
+  }
+
+  async countActiveReservationsByVehicleIds(vehicleIds: string[], ownerId: string): Promise<Record<string, number>> {
+    const ownedCount = await this.prisma.vehicle.count({
+      where: { id: { in: vehicleIds }, ownerId },
+    });
+
+    if (ownedCount !== vehicleIds.length) {
+      throw new BulkPriceVehicleNotOwnedException();
+    }
+
+    const rows = await this.prisma.reservation.groupBy({
+      by: ['vehicleId'],
+      where: {
+        vehicleId: { in: vehicleIds },
+        status: { in: ['confirmed', 'in_progress'] },
+      },
+      _count: { _all: true },
+    });
+
+    const counts: Record<string, number> = Object.fromEntries(
+      vehicleIds.map((id) => [id, 0]),
+    );
+
+    for (const r of rows) {
+      counts[r.vehicleId] = r._count._all;
+    }
+
+    return counts;
   }
 
   async delete(id: string): Promise<void> {

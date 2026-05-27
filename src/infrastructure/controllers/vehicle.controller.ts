@@ -4,6 +4,8 @@ import {
   BadRequestException,
   Body,
   Controller,
+  HttpCode,
+  HttpStatus,
   Post,
   Get,
   Req,
@@ -50,6 +52,7 @@ export class VehicleController {
     @Query('city') city?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('promoted') promoted?: string,
   ): Promise<Array<Contracts.GetVehicleResponse>> {
     if (ownerId !== undefined) {
       const parsed = z.string().uuid().safeParse(ownerId);
@@ -83,11 +86,29 @@ export class VehicleController {
 
     const filter = { city: city?.trim() || undefined, from, to };
     const unique = Array.from(new Set(parsedList));
+
+    if (promoted === 'true') {
+      return await this.vehicleService.getAllPromoted(filter);
+    }
+
     if (unique.length > 0) {
       return await this.vehicleService.getByCharacteristics(unique, filter);
     }
 
     return await this.vehicleService.getAll(filter);
+  }
+
+  @Get('active-reservations-count')
+  async activeReservationsCount(
+    @Req() req: Request,
+    @Query('vehicleIds') vehicleIdsParam?: string,
+  ): Promise<Contracts.ActiveReservationsCountResponse> {
+    const ownerId = await this.resolveUserId(req);
+    const vehicleIds = (vehicleIdsParam ?? '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter((id) => id.length > 0);
+    return this.vehicleService.getActiveReservationsCount(ownerId, vehicleIds);
   }
 
   @Get(':id')
@@ -97,13 +118,24 @@ export class VehicleController {
     return await this.vehicleService.getById(id);
   }
 
-  @Delete(':id')
-  async deleteVehicle(
-    @Param('id') id: string,
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  async publishVehicle(
+    @Body() dto: Contracts.CreateVehicleRequest,
     @Req() req: Request,
-  ): Promise<void> {
+  ): Promise<Contracts.CreateVehicleResponse> {
     const ownerId = await this.resolveUserId(req);
-    await this.vehicleService.deleteVehicle(id, ownerId);
+    const parsed = Contracts.CreateVehicleRequestSchema.parse(dto);
+    return await this.vehicleService.createVehicle(ownerId, parsed);
+  }
+
+  @Patch('bulk-prices')
+  async bulkUpdatePrices(
+    @Req() req: Request,
+    @Body() body: Contracts.BulkPriceUpdateRequest,
+  ): Promise<Contracts.BulkPriceUpdateResponse> {
+    const ownerId = await this.resolveUserId(req);
+    return this.vehicleService.bulkUpdatePrices(ownerId, body);
   }
 
   @Patch(':id')
@@ -116,12 +148,12 @@ export class VehicleController {
     return await this.vehicleService.updateVehicle(id, ownerId, dto);
   }
 
-  @Post()
-  async publishVehicle(
-    @Body() dto: Contracts.CreateVehicleRequest,
+  @Delete(':id')
+  async deleteVehicle(
+    @Param('id') id: string,
     @Req() req: Request,
-  ): Promise<Contracts.CreateVehicleResponse> {
+  ): Promise<void> {
     const ownerId = await this.resolveUserId(req);
-    return await this.vehicleService.createVehicle(ownerId, dto);
+    await this.vehicleService.deleteVehicle(id, ownerId);
   }
 }

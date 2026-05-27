@@ -18,6 +18,7 @@ export interface UserProfile {
   verificationStatus: VerificationStatus;
   level: UserLevel;
   reputationScore: number;
+  balanceInCents: number;
   preferences: VehiclePreferences;
   autoAccept: boolean;
 }
@@ -42,6 +43,7 @@ export interface UserRepository {
   findProfilesByIds(ids: string[]): Promise<UserProfile[]>;
   updateProfile(id: string, profile: UpdateUserProfile): Promise<UserProfile>;
   updateAvatar(id: string, avatarUrl: string): Promise<UserProfile>;
+  creditBalance(id: string, amountInCents: number): Promise<UserProfile>;
   deleteById(id: string): Promise<void>;
   markPhoneVerified(id: string, verifiedAt: Date): Promise<void>;
   isPhoneVerified(id: string): Promise<boolean>;

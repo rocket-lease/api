@@ -6,9 +6,14 @@ import { FavoriteModule } from './favorite.module';
 import { ProfileModule } from './profile.module';
 import { VerificationModule } from './verification.module';
 import { ReservationRuleSetModule } from './reservation-rule-set.module';
+import { VehicleDocumentModule } from './vehicle-document.module';
 import { ReservationModule } from './reservation.module';
 import { UploadsModule } from './uploads.module';
 import { GeoModule } from './geo.module';
+import { MessagingModule } from './messaging.module';
+import { BankAccountModule } from './bank-account.module';
+import { PromotionModule } from './promotion.module';
+import { IdentityModule } from './identity.module';
 
 @Module({
   imports: [
@@ -17,11 +22,16 @@ import { GeoModule } from './geo.module';
     AuthModule,
     FavoriteModule,
     ProfileModule,
+    IdentityModule,
     VerificationModule,
     ReservationRuleSetModule,
     ReservationModule,
     UploadsModule,
     GeoModule,
+    MessagingModule,
+    BankAccountModule,
+    PromotionModule,
+    VehicleDocumentModule,
   ],
 })
 export class AppModule {}

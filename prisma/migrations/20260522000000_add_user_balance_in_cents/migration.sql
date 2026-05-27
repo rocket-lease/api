@@ -1,0 +1,2 @@
+ALTER TABLE "users"
+ADD COLUMN "balance_in_cents" INTEGER NOT NULL DEFAULT 0;

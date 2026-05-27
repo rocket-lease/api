@@ -49,5 +49,28 @@ export function api(world: MyWorld) {
     return response;
   };
 
+  proxy['uploadFields'] = async (
+    url: string,
+    files: Array<{ fieldName: string; buffer: Buffer; filename: string }>,
+  ) => {
+    let req = request(server).post(url);
+    if (world.world.access_token) {
+      req = req.set('Authorization', `Bearer ${world.world.access_token}`);
+    }
+    for (const file of files) {
+      req = req.attach(file.fieldName, file.buffer, file.filename);
+    }
+    const response = await req;
+    world.world.lastResponse = response;
+    world.log(
+      JSON.stringify(
+        { method: 'uploadFields', url, status: response.status, body: response.body },
+        null,
+        2,
+      ),
+    );
+    return response;
+  };
+
   return proxy;
 }

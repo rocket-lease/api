@@ -2,9 +2,13 @@ import { Injectable, Inject } from '@nestjs/common';
 import {
   Reservation,
   ReservationStatus,
-  PaymentMethod,
   RESERVATION_STATUS,
 } from '@/domain/entities/reservation.entity';
+import type {
+  CancellationPolicy,
+  MaxKilometrage,
+  RentalTimeConstraints,
+} from '@rocket-lease/contracts';
 import {
   ReservationRepository,
   ReservationListFilters,
@@ -24,7 +28,7 @@ type Row = {
   holdExpiresAt: Date | null;
   totalCents: number;
   currency: string;
-  paymentMethod: PaymentMethod | null;
+  paymentMethod: any;
   walletProvider: string | null;
   contractAcceptedAt: Date | null;
   paidAt: Date | null;
@@ -36,6 +40,13 @@ type Row = {
   transferExpiresAt: Date | null;
   transferCode: string | null;
   transferAlias: string | null;
+  depositPercentageSnapshot: number | null;
+  basePriceCentsSnapshot: number;
+  cancellationPolicySnapshot: string;
+  maxKilometrageTypeSnapshot: string;
+  maxKilometrageValueSnapshot: number | null;
+  minRentalDaysSnapshot: number;
+  maxRentalDaysSnapshot: number | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -236,12 +247,35 @@ export class PostgresReservationRepository implements ReservationRepository {
       transferExpiresAt: r.getTransferExpiresAt(),
       transferCode: r.getTransferCode() ?? null,
       transferAlias: r.getTransferAlias() ?? null,
+      depositPercentageSnapshot: r.getDepositPercentageSnapshot(),
+      basePriceCentsSnapshot: r.getBasePriceCentsSnapshot(),
+      cancellationPolicySnapshot: r.getCancellationPolicySnapshot(),
+      maxKilometrageTypeSnapshot: r.getMaxKilometrageSnapshot().type,
+      maxKilometrageValueSnapshot:
+        r.getMaxKilometrageSnapshot().type === 'LIMITED'
+          ? (r.getMaxKilometrageSnapshot() as { type: 'LIMITED'; value: number }).value
+          : null,
+      minRentalDaysSnapshot:
+        r.getRentalTimeConstraintsSnapshot().minDays ?? 1,
+      maxRentalDaysSnapshot:
+        r.getRentalTimeConstraintsSnapshot().maxDays ?? null,
       createdAt: r.getCreatedAt(),
       updatedAt: r.getUpdatedAt(),
     };
   }
 
   private toEntity(row: Row): Reservation {
+    const maxKilometrage =
+      row.maxKilometrageTypeSnapshot === 'LIMITED'
+        ? ({
+            type: 'LIMITED',
+            value: row.maxKilometrageValueSnapshot ?? 0,
+          } as MaxKilometrage)
+        : ({ type: 'UNLIMITED' } as MaxKilometrage);
+    const rentalTimeConstraints: RentalTimeConstraints = {
+      minDays: row.minRentalDaysSnapshot,
+      maxDays: row.maxRentalDaysSnapshot ?? undefined,
+    };
     return new Reservation({
       id: row.id,
       vehicleId: row.vehicleId,
@@ -265,6 +299,11 @@ export class PostgresReservationRepository implements ReservationRepository {
       transferExpiresAt: row.transferExpiresAt,
       transferCode: row.transferCode,
       transferAlias: row.transferAlias,
+      depositPercentageSnapshot: row.depositPercentageSnapshot,
+      basePriceCentsSnapshot: row.basePriceCentsSnapshot,
+      cancellationPolicySnapshot: row.cancellationPolicySnapshot as CancellationPolicy,
+      maxKilometrageSnapshot: maxKilometrage,
+      rentalTimeConstraintsSnapshot: rentalTimeConstraints,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });

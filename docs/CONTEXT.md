@@ -30,6 +30,7 @@ Marketplace mobile-first de alquiler de vehículos que conecta **rentadoras** co
 | **Tarifas escalonadas por duración** | `tieredPricing` | Precio que escala por días/horas (ej: 1 día = $X, 7 días = $X × 6.5, 30 días = $X × 25). Definido por rentador o por sistema. |
 | **Edición masiva de precios** | `bulkPriceUpdate` | Operación del rentador que aplica cambios de precio a múltiples vehículos a la vez (por categoría, temporada, etc.). |
 | **Promocionar** / **Destacar** vehículo | `promote` | Acción del rentador para que un vehículo aparezca en posición destacada en búsqueda. Posiblemente con costo. |
+| **Cuenta bancaria** | `BankAccount` | Cuenta bancaria vinculada al rentador para cobrar alquileres. Se guarda separada del usuario para soportar múltiples cuentas, activación/inactivación y verificación futura. |
 | **Cancelación con reembolso/penalización** | `cancellation` | Cancelación de reserva. Política depende del set de reglas del vehículo + tiempo restante hasta el retiro. |
 | **Disputa** / **Ticket de disputa** | `Dispute` | Conflicto entre conductor y rentador (daños, devolución tardía, cargos extras). Pasa por un flujo de resolución con soporte. |
 | **Reporte de mal cliente** | `BadActorReport` | Rentador reporta un conductor con conducta problemática. Puede afectar reputación del conductor. |
