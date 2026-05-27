@@ -76,6 +76,20 @@ Given(
       expect(createRes.status).toBe(201);
 
       const vehicleId = createRes.body.id;
+
+      const dummyBuffer = Buffer.from('/9j/4AAQ...', 'base64');
+      const docsRes = await api(this).uploadFields(
+        `/vehicle/${vehicleId}/documents`,
+        [
+          { fieldName: 'title', buffer: dummyBuffer, filename: 'title.jpg' },
+          { fieldName: 'greenCard', buffer: dummyBuffer, filename: 'green-card.jpg' },
+        ],
+      );
+      expect(docsRes.status).toBe(201);
+
+      this.clock.advanceMs(60_000);
+      const processRes = await api(this).post('/vehicle/documents/process');
+      expect(processRes.status).toBe(200);
       const updateRes = await api(this).patch(`/vehicle/${vehicleId}`, {
         characteristics,
       });

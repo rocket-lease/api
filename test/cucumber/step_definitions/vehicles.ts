@@ -82,11 +82,22 @@ Given('el vehículo ya está publicado', async function (this: MyWorld) {
   }
   this.world.vehicle_by_plate[this.world.create_vehicle_dto.plate] =
     this.world.create_vehicle_response.body.id;
-  console.log(
-    'Create vehicle response: ',
-    this.world.create_vehicle_response.body,
-  );
   expect(this.world.create_vehicle_response.status).toBe(201);
+
+  const vehicleId = this.world.create_vehicle_response.body.id;
+  const dummyBuffer = Buffer.from('/9j/4AAQ...', 'base64');
+  const docsResponse = await api(this).uploadFields(
+    `/vehicle/${vehicleId}/documents`,
+    [
+      { fieldName: 'title', buffer: dummyBuffer, filename: 'title.jpg' },
+      { fieldName: 'greenCard', buffer: dummyBuffer, filename: 'green-card.jpg' },
+    ],
+  );
+  expect(docsResponse.status).toBe(201);
+
+  this.clock.advanceMs(60_000);
+  const processResponse = await api(this).post('/vehicle/documents/process');
+  expect(processResponse.status).toBe(200);
 });
 
 
@@ -107,6 +118,21 @@ Given(
     this.world.vehicle_by_plate[this.world.create_vehicle_dto.plate] =
       this.world.create_vehicle_response.body.id;
     expect(this.world.create_vehicle_response.status).toBe(201);
+
+    const vehicleId = this.world.create_vehicle_response.body.id;
+    const dummyBuffer = Buffer.from('/9j/4AAQ...', 'base64');
+    const docsResponse = await api(this).uploadFields(
+      `/vehicle/${vehicleId}/documents`,
+      [
+        { fieldName: 'title', buffer: dummyBuffer, filename: 'title.jpg' },
+        { fieldName: 'greenCard', buffer: dummyBuffer, filename: 'green-card.jpg' },
+      ],
+    );
+    expect(docsResponse.status).toBe(201);
+
+    this.clock.advanceMs(60_000);
+    const processResponse = await api(this).post('/vehicle/documents/process');
+    expect(processResponse.status).toBe(200);
   },
 );
 

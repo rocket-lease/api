@@ -154,7 +154,7 @@ Then(
 );
 
 Then(
-  'el vehículo pasa a estado {string}',
+  /^el vehículo pasa a estado "(promocionado|no promocionado)"$/,
   async function (this: MyWorld, expectedStatus: string) {
     const vehicleId = getVehicleId(this);
 
@@ -198,6 +198,21 @@ Then(
       longitude: -58.0,
     });
     expect(otherRes.status).toBe(201);
+
+    const otherVehicleId = otherRes.body.id;
+    const dummyBuffer = Buffer.from('/9j/4AAQ...', 'base64');
+    const docsRes = await api(this).uploadFields(
+      `/vehicle/${otherVehicleId}/documents`,
+      [
+        { fieldName: 'title', buffer: dummyBuffer, filename: 'title.jpg' },
+        { fieldName: 'greenCard', buffer: dummyBuffer, filename: 'green-card.jpg' },
+      ],
+    );
+    expect(docsRes.status).toBe(201);
+
+    this.clock.advanceMs(60_000);
+    const processRes = await api(this).post('/vehicle/documents/process');
+    expect(processRes.status).toBe(200);
 
     const res = await api(this).get('/vehicle?promoted=true');
     expect(res.status).toBe(200);
