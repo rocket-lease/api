@@ -54,6 +54,8 @@ interface GlobalContext {
   verification_response?: any;
   identity_verified_by_alias?: Record<string, boolean>;
   driver_license_verified_by_alias?: Record<string, boolean>;
+  payment_method_response?: any;
+  payment_method_id?: string;
 }
 
 export interface MyWorld extends World {
