@@ -64,6 +64,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
           trunkLiters: vehicle.getTrunkLiters(),
           transmission: vehicle.getTransmission() as any,
           isAccessible: vehicle.getIsAccessible(),
+          enabled: vehicle.isEnabled(),
           mileage: vehicle.getMileage(),
           color: vehicle.getColor(),
           basePriceCents: vehicle.getBasePriceCents(),

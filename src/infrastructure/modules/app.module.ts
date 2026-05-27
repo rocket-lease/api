@@ -6,6 +6,7 @@ import { FavoriteModule } from './favorite.module';
 import { ProfileModule } from './profile.module';
 import { VerificationModule } from './verification.module';
 import { ReservationRuleSetModule } from './reservation-rule-set.module';
+import { VehicleDocumentModule } from './vehicle-document.module';
 import { ReservationModule } from './reservation.module';
 import { UploadsModule } from './uploads.module';
 import { GeoModule } from './geo.module';
@@ -30,6 +31,7 @@ import { IdentityModule } from './identity.module';
     MessagingModule,
     BankAccountModule,
     PromotionModule,
+    VehicleDocumentModule,
   ],
 })
 export class AppModule {}
