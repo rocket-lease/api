@@ -232,8 +232,8 @@ describe('ReservationService', () => {
       notificationProvider,
       paymentGateway,
       emailProvider,
-      identityService as unknown as IdentityService,
-      driverLicenseService as unknown as DriverLicenseService,
+      identityService,
+      driverLicenseService,
     );
   });
 
@@ -286,8 +286,8 @@ describe('ReservationService', () => {
       notificationProvider,
       paymentGateway,
       emailProvider,
-      identityService as unknown as IdentityService,
-      driverLicenseService as unknown as DriverLicenseService,
+      identityService,
+      driverLicenseService,
     );
     await expect(
       service.createReservation(conductorA, {
@@ -312,8 +312,8 @@ describe('ReservationService', () => {
       notificationProvider,
       paymentGateway,
       emailProvider,
-      identityService as unknown as IdentityService,
-      driverLicenseService as unknown as DriverLicenseService,
+      identityService,
+      driverLicenseService,
     );
     await expect(
       service.createReservation(conductorA, {
