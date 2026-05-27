@@ -198,34 +198,36 @@ export class Vehicle {
   }
 
    
-  public update(data: any): void {
-    if (data.mileage !== undefined) this.updateMileage(data.mileage);
+  public update(data: Record<string, unknown>): void {
+    if (data.mileage !== undefined) this.updateMileage(data.mileage as number);
     
-    if (data.photos) this.photos = data.photos;
+    if (data.photos) this.photos = data.photos as string[];
     if (data.reservationRuleSetId !== undefined) {
-      this.reservationRuleSetId = data.reservationRuleSetId;
+      this.reservationRuleSetId = data.reservationRuleSetId as string | null;
     }
     
     if (data.characteristics) {
-      this.characteristics = Array.from(new Set(data.characteristics));
+      this.characteristics = Array.from(
+        new Set(data.characteristics as Vehicle['characteristics']),
+      );
     }
-    if (data.color) this.color = data.color;
-    if (data.basePriceCents) this.basePriceCents = data.basePriceCents;
-    if (data.description !== undefined) this.description = data.description;
-    if (data.isAccessible !== undefined) this.isAccessible = data.isAccessible;
-    if (data.enabled !== undefined) this.enabled = data.enabled;
-    if (data.province !== undefined) this.province = data.province;
-    if (data.city !== undefined) this.city = data.city;
-    if (data.address !== undefined) this.address = data.address;
+    if (data.color) this.color = data.color as string;
+    if (data.basePriceCents) this.basePriceCents = data.basePriceCents as number;
+    if (data.description !== undefined) this.description = data.description as string | null;
+    if (data.isAccessible !== undefined) this.isAccessible = data.isAccessible as boolean;
+    if (data.enabled !== undefined) this.enabled = data.enabled as boolean;
+    if (data.province !== undefined) this.province = data.province as string;
+    if (data.city !== undefined) this.city = data.city as string;
+    if (data.address !== undefined) this.address = data.address as string | null;
     // Si el rentador fija coordenadas, deja de ser una ubicación aproximada.
     if (data.latitude !== undefined && data.longitude !== undefined) {
-      this.latitude = data.latitude;
-      this.longitude = data.longitude;
+      this.latitude = data.latitude as number;
+      this.longitude = data.longitude as number;
       this.locationApproximate = false;
     }
     if (data.availableFrom !== undefined)
-      this.availableFrom = data.availableFrom;
-    if (data.autoAccept !== undefined) this.autoAccept = data.autoAccept;
+      this.availableFrom = data.availableFrom as string;
+    if (data.autoAccept !== undefined) this.autoAccept = data.autoAccept as boolean | null;
     this.validate();
   }
 
