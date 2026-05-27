@@ -53,6 +53,7 @@ interface GlobalContext {
   voucher_token?: string;
   verification_response?: any;
   identity_verified_by_alias?: Record<string, boolean>;
+  driver_license_verified_by_alias?: Record<string, boolean>;
 }
 
 export interface MyWorld extends World {
@@ -64,7 +65,7 @@ export interface MyWorld extends World {
 }
 
 class CustomWorld extends World implements MyWorld {
-  app: INestApplication;
+  app: INestApplication = undefined as unknown as INestApplication;
   world: any;
   clock: FakeClock;
 
