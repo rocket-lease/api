@@ -197,12 +197,15 @@ export class Vehicle {
     return this.ownerId === userId;
   }
 
+   
   public update(data: any): void {
     if (data.mileage !== undefined) this.updateMileage(data.mileage);
+    
     if (data.photos) this.photos = data.photos;
     if (data.reservationRuleSetId !== undefined) {
       this.reservationRuleSetId = data.reservationRuleSetId;
     }
+    
     if (data.characteristics) {
       this.characteristics = Array.from(new Set(data.characteristics));
     }

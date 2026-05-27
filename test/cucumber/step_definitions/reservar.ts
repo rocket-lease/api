@@ -2,7 +2,7 @@ import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from 'expect';
 import { api } from '../support/http-client';
 import { MyWorld } from '../support/world';
-import { registerAndLogin, useAlias } from './auth';
+import { registerAndLoginVerified, useAlias } from './auth';
 
 function getReservationId(world: MyWorld, alias: string): string {
   const id = world.world.reservations_by_alias?.[alias];
@@ -26,7 +26,7 @@ async function ensureVehiclePublished(
   if (world.world.vehicle_by_plate?.[plate]) {
     return world.world.vehicle_by_plate[plate];
   }
-  await registerAndLogin(world, '__owner__');
+  await registerAndLoginVerified(world, '__owner__');
   useAlias(world, '__owner__');
   const res = await api(world).post('/vehicle', {
     plate,
@@ -131,7 +131,7 @@ Given(
     endAt: string,
   ) {
     if (!this.world.tokens_by_alias?.[alias]) {
-      await registerAndLogin(this, alias);
+      await registerAndLoginVerified(this, alias);
     }
     useAlias(this, alias);
     const vehicleId = this.world.vehicle_by_plate?.[plate];
@@ -158,7 +158,7 @@ When(
     endAt: string,
   ) {
     if (!this.world.tokens_by_alias?.[alias]) {
-      await registerAndLogin(this, alias);
+      await registerAndLoginVerified(this, alias);
     }
     useAlias(this, alias);
     const vehicleId = this.world.vehicle_by_plate?.[plate];
@@ -230,7 +230,7 @@ Then(
     endAt: string,
   ) {
     if (!this.world.tokens_by_alias?.[alias]) {
-      await registerAndLogin(this, alias);
+      await registerAndLoginVerified(this, alias);
     }
     useAlias(this, alias);
     const vehicleId = this.world.vehicle_by_plate?.[plate];

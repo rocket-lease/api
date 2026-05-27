@@ -1,14 +1,26 @@
 import {
+  DepositPercentageOutOfRangeException,
   EmailNotVerifiedException,
   EmailUnverifiedPendingException,
+  BankAccountRequiredException,
   EntityAlreadyExistsException,
   EntityNotFoundException,
   FavoriteAlreadyExistsException,
   FavoriteNotFoundException,
   InvalidEntityDataException,
+  IdentityVerificationRequiredException,
+  DriverLicenseVerificationRequiredException,
+  RuleSetNotFoundForOwnerException,
+  RuleSetPrivateCannotBeSharedException,
+  RuleSetVehicleIdImmutableException,
+  VehicleAlreadyHasPrivateRuleSetException,
   UserHasActiveReservationsException,
   UserHasVehiclesException,
 } from '@/domain/exceptions/domain.exception';
+import {
+  BulkPriceVehicleNotOwnedException,
+  BulkPriceResultInvalidException,
+} from '@/domain/exceptions/bulk-price.exception';
 import {
   ContractNotAcceptedException,
   HoldExpiredException,
@@ -26,6 +38,7 @@ import {
   InvalidMapBoundsException,
   VehicleLocationRequiredException,
 } from '@/domain/exceptions/geo.exception';
+import { ChatNotAllowedException } from '@/domain/exceptions/messaging.exception';
 import {
   ExceptionFilter,
   Catch,
@@ -51,6 +64,15 @@ function isZodError(error: Error): error is Error & { issues: ZodIssue[] } {
   );
 }
 
+function prefixValidationError(message: string): string {
+  const normalized = message.trim();
+  if (/^validation error:/i.test(normalized)) {
+    return normalized;
+  }
+
+  return `Validation error: ${normalized}`;
+}
+
 @Catch(Error)
 export class DomainExceptionFilter implements ExceptionFilter {
   catch(exception: Error, host: ArgumentsHost) {
@@ -62,7 +84,6 @@ export class DomainExceptionFilter implements ExceptionFilter {
     let code: ErrorCode = ErrorCodes.INTERNAL_ERROR;
     let title = 'Internal Server Error';
     let message = exception.message;
-    // let code: string | undefined;
 
     if (exception instanceof UserHasActiveReservationsException) {
       status = HttpStatus.CONFLICT;
@@ -72,6 +93,18 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.CONFLICT;
       code = ErrorCodes.EMAIL_UNVERIFIED_PENDING;
       title = 'Conflict';
+    } else if (exception instanceof BankAccountRequiredException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.BANK_ACCOUNT_REQUIRED;
+      title = 'Forbidden';
+    } else if (exception instanceof IdentityVerificationRequiredException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.IDENTITY_VERIFICATION_REQUIRED;
+      title = 'Forbidden';
+    } else if (exception instanceof DriverLicenseVerificationRequiredException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.DRIVER_LICENSE_VERIFICATION_REQUIRED;
+      title = 'Forbidden';
     } else if (exception instanceof UserHasVehiclesException) {
       status = HttpStatus.CONFLICT;
       code = ErrorCodes.USER_HAS_VEHICLES;
@@ -123,6 +156,34 @@ export class DomainExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof InvalidQrTokenException) {
       status = HttpStatus.NOT_FOUND;
       code = ErrorCodes.RESERVATION_INVALID_QR_TOKEN;
+    } else if (exception instanceof DepositPercentageOutOfRangeException) {
+      status = HttpStatus.BAD_REQUEST;
+      code = ErrorCodes.DEPOSIT_PERCENTAGE_OUT_OF_RANGE;
+      title = 'Bad Request';
+    } else if (exception instanceof RuleSetVehicleIdImmutableException) {
+      status = HttpStatus.BAD_REQUEST;
+      code = ErrorCodes.RULESET_VEHICLE_ID_IMMUTABLE;
+      title = 'Bad Request';
+    } else if (exception instanceof RuleSetPrivateCannotBeSharedException) {
+      status = HttpStatus.BAD_REQUEST;
+      code = ErrorCodes.RULESET_PRIVATE_CANNOT_BE_SHARED;
+      title = 'Bad Request';
+    } else if (exception instanceof RuleSetNotFoundForOwnerException) {
+      status = HttpStatus.NOT_FOUND;
+      code = ErrorCodes.RULESET_NOT_FOUND_FOR_OWNER;
+      title = 'Not Found';
+    } else if (exception instanceof VehicleAlreadyHasPrivateRuleSetException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.VEHICLE_ALREADY_HAS_PRIVATE_RULESET;
+      title = 'Conflict';
+    } else if (exception instanceof BulkPriceVehicleNotOwnedException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.BULK_PRICE_VEHICLE_NOT_OWNED;
+      title = 'Forbidden';
+    } else if (exception instanceof BulkPriceResultInvalidException) {
+      status = HttpStatus.BAD_REQUEST;
+      code = ErrorCodes.BULK_PRICE_RESULT_INVALID;
+      title = 'Bad Request';
     } else if (exception instanceof EmailNotVerifiedException) {
       status = HttpStatus.FORBIDDEN;
       code = ErrorCodes.FORBIDDEN;
@@ -135,6 +196,10 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.INVALID_MAP_BOUNDS;
       title = 'Bad Request';
+    } else if (exception instanceof ChatNotAllowedException) {
+      status = HttpStatus.UNPROCESSABLE_ENTITY;
+      code = ErrorCodes.CHAT_NOT_ALLOWED;
+      title = 'Unprocessable Entity';
     } else if (exception instanceof InvalidEntityDataException) {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.INVALID_ENTITY_DATA;
@@ -143,7 +208,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.INVALID_ENTITY_DATA;
       title = 'Bad Request';
-      message = exception.issues.map((i) => i.message).join('; ');
+      message = prefixValidationError(exception.issues.map((i) => i.message).join('; '));
     } else if (exception instanceof UnauthorizedException) {
       status = HttpStatus.UNAUTHORIZED;
       code = ErrorCodes.UNAUTHORIZED;
@@ -164,6 +229,10 @@ export class DomainExceptionFilter implements ExceptionFilter {
       if (status === HttpStatus.UNAUTHORIZED) code = ErrorCodes.UNAUTHORIZED;
       if (status === HttpStatus.FORBIDDEN) code = ErrorCodes.FORBIDDEN;
       title = HttpStatus[status] ?? 'Error';
+    }
+
+    if (status === HttpStatus.BAD_REQUEST) {
+      message = prefixValidationError(message);
     }
 
     const problem = ProblemDetailsSchema.parse({

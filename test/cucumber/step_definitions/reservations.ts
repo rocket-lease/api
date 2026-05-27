@@ -4,6 +4,7 @@ import { MyWorld } from '../support/world';
 import { api } from '../support/http-client';
 import { ReservationService } from '@/application/reservation.service';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
+import { registerAndLoginVerified } from './auth';
 
 interface PreMadeReservation {
   alias: string;
@@ -25,20 +26,7 @@ function mapReservationRow(rawData: any): PreMadeReservation {
 
 async function registerConductor(world: MyWorld, alias: string): Promise<void> {
   if (world.world.tokens_by_alias?.[alias]) return;
-  const email = `cancel-${alias}-${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2)}@example.com`;
-  const password = 'Passw0rd!';
-  await api(world).post('/auth/register', {
-    name: `Conductor ${alias}`,
-    email,
-    dni: '12345678',
-    phone: '1123456789',
-    password,
-  });
-  const loginRes = await api(world).post('/auth/login', { email, password });
-  if (!world.world.tokens_by_alias) world.world.tokens_by_alias = {};
-  world.world.tokens_by_alias[alias] = loginRes.body.access_token;
+  await registerAndLoginVerified(world, alias);
 }
 
 Given(

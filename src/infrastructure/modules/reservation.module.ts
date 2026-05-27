@@ -29,9 +29,11 @@ import { EMAIL_PROVIDER } from '@/domain/providers/email.provider';
 import { StubEmailProvider } from '@/infrastructure/providers/stub.email.provider';
 import { ResendEmailProvider } from '@/infrastructure/providers/resend.email.provider';
 import { SmtpEmailProvider } from '@/infrastructure/providers/smtp.email.provider';
+import { IdentityModule } from './identity.module';
+import { DriverLicenseModule } from './driver-license.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, IdentityModule, DriverLicenseModule],
   controllers: [ReservationController],
   providers: [
     ReservationService,
