@@ -126,6 +126,7 @@ describe('VehicleService', () => {
 
     const clockMock = { now: jest.fn().mockReturnValue(new Date()) };
 
+    const vehicleDocumentRepoMock = { save: jest.fn(), findByVehicleId: jest.fn() };
     service = new VehicleService(
       repositoryMock,
       userRepoMock,
@@ -134,6 +135,7 @@ describe('VehicleService', () => {
       reservationServiceMock,
       reservationRuleSetServiceMock as unknown as ReservationRuleSetService,
       identityServiceMock as unknown as IdentityService,
+      vehicleDocumentRepoMock as any,
     );
   });
 

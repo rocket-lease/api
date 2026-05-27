@@ -6,6 +6,8 @@ import { CLOCK, SystemClock } from '@/domain/providers/clock.provider';
 import { VehicleService } from '@/application/vehicle.service';
 import { PostgresVehicleRepository } from '../repository/postgres.vehicle.repository';
 import { PrismaPromotionRepository } from '../repository/prisma.promotion.repository';
+import { PostgresVehicleDocumentRepository } from '../repository/postgres.vehicle-document.repository';
+import { VEHICLE_DOCUMENT_REPOSITORY } from '@/domain/repositories/vehicle-document.repository';
 import { AuthModule } from './auth.module';
 import { ReservationRuleSetModule } from './reservation-rule-set.module';
 import { ReservationModule } from './reservation.module';
@@ -29,7 +31,11 @@ import { IdentityModule } from './identity.module';
       provide: CLOCK,
       useClass: SystemClock,
     },
+    {
+      provide: VEHICLE_DOCUMENT_REPOSITORY,
+      useClass: PostgresVehicleDocumentRepository,
+    },
   ],
-  exports: [VehicleService],
+  exports: [VehicleService, VEHICLE_REPOSITORY, VEHICLE_DOCUMENT_REPOSITORY],
 })
 export class VehicleModule {}

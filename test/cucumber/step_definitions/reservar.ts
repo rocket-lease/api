@@ -53,6 +53,22 @@ async function ensureVehiclePublished(
   expect(res.status).toBe(201);
   if (!world.world.vehicle_by_plate) world.world.vehicle_by_plate = {};
   world.world.vehicle_by_plate[plate] = res.body.id;
+
+  const vehicleId = res.body.id;
+  const dummyBuffer = Buffer.from('/9j/4AAQ...', 'base64');
+  const docsResponse = await api(world).uploadFields(
+    `/vehicle/${vehicleId}/documents`,
+    [
+      { fieldName: 'title', buffer: dummyBuffer, filename: 'title.jpg' },
+      { fieldName: 'greenCard', buffer: dummyBuffer, filename: 'green-card.jpg' },
+    ],
+  );
+  expect(docsResponse.status).toBe(201);
+
+  world.clock.advanceMs(60_000);
+  const processResponse = await api(world).post('/vehicle/documents/process');
+  expect(processResponse.status).toBe(200);
+
   world.world.access_token = undefined;
   return res.body.id;
 }

@@ -77,6 +77,7 @@ describe('VehicleService — bulk price operations', () => {
       getSummariesByUserIds: jest.fn().mockResolvedValue(new Map()),
     };
 
+    const vehicleDocumentRepoMock = { save: jest.fn(), findByVehicleId: jest.fn() };
     service = new VehicleService(
       repositoryMock,
       userRepoMock,
@@ -85,6 +86,7 @@ describe('VehicleService — bulk price operations', () => {
       reservationServiceMock,
       reservationRuleSetServiceMock,
       identityServiceMock as unknown as IdentityService,
+      vehicleDocumentRepoMock as any,
     );
   });
 

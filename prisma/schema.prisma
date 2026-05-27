@@ -127,6 +127,7 @@ model Vehicle {
   characteristics VehicleCharacteristic[]
   reservations    Reservation[]
   promotion       PromotionActive?
+  vehicleDocument VehicleDocumentVerification?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -290,10 +291,35 @@ model PromotionLengthInDays {
   @@map("promotion_length_in_days")
 }
 
+model VehicleDocumentVerification {
+  id               String                             @id @default(uuid())
+  vehicleId        String                             @unique @map("vehicle_id")
+  rentadorId       String                             @map("rentador_id")
+  status           VehicleDocumentVerificationStatus   @default(pending)
+  documents        Json                               @default("{}")
+  rejectionReason  String?                            @map("rejection_reason") @db.VarChar(280)
+  submittedAt      DateTime                           @map("submitted_at") @db.Timestamptz(6)
+  reviewedAt       DateTime?                          @map("reviewed_at") @db.Timestamptz(6)
+  verifiedAt       DateTime?                          @map("verified_at") @db.Timestamptz(6)
+  createdAt        DateTime                           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime                           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  vehicle          Vehicle                            @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([status, submittedAt])
+  @@map("vehicle_document_verifications")
+}
+
 enum Transmission {
   Manual
   Automatico
   Semiautomatico
+}
+
+enum VehicleDocumentVerificationStatus {
+  pending
+  verified
+  rejected
 }
 
 enum IdentityVerificationStatus {
