@@ -31,6 +31,10 @@ import {
 import { ReservationRuleSetService } from './reservation-rule-set.service';
 import { PROMOTION_REPOSITORY, type PromotionRepository } from '@/domain/repositories/promotion.repository';
 import { IdentityService } from '@/application/identity.service';
+import {
+  VEHICLE_DOCUMENT_REPOSITORY,
+  type VehicleDocumentRepository,
+} from '@/domain/repositories/vehicle-document.repository';
 
 @Injectable()
 export class VehicleService {
@@ -45,6 +49,8 @@ export class VehicleService {
     @Inject(ReservationService) private readonly reservationService: ReservationService,
     @Inject(ReservationRuleSetService) private readonly reservationRuleSetService: ReservationRuleSetService,
     @Inject(IdentityService) private readonly identityService: IdentityService,
+    @Inject(VEHICLE_DOCUMENT_REPOSITORY)
+    private readonly vehicleDocumentRepository: VehicleDocumentRepository,
   ) {}
 
   public async createVehicle(
@@ -77,7 +83,7 @@ export class VehicleService {
       data.trunkLiters,
       data.transmission,
       data.isAccessible,
-      true,
+      false,
       data.photos,
       data.characteristics || [],
       data.color,
@@ -270,6 +276,12 @@ export class VehicleService {
     return this.reservationRuleSetService.getPublicRuleSet(ruleSetId);
   }
 
+  private async getDocumentStatus(vehicleId: string): Promise<'none' | 'pending' | 'verified' | 'rejected'> {
+    const verification = await this.vehicleDocumentRepository.findByVehicleId(vehicleId);
+    if (!verification) return 'none';
+    return verification.getStatus();
+  }
+
   private async toDTO(
     vehicle: Vehicle,
     owner?: VehicleOwner,
@@ -282,6 +294,7 @@ export class VehicleService {
           vehicle.getReservationRuleSetId(),
         )
       : undefined;
+    const documentStatus = await this.getDocumentStatus(vehicle.getId());
     return GetVehicleResponseSchema.parse({
       id: vehicle.getId(),
       ownerId: vehicle.getOwnerId(),
@@ -312,6 +325,7 @@ export class VehicleService {
       autoAccept: vehicle.getAutoAccept(),
       reservationRuleSet: reservationRuleSet,
       owner,
+      documentStatus,
     });
   }
 }
