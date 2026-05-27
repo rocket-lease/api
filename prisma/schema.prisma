@@ -32,6 +32,7 @@ model User {
   messages              Message[]
   bankAccounts          BankAccount[]
   identityVerification  IdentityVerification?
+  driverLicenseVerification DriverLicenseVerification?
 
   @@map("users")
 }
@@ -55,6 +56,27 @@ model IdentityVerification {
 
   @@index([status, reviewAfterAt])
   @@map("identity_verifications")
+}
+
+model DriverLicenseVerification {
+  id                String                     @id @default(uuid())
+  userId            String                     @unique @map("user_id")
+  status            IdentityVerificationStatus  @default(not_started)
+  providerName      String?                    @map("provider_name")
+  providerRequestId String?                    @unique @map("provider_request_id")
+  rejectionReason   String?                    @map("rejection_reason") @db.VarChar(280)
+  submittedAt       DateTime?                  @map("submitted_at") @db.Timestamptz(6)
+  reviewAfterAt     DateTime?                  @map("review_after_at") @db.Timestamptz(6)
+  reviewedAt        DateTime?                  @map("reviewed_at") @db.Timestamptz(6)
+  verifiedAt        DateTime?                  @map("verified_at") @db.Timestamptz(6)
+  documents         Json                       @default("{}")
+  createdAt         DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user              User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, reviewAfterAt])
+  @@map("driver_license_verifications")
 }
 
 model Favorite {
@@ -274,6 +296,13 @@ enum Transmission {
 }
 
 enum IdentityVerificationStatus {
+  not_started
+  pending
+  verified
+  rejected
+}
+
+enum DriverLicenseVerificationStatus {
   not_started
   pending
   verified

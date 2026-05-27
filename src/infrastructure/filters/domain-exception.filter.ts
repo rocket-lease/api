@@ -9,6 +9,7 @@ import {
   FavoriteNotFoundException,
   InvalidEntityDataException,
   IdentityVerificationRequiredException,
+  DriverLicenseVerificationRequiredException,
   RuleSetNotFoundForOwnerException,
   RuleSetPrivateCannotBeSharedException,
   RuleSetVehicleIdImmutableException,
@@ -99,6 +100,10 @@ export class DomainExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof IdentityVerificationRequiredException) {
       status = HttpStatus.FORBIDDEN;
       code = ErrorCodes.IDENTITY_VERIFICATION_REQUIRED;
+      title = 'Forbidden';
+    } else if (exception instanceof DriverLicenseVerificationRequiredException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.DRIVER_LICENSE_VERIFICATION_REQUIRED;
       title = 'Forbidden';
     } else if (exception instanceof UserHasVehiclesException) {
       status = HttpStatus.CONFLICT;

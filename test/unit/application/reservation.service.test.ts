@@ -10,6 +10,8 @@ import type {
   UserProfile,
 } from '@/domain/repositories/user.repository';
 import { Clock } from '@/domain/providers/clock.provider';
+import { IdentityService } from '@/application/identity.service';
+import { DriverLicenseService } from '@/application/driver-license.service';
 import type { VoucherProvider } from '@/domain/providers/voucher.provider';
 import type { NotificationProvider } from '@/domain/providers/notification.provider';
 import type { PaymentGatewayProvider } from '@/domain/providers/payment-gateway.provider';
@@ -198,6 +200,8 @@ describe('ReservationService', () => {
   let paymentGateway: jest.Mocked<PaymentGatewayProvider>;
   let service: ReservationService;
   let emailProvider: jest.Mocked<EmailProvider>;
+  let identityService: jest.Mocked<Pick<IdentityService, 'assertVerified'>>;
+  let driverLicenseService: jest.Mocked<Pick<DriverLicenseService, 'assertVerified'>>;
   let vehicle: Vehicle;
   const conductorA = randomUUID();
   const conductorB = randomUUID();
@@ -216,15 +220,20 @@ describe('ReservationService', () => {
     notificationProvider = makeNotificationProvider();
     paymentGateway = makePaymentGatewayProvider();
     emailProvider = { sendVoucherEmail: jest.fn().mockResolvedValue(undefined) };
+    identityService = { assertVerified: jest.fn().mockResolvedValue(undefined) };
+    driverLicenseService = { assertVerified: jest.fn().mockResolvedValue(undefined) };
     service = new ReservationService(
       repo,
       vehicleRepo,
       userRepo,
-      ruleSetRepo,      clock,
+      ruleSetRepo,
+      clock,
       voucherProvider,
       notificationProvider,
       paymentGateway,
       emailProvider,
+      identityService as unknown as IdentityService,
+      driverLicenseService as unknown as DriverLicenseService,
     );
   });
 
@@ -267,7 +276,20 @@ describe('ReservationService', () => {
   it('rejects when conductor is the owner', async () => {
     const ownedByA = makeVehicle({ ownerId: conductorA });
     vehicleRepo = makeVehicleRepo([ownedByA]);
-    service = new ReservationService(repo, vehicleRepo, userRepo, ruleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);    await expect(
+    service = new ReservationService(
+      repo,
+      vehicleRepo,
+      userRepo,
+      ruleSetRepo,
+      clock,
+      voucherProvider,
+      notificationProvider,
+      paymentGateway,
+      emailProvider,
+      identityService as unknown as IdentityService,
+      driverLicenseService as unknown as DriverLicenseService,
+    );
+    await expect(
       service.createReservation(conductorA, {
         vehicleId: ownedByA.getId(),
         startAt: start,
@@ -280,7 +302,20 @@ describe('ReservationService', () => {
   it('rejects when vehicle is disabled', async () => {
     const disabled = makeVehicle({ enabled: false });
     vehicleRepo = makeVehicleRepo([disabled]);
-    service = new ReservationService(repo, vehicleRepo, userRepo, ruleSetRepo, clock, voucherProvider, notificationProvider, paymentGateway, emailProvider);    await expect(
+    service = new ReservationService(
+      repo,
+      vehicleRepo,
+      userRepo,
+      ruleSetRepo,
+      clock,
+      voucherProvider,
+      notificationProvider,
+      paymentGateway,
+      emailProvider,
+      identityService as unknown as IdentityService,
+      driverLicenseService as unknown as DriverLicenseService,
+    );
+    await expect(
       service.createReservation(conductorA, {
         vehicleId: disabled.getId(),
         startAt: start,
