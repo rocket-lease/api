@@ -21,6 +21,7 @@ import {
   type IdentityVerificationRepository,
 } from '@/domain/repositories/identity-verification.repository';
 import { IdentityVerification } from '@/domain/entities/identity-verification.entity';
+import { createEmptyVerificationSummary } from './verification-summary.helper';
 
 const STUB_PROVIDER_NAME = 'stub-identity-provider';
 
@@ -87,16 +88,7 @@ export class IdentityService {
   public async getSummaryByUserId(userId: string): Promise<IdentityVerificationSummary> {
     const verification = await this.identityVerificationRepository.findByUserId(userId);
     if (!verification) {
-      return IdentityVerificationSummarySchema.parse({
-        status: 'not_started',
-        providerName: null,
-        providerRequestId: null,
-        rejectionReason: null,
-        submittedAt: null,
-        reviewAfterAt: null,
-        reviewedAt: null,
-        verifiedAt: null,
-      });
+      return IdentityVerificationSummarySchema.parse(createEmptyVerificationSummary());
     }
 
     return IdentityVerificationSummarySchema.parse(verification.toSummary());
@@ -114,16 +106,7 @@ export class IdentityService {
     }
     for (const userId of userIds) {
       if (!map.has(userId)) {
-        map.set(userId, IdentityVerificationSummarySchema.parse({
-          status: 'not_started',
-          providerName: null,
-          providerRequestId: null,
-          rejectionReason: null,
-          submittedAt: null,
-          reviewAfterAt: null,
-          reviewedAt: null,
-          verifiedAt: null,
-        }));
+        map.set(userId, IdentityVerificationSummarySchema.parse(createEmptyVerificationSummary()));
       }
     }
     return map;

@@ -3,6 +3,7 @@ import { MyWorld } from '../support/world';
 import { api } from '../support/http-client';
 import { expect } from 'expect';
 import { IdentityService } from '@/application/identity.service';
+import { DriverLicenseService } from '@/application/driver-license.service';
 
 export async function registerAndLogin(
   world: MyWorld,
@@ -44,6 +45,17 @@ async function verifyCurrentIdentity(world: MyWorld): Promise<void> {
   await world.app.get(IdentityService).processDueVerifications();
 }
 
+async function verifyCurrentDriverLicense(world: MyWorld): Promise<void> {
+  const response = await api(world).uploadFields('/driver-license/me/verification', [
+    { fieldName: 'frontLicense', buffer: Buffer.from('license-front'), filename: 'license-front.jpg' },
+    { fieldName: 'selfie', buffer: Buffer.from('license-selfie'), filename: 'license-selfie.jpg' },
+  ]);
+
+  expect(response.status).toBe(200);
+  world.clock.advanceMs(31_000);
+  await world.app.get(DriverLicenseService).processDueVerifications();
+}
+
 export async function registerAndLoginVerified(
   world: MyWorld,
   alias: string,
@@ -51,11 +63,17 @@ export async function registerAndLoginVerified(
   const token = await registerAndLogin(world, alias);
   useAlias(world, alias);
   await verifyCurrentIdentity(world);
+  await verifyCurrentDriverLicense(world);
 
   if (!world.world.identity_verified_by_alias) {
     world.world.identity_verified_by_alias = {};
   }
   world.world.identity_verified_by_alias[alias] = true;
+
+  if (!world.world.driver_license_verified_by_alias) {
+    world.world.driver_license_verified_by_alias = {};
+  }
+  world.world.driver_license_verified_by_alias[alias] = true;
 
   return token;
 }

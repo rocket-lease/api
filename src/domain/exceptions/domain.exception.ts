@@ -71,6 +71,12 @@ export class IdentityVerificationRequiredException extends DomainException {
     super('identity verification is required to continue');
   }
 }
+
+export class DriverLicenseVerificationRequiredException extends DomainException {
+  constructor() {
+    super('driver license verification is required to continue');
+  }
+}
 /**
  * El % de seña configurado en un set de reglas está fuera del rango
  * aceptado (10-50) o tiene formato inválido. Mapea a 400

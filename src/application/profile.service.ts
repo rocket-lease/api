@@ -7,6 +7,7 @@ import {
   UpdateMyProfileResponseSchema,
 } from '@rocket-lease/contracts';
 import { IdentityService } from '@/application/identity.service';
+import { DriverLicenseService } from '@/application/driver-license.service';
 import type { MediaProvider } from '@/domain/providers/media.provider';
 import { MEDIA_PROVIDER } from '@/domain/providers/media.provider';
 import type { UserRepository } from '@/domain/repositories/user.repository';
@@ -19,6 +20,7 @@ export class ProfileService {
     @Inject(USER_REPOSITORY) private readonly userRepository: UserRepository,
     @Inject(MEDIA_PROVIDER) private readonly mediaProvider: MediaProvider,
     @Inject(IdentityService) private readonly identityService: IdentityService,
+    @Inject(DriverLicenseService) private readonly driverLicenseService: DriverLicenseService,
   ) {}
 
   public async getMyProfile(userId: string): Promise<GetMyProfileResponse> {
@@ -28,11 +30,13 @@ export class ProfileService {
     }
 
     const identityVerification = await this.identityService.getSummaryByUserId(userId);
+    const driverLicenseVerification = await this.driverLicenseService.getSummaryByUserId(userId);
 
     return GetMyProfileResponseSchema.parse({
       ...profile,
       verificationStatus: identityVerification.status,
       identityVerification,
+      driverLicenseVerification,
     });
   }
 
@@ -43,11 +47,13 @@ export class ProfileService {
     }
 
     const identityVerification = await this.identityService.getSummaryByUserId(userId);
+    const driverLicenseVerification = await this.driverLicenseService.getSummaryByUserId(userId);
 
     return GetMyProfileResponseSchema.parse({
       ...profile,
       verificationStatus: identityVerification.status,
       identityVerification,
+      driverLicenseVerification,
     });
   }
 
@@ -69,11 +75,13 @@ export class ProfileService {
     });
 
     const identityVerification = await this.identityService.getSummaryByUserId(userId);
+    const driverLicenseVerification = await this.driverLicenseService.getSummaryByUserId(userId);
 
     return UpdateMyProfileResponseSchema.parse({
       ...updated,
       verificationStatus: identityVerification.status,
       identityVerification,
+      driverLicenseVerification,
     });
   }
 
@@ -90,11 +98,13 @@ export class ProfileService {
     const updated = await this.userRepository.updateAvatar(userId, avatarUrl);
 
     const identityVerification = await this.identityService.getSummaryByUserId(userId);
+    const driverLicenseVerification = await this.driverLicenseService.getSummaryByUserId(userId);
 
     return GetMyProfileResponseSchema.parse({
       ...updated,
       verificationStatus: identityVerification.status,
       identityVerification,
+      driverLicenseVerification,
     });
   }
 }

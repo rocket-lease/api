@@ -8,6 +8,7 @@ import {
   HttpCode,
   Inject,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   UploadedFile,
@@ -50,7 +51,7 @@ export class ProfileController {
   @HttpCode(200)
   public async getProfileById(
     @Headers('authorization') authorization: string | undefined,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     await this.resolveUserId(authorization);
     return this.profileService.getProfileById(id);
