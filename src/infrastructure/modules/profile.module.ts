@@ -3,11 +3,12 @@ import { ProfileService } from '@/application/profile.service';
 import { ProfileController } from '@/infrastructure/controllers/profile.controller';
 import { AuthModule } from './auth.module';
 import { IdentityModule } from './identity.module';
+import { DriverLicenseModule } from './driver-license.module';
 import { MEDIA_PROVIDER } from '@/domain/providers/media.provider';
 import { CloudinaryMediaProvider } from '@/infrastructure/providers/cloudinary.media.provider';
 
 @Module({
-  imports: [AuthModule, IdentityModule],
+  imports: [AuthModule, IdentityModule, DriverLicenseModule],
   controllers: [ProfileController],
   providers: [
     ProfileService,

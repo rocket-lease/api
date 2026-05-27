@@ -94,6 +94,7 @@ import { calculateCancellationRefund } from './helpers/cancellation-refund';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { EMAIL_PROVIDER, type EmailProvider } from '@/domain/providers/email.provider';
 import { IdentityService } from '@/application/identity.service';
+import { DriverLicenseService } from '@/application/driver-license.service';
 
 @Injectable()
 export class ReservationService {
@@ -122,6 +123,10 @@ export class ReservationService {
     private readonly identityService: Pick<IdentityService, 'assertVerified'> = {
       assertVerified: async () => undefined,
     },
+    @Inject(DriverLicenseService)
+    private readonly driverLicenseService: Pick<DriverLicenseService, 'assertVerified'> = {
+      assertVerified: async () => undefined,
+    },
   ) {}
 
   /**
@@ -142,6 +147,7 @@ export class ReservationService {
     dto: CreateReservationRequest,
   ): Promise<CreateReservationResponse> {
     await this.identityService.assertVerified(conductorId);
+    await this.driverLicenseService.assertVerified(conductorId);
 
     const vehicle = await this.vehicleRepository.findById(dto.vehicleId);
     if (!vehicle) throw new EntityNotFoundException('vehicle', dto.vehicleId);
