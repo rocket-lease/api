@@ -187,6 +187,54 @@ export class InMemoryReservationRepository implements ReservationRepository {
     )
   }
 
+  async findChain(reservationId: string): Promise<Reservation[]> {
+    const start = this.store.get(reservationId);
+    if (!start) return [];
+    let root: Reservation = start;
+    while (root.getParentReservationId()) {
+      const next = this.store.get(root.getParentReservationId()!);
+      if (!next) break;
+      root = next;
+    }
+    const all = Array.from(this.store.values());
+    const collected: Reservation[] = [];
+    const queue: Reservation[] = [root];
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      collected.push(current);
+      for (const r of all) {
+        if (r.getParentReservationId() === current.getId()) {
+          queue.push(r);
+        }
+      }
+    }
+    collected.sort((a, b) => a.getStartAt().getTime() - b.getStartAt().getTime());
+    return collected;
+  }
+
+  async findChainTipFor(reservationId: string): Promise<Reservation | null> {
+    const chain = await this.findChain(reservationId);
+    if (chain.length === 0) return null;
+    const alive = chain.filter((r) => {
+      const status = r.getStatus();
+      return (
+        status !== RESERVATION_STATUS.cancelled &&
+        status !== RESERVATION_STATUS.rejected &&
+        status !== RESERVATION_STATUS.expired
+      );
+    });
+    if (alive.length === 0) return null;
+    return alive.reduce((tip, candidate) =>
+      candidate.getEndAt().getTime() > tip.getEndAt().getTime() ? candidate : tip,
+    );
+  }
+
+  async updateMany(reservations: Reservation[]): Promise<void> {
+    for (const r of reservations) {
+      this.store.set(r.getId(), r);
+    }
+  }
+
   // test helper
   clear() {
     this.store.clear();

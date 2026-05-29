@@ -165,6 +165,39 @@ export interface ReservationRepository {
     role: ReservationRole,
     filters: ReservationListFilters,
   ): Promise<ReservationListResult>;
+
+  /**
+   * Devuelve todos los eslabones del chain al que pertenece la reserva (el
+   * padre raíz + todas las extensiones descendientes), ordenados por `startAt`
+   * ascendente. Se usa para la vista colapsada del conductor, para validar la
+   * continuidad de una extensión nueva y para cancelar el bloque entero.
+   *
+   * @param reservationId - ID de cualquier eslabón del chain (puede ser el padre
+   *   raíz o una extensión intermedia).
+   * @returns Lista ordenada por `startAt` asc. Vacía si la reserva no existe.
+   */
+  findChain(reservationId: string): Promise<Reservation[]>;
+
+  /**
+   * Devuelve la punta activa del chain — la última reserva no cancelada,
+   * rechazada ni expirada, descendiendo por `parentReservationId`. Es la
+   * reserva a la que se cuelga una extensión nueva, manteniendo el chain
+   * lineal.
+   *
+   * @param reservationId - ID de cualquier eslabón vivo del chain.
+   * @returns La punta del chain. `null` si la reserva no existe.
+   */
+  findChainTipFor(reservationId: string): Promise<Reservation | null>;
+
+  /**
+   * Actualiza todos los eslabones del chain en una sola transacción. Se usa
+   * para cancelar el bloque entero: si alguna actualización falla, ninguna
+   * persiste.
+   *
+   * @param reservations - Lista de entidades del chain ya transicionadas en
+   *   memoria al estado destino.
+   */
+  updateMany(reservations: Reservation[]): Promise<void>;
 }
 
 export const RESERVATION_REPOSITORY = Symbol('ReservationRepository');

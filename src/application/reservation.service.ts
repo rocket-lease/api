@@ -14,10 +14,14 @@ import {
   type ConfirmReservationPaymentRequest,
   type ConfirmReservationPaymentResponse,
   ConfirmReservationPaymentResponseSchema,
+  type ExtendReservationRequest,
+  type ExtendReservationResponse,
+  ExtendReservationResponseSchema,
   type GetReservationResponse,
   GetReservationResponseSchema,
   type RejectReservationResponse,
   RejectReservationResponseSchema,
+  type ReservationChainItem,
   type VehicleBusyRangesResponse,
   VehicleBusyRangesResponseSchema,
   type ReservationListItem,
@@ -66,6 +70,8 @@ import {
 import { EntityNotFoundException } from '@/domain/exceptions/domain.exception';
 import {
   ContractNotAcceptedException,
+  ExtensionInvalidEndAtException,
+  ExtensionParentNotInProgressException,
   HoldExpiredException,
   InvalidReservationTransitionException,
   OwnerCannotReserveOwnVehicleException,
@@ -506,7 +512,8 @@ export class ReservationService {
     ) {
       throw new ReservationForbiddenException();
     }
-    return this.toDTO(reservation);
+    const chain = await this.reservationRepository.findChain(reservationId);
+    return this.toDTO(reservation, chain);
   }
 
   public async getVoucher(
@@ -685,11 +692,17 @@ export class ReservationService {
   /**
    * Cancela una reserva pendiente del conductor. Acepta tanto `pending_payment`
    * (hold de pago activo) como `pending_approval` (solicitud sin respuesta del
-   * rentador — el conductor la retira).
+   * rentador — el conductor la retira) y `confirmed`/`in_progress` (cancelación
+   * con política de reembolso).
+   *
+   * Si la reserva pertenece a una cadena (padre + extensiones), cancela todos
+   * los eslabones cancelables del chain en una sola transacción atómica. La
+   * política de cancelación se aplica por eslabón (cada uno tiene su propio
+   * snapshot) y el reembolso se acumula en el balance del conductor.
    *
    * @param conductorId - ID del conductor autenticado (extraído del JWT). Se valida
    *   que sea el dueño de la reserva: si no, 403.
-   * @param reservationId - ID de la reserva a cancelar.
+   * @param reservationId - ID de cualquier eslabón del chain a cancelar.
    * @returns Resumen con id y status (`cancelled`).
    */
   public async cancelReservation(
@@ -704,27 +717,242 @@ export class ReservationService {
     }
 
     const now = this.clock.now();
-    const refund = calculateCancellationRefund({
-      startAt: reservation.getStartAt(),
-      paidAt: reservation.getPaidAt(),
-      totalCents: reservation.getTotalCents(),
-      cancellationPolicy: reservation.getCancellationPolicySnapshot(),
-      now,
-    });
-    reservation.cancel(now);
-    const saved = await this.reservationRepository.update(reservation);
+    const chain = await this.reservationRepository.findChain(reservationId);
+    const cancelables = chain.length > 0 ? chain : [reservation];
+    const toCancel = cancelables.filter(isCancelable);
+
+    if (toCancel.length === 0) {
+      reservation.cancel(now);
+      const saved = await this.reservationRepository.update(reservation);
+      const profile = await this.userRepository.getProfileById(conductorId);
+      return CancelReservationResponseSchema.parse({
+        id: saved.getId(),
+        status: RESERVATION_STATUS.cancelled,
+        refundCents: 0,
+        balanceInCents: profile?.balanceInCents ?? 0,
+        currency: 'ARS',
+      });
+    }
+
+    let totalRefundCents = 0;
+    for (const r of toCancel) {
+      const refund = calculateCancellationRefund({
+        startAt: r.getStartAt(),
+        paidAt: r.getPaidAt(),
+        totalCents: r.getTotalCents(),
+        cancellationPolicy: r.getCancellationPolicySnapshot(),
+        now,
+      });
+      totalRefundCents += refund.refundCents;
+      r.cancel(now);
+    }
+    await this.reservationRepository.updateMany(toCancel);
+
     const updatedProfile = await this.userRepository.creditBalance(
       conductorId,
-      refund.refundCents,
+      totalRefundCents,
     );
 
     return CancelReservationResponseSchema.parse({
-      id: saved.getId(),
+      id: reservationId,
       status: RESERVATION_STATUS.cancelled,
-      refundCents: refund.refundCents,
+      refundCents: totalRefundCents,
       balanceInCents: updatedProfile.balanceInCents,
       currency: 'ARS',
     });
+  }
+
+  /**
+   * Solicita una extensión del alquiler. La extensión es un nuevo eslabón en
+   * la cadena de reservas: una row con `parentReservationId` apuntando al
+   * último eslabón activo del chain, `startAt = endAt` de ese padre y
+   * `endAt = newEndAt`. Reusa toda la state machine (auto-accept, hold,
+   * EXCLUDE constraint, cobro stub) sin entity nueva.
+   *
+   * Modo solicitud (`pending_approval` con hold 24h) si:
+   *  - el vehículo tiene `autoAccept = false`, o
+   *  - el total acumulado del chain + esta extensión excede `maxRentalDays`
+   *    del set actual del vehículo (override).
+   * En cualquier otro caso entra como `pending_payment` con hold de 10min y
+   * se intenta cobrar al `paymentMethod` snapshot del padre (stub). Si falla,
+   * la reserva permanece en `pending_payment` para que el conductor complete
+   * el pago manualmente.
+   *
+   * El snapshot de reglas y el precio de la extensión se toman de las reglas
+   * VIGENTES del vehículo al momento de extender, no del snapshot del padre.
+   * Es intencional: si el rentador subió el precio o ajustó las reglas, la
+   * extensión refleja las condiciones actuales (el padre mantiene las suyas).
+   *
+   * @param conductorId - ID del conductor autenticado.
+   * @param parentReservationId - ID de la reserva `in_progress` desde la que
+   *   se solicita la extensión. Si tiene extensiones previas, el nuevo eslabón
+   *   se cuelga de la punta activa, no de este id.
+   * @param dto - Payload con `newEndAt`.
+   */
+  public async extendReservation(
+    conductorId: string,
+    parentReservationId: string,
+    dto: ExtendReservationRequest,
+  ): Promise<ExtendReservationResponse> {
+    const parentRequest =
+      await this.reservationRepository.findById(parentReservationId);
+    if (!parentRequest) throw new ReservationNotFoundException(parentReservationId);
+    if (!parentRequest.isOwnedByConductor(conductorId)) {
+      throw new ReservationForbiddenException();
+    }
+    if (!parentRequest.isInProgress()) {
+      throw new ExtensionParentNotInProgressException(parentReservationId);
+    }
+
+    const tip =
+      (await this.reservationRepository.findChainTipFor(parentReservationId)) ??
+      parentRequest;
+
+    const newEndAt = new Date(dto.newEndAt);
+    if (newEndAt.getTime() <= tip.getEndAt().getTime()) {
+      throw new ExtensionInvalidEndAtException(
+        'newEndAt must be strictly after the current chain endAt',
+      );
+    }
+
+    const vehicle = await this.vehicleRepository.findById(parentRequest.getVehicleId());
+    if (!vehicle) {
+      throw new EntityNotFoundException('vehicle', parentRequest.getVehicleId());
+    }
+    if (!vehicle.isEnabled()) {
+      throw new VehicleNotAvailableException(vehicle.getId());
+    }
+
+    const ruleSet = await this.resolveRuleSetForVehicle(
+      vehicle.getId(),
+      vehicle.getReservationRuleSetId(),
+    );
+    const rules = {
+      depositPercentage:
+        ruleSet?.getDepositPercentage() ?? RESERVATION_RULES_DEFAULTS.depositPercentage,
+      basePriceCents: vehicle.getBasePriceCents(),
+      cancellationPolicy:
+        ruleSet?.getCancellationPolicy() ?? RESERVATION_RULES_DEFAULTS.cancellationPolicy,
+      maxKilometrage:
+        ruleSet?.getMaxKilometrage() ?? RESERVATION_RULES_DEFAULTS.maxKilometrage,
+      rentalTimeConstraints:
+        ruleSet?.getRentalTimeConstraints() ?? RESERVATION_RULES_DEFAULTS.rentalTimeConstraints,
+    };
+
+    const maxRentalDays = rules.rentalTimeConstraints.maxDays;
+    const chain = await this.reservationRepository.findChain(parentReservationId);
+    const chainTotalDays = computeChainTotalDays(chain, tip);
+    const extensionDays = countDays(tip.getEndAt(), newEndAt);
+    const exceedsMax =
+      typeof maxRentalDays === 'number' && chainTotalDays + extensionDays > maxRentalDays;
+
+    const ownerProfile = await this.userRepository.getProfileById(
+      vehicle.getOwnerId(),
+    );
+    const vehicleAutoAccept =
+      vehicle.getAutoAccept() ?? ownerProfile?.autoAccept ?? false;
+    const effectiveAutoAccept = vehicleAutoAccept && !exceedsMax;
+    const requiresApproval = !effectiveAutoAccept;
+
+    const now = this.clock.now();
+    const totalCents = computeReservationTotalCents(
+      rules.basePriceCents,
+      tip.getEndAt(),
+      newEndAt,
+    );
+    const status = requiresApproval
+      ? RESERVATION_STATUS.pending_approval
+      : RESERVATION_STATUS.pending_payment;
+    const ttlMs = requiresApproval ? APPROVAL_TTL_MS : HOLD_TTL_MS;
+
+    const overlapping = await this.reservationRepository.findOverlapping(
+      vehicle.getId(),
+      tip.getEndAt(),
+      newEndAt,
+      BLOCKING_STATUSES,
+    );
+    const conflicting = overlapping.find((r) => r.getId() !== tip.getId());
+    if (conflicting) {
+      throw new VehicleNotAvailableException(vehicle.getId());
+    }
+
+    const extension = Reservation.fromExtensionRequest({
+      parent: tip,
+      newEndAt,
+      totalCents,
+      status,
+      holdExpiresAt: new Date(now.getTime() + ttlMs),
+      snapshot: rules,
+      now,
+    });
+
+    let saved: Reservation;
+    try {
+      saved = await this.reservationRepository.save(extension);
+    } catch (e) {
+      if (isExclusionViolation(e)) {
+        throw new VehicleNotAvailableException(vehicle.getId());
+      }
+      throw e;
+    }
+
+    const holdExpiresAtIso = saved.getHoldExpiresAt()!.toISOString();
+    const initialStatus = saved.getStatus();
+    if (!requiresApproval) {
+      await this.attemptAutoChargeExtension(saved, parentRequest);
+    }
+
+    const audienceId = requiresApproval ? saved.getRentadorId() : saved.getConductorId();
+    const subject = requiresApproval
+      ? 'Solicitud de extensión recibida'
+      : 'Extensión confirmada';
+    const message = requiresApproval
+      ? 'Tenés una solicitud de extensión pendiente de aprobación.'
+      : 'Tu alquiler fue extendido. Completá el pago para confirmar.';
+    await this.notificationProvider.notify(audienceId, subject, message);
+
+    return ExtendReservationResponseSchema.parse({
+      id: saved.getId(),
+      parentReservationId: tip.getId(),
+      status: initialStatus,
+      holdExpiresAt: holdExpiresAtIso,
+      totalCents: saved.getTotalCents(),
+      currency: 'ARS',
+      requiresApproval,
+    });
+  }
+
+  /**
+   * Intenta cobrar la extensión de forma inmediata usando el `paymentMethod`
+   * snapshot del padre. Si el gateway responde éxito, transiciona la reserva
+   * a `confirmed` y genera voucher. Si falla, deja la reserva en
+   * `pending_payment` con el hold abierto para que el conductor complete el
+   * pago manualmente.
+   */
+  private async attemptAutoChargeExtension(
+    extension: Reservation,
+    parent: Reservation,
+  ): Promise<void> {
+    const paymentMethod = parent.getPaymentMethod();
+    if (!paymentMethod) return;
+    const walletProvider = parent.getWalletProvider();
+    try {
+      const result = await this.paymentGateway.processPayment(
+        extension.getTotalCents(),
+        extension.getCurrency(),
+        paymentMethod,
+      );
+      if (!result.success) return;
+      const now = this.clock.now();
+      extension.confirmPayment(paymentMethod, now, walletProvider ?? undefined);
+      await this.reservationRepository.update(extension);
+      await this.voucherProvider.generateVoucher(extension.getId());
+      this.logger.debug(`auto-charged extension ${extension.getId()}`);
+    } catch (e) {
+      this.logger.warn(
+        `auto-charge extension failed ${extension.getId()}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
   }
 
   public async confirmPickup(
@@ -842,12 +1070,26 @@ export class ReservationService {
     return this.reservationRuleSetRepository.findById(sharedRuleSetId);
   }
 
-  private async toDTO(r: Reservation): Promise<GetReservationResponse> {
+  private async toDTO(
+    r: Reservation,
+    chain: Reservation[] = [],
+  ): Promise<GetReservationResponse> {
     const [vehicle, rentadorProfile] = await Promise.all([
       this.vehicleRepository.findById(r.getVehicleId()),
       this.userRepository.getProfileById(r.getRentadorId()),
     ]);
     const reservationRuleSet = await this.getVehicleReservationRuleSet(vehicle);
+    const chainPayload: ReservationChainItem[] | undefined =
+      chain.length > 1
+        ? chain.map((item) => ({
+            id: item.getId(),
+            status: item.getStatus(),
+            startAt: item.getStartAt().toISOString(),
+            endAt: item.getEndAt().toISOString(),
+            totalCents: item.getTotalCents(),
+            parentReservationId: item.getParentReservationId(),
+          }))
+        : undefined;
 
     return GetReservationResponseSchema.parse({
       id: r.getId(),
@@ -883,6 +1125,8 @@ export class ReservationService {
       cancellationPolicySnapshot: r.getCancellationPolicySnapshot(),
       maxKilometrageSnapshot: r.getMaxKilometrageSnapshot(),
       rentalTimeConstraintsSnapshot: r.getRentalTimeConstraintsSnapshot(),
+      parentReservationId: r.getParentReservationId(),
+      chain: chainPayload,
       createdAt: r.getCreatedAt().toISOString(),
       updatedAt: r.getUpdatedAt().toISOString(),
       vehicle: this.vehicleSummary(vehicle, r.getVehicleId(), reservationRuleSet),
@@ -937,6 +1181,7 @@ export class ReservationService {
       paymentMethod: r.getPaymentMethod(),
       paidAt: r.getPaidAt() ? r.getPaidAt()!.toISOString() : null,
       rejectionReason: r.getRejectionReason(),
+      parentReservationId: r.getParentReservationId(),
       createdAt: r.getCreatedAt().toISOString(),
       updatedAt: r.getUpdatedAt().toISOString(),
       vehicle: this.vehicleSummary(vehicle, r.getVehicleId()),
@@ -978,6 +1223,55 @@ export class ReservationService {
       reservationRuleSet,
     };
   }
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Días contables entre dos fechas redondeando hacia arriba: una extensión de
+ * 23h cuenta como 1 día. Mantiene paridad con `computeReservationTotalCents`,
+ * que ya redondea por día completo.
+ */
+function countDays(from: Date, to: Date): number {
+  const ms = to.getTime() - from.getTime();
+  if (ms <= 0) return 0;
+  return Math.ceil(ms / DAY_MS);
+}
+
+/**
+ * Suma los días de los eslabones que siguen vivos en la cadena. Se excluyen
+ * los cancelados, rechazados y expirados porque no consumen el cupo de
+ * `maxRentalDays` del set. La nueva extensión todavía no está en `chain`, por
+ * lo que el caller debe sumar sus días aparte.
+ */
+function computeChainTotalDays(chain: Reservation[], tip: Reservation): number {
+  const alive = chain.filter((r) => {
+    const status = r.getStatus();
+    return (
+      status !== RESERVATION_STATUS.cancelled &&
+      status !== RESERVATION_STATUS.rejected &&
+      status !== RESERVATION_STATUS.expired
+    );
+  });
+  if (alive.length === 0) return countDays(tip.getStartAt(), tip.getEndAt());
+  let total = 0;
+  for (const r of alive) {
+    total += countDays(r.getStartAt(), r.getEndAt());
+  }
+  return total;
+}
+
+/**
+ * Indica si una reserva puede transicionar a `cancelled` desde su estado
+ * actual. Refleja la guarda del método `Reservation.cancel()`.
+ */
+function isCancelable(r: Reservation): boolean {
+  return (
+    r.isPendingPayment() ||
+    r.isPendingApproval() ||
+    r.isConfirmed() ||
+    r.isInProgress()
+  );
 }
 
 function isExclusionViolation(e: unknown): boolean {
