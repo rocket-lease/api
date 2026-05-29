@@ -49,6 +49,7 @@ interface GlobalContext {
   vehicle_by_plate?: Record<string, string>;
   reservation_response?: any;
   reservations_by_alias?: Record<string, string>;
+  extensions_by_alias?: Record<string, string>;
   pre_made_reservations?: Array<{ alias: string; status: string }>;
   voucher_token?: string;
   verification_response?: any;

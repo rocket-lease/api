@@ -47,6 +47,7 @@ type Row = {
   maxKilometrageValueSnapshot: number | null;
   minRentalDaysSnapshot: number;
   maxRentalDaysSnapshot: number | null;
+  parentReservationId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -223,6 +224,104 @@ export class PostgresReservationRepository implements ReservationRepository {
     };
   }
 
+  /**
+   * Resuelve la raíz del chain (la reserva sin `parentReservationId`) usando
+   * un CTE recursivo "hacia arriba", luego desciende por todos los hijos
+   * "hacia abajo" para devolver el árbol completo. Aunque la US asume chain
+   * lineal, el desc es robusto a la presencia de ramas (defensa en profundidad
+   * si en el futuro se permite forkear). Orden estable por `startAt` asc.
+   */
+  async findChain(reservationId: string): Promise<Reservation[]> {
+    const rows = await this.prisma.$queryRaw<Row[]>`
+      WITH RECURSIVE upward AS (
+        SELECT * FROM reservations WHERE id = ${reservationId}
+        UNION ALL
+        SELECT r.* FROM reservations r
+        INNER JOIN upward u ON r.id = u.parent_reservation_id
+      ),
+      root AS (
+        SELECT id FROM upward WHERE parent_reservation_id IS NULL LIMIT 1
+      ),
+      downward AS (
+        SELECT * FROM reservations WHERE id = (SELECT id FROM root)
+        UNION ALL
+        SELECT r.* FROM reservations r
+        INNER JOIN downward d ON r.parent_reservation_id = d.id
+      )
+      SELECT
+        id,
+        vehicle_id            AS "vehicleId",
+        conductor_id          AS "conductorId",
+        rentador_id           AS "rentadorId",
+        status,
+        start_at              AS "startAt",
+        end_at                AS "endAt",
+        hold_expires_at       AS "holdExpiresAt",
+        total_cents           AS "totalCents",
+        currency,
+        payment_method        AS "paymentMethod",
+        wallet_provider       AS "walletProvider",
+        contract_accepted_at  AS "contractAcceptedAt",
+        paid_at               AS "paidAt",
+        voucher_token         AS "voucherToken",
+        return_qr_token       AS "returnQrToken",
+        started_at            AS "startedAt",
+        completed_at          AS "completedAt",
+        rejection_reason      AS "rejectionReason",
+        transfer_expires_at   AS "transferExpiresAt",
+        transfer_code         AS "transferCode",
+        transfer_alias        AS "transferAlias",
+        deposit_percentage_snapshot   AS "depositPercentageSnapshot",
+        base_price_cents_snapshot     AS "basePriceCentsSnapshot",
+        cancellation_policy_snapshot  AS "cancellationPolicySnapshot",
+        max_kilometrage_type_snapshot AS "maxKilometrageTypeSnapshot",
+        max_kilometrage_value_snapshot AS "maxKilometrageValueSnapshot",
+        min_rental_days_snapshot      AS "minRentalDaysSnapshot",
+        max_rental_days_snapshot      AS "maxRentalDaysSnapshot",
+        parent_reservation_id AS "parentReservationId",
+        created_at            AS "createdAt",
+        updated_at            AS "updatedAt"
+      FROM downward
+      ORDER BY start_at ASC
+    `;
+    return rows.map((r) => this.toEntity(r));
+  }
+
+  /**
+   * Encadena por `parent_reservation_id` hasta el último eslabón "vivo" del
+   * chain. Vivo = cualquier estado distinto de `cancelled`, `rejected` y
+   * `expired`. Si el último confirmado tiene una extensión cancelada
+   * posterior, esa cancelada queda fuera y la punta sigue siendo el
+   * confirmado anterior.
+   */
+  async findChainTipFor(reservationId: string): Promise<Reservation | null> {
+    const chain = await this.findChain(reservationId);
+    if (chain.length === 0) return null;
+    const alive = chain.filter((r) => {
+      const status = r.getStatus();
+      return (
+        status !== RESERVATION_STATUS.cancelled &&
+        status !== RESERVATION_STATUS.rejected &&
+        status !== RESERVATION_STATUS.expired
+      );
+    });
+    if (alive.length === 0) return null;
+    return alive.reduce((tip, candidate) =>
+      candidate.getEndAt().getTime() > tip.getEndAt().getTime() ? candidate : tip,
+    );
+  }
+
+  async updateMany(reservations: Reservation[]): Promise<void> {
+    if (reservations.length === 0) return;
+    const ops = reservations.map((r) =>
+      this.prisma.reservation.update({
+        where: { id: r.getId() },
+        data: this.toRow(r),
+      }),
+    );
+    await this.prisma.$transaction(ops);
+  }
+
   private toRow(r: Reservation) {
     return {
       id: r.getId(),
@@ -259,6 +358,7 @@ export class PostgresReservationRepository implements ReservationRepository {
         r.getRentalTimeConstraintsSnapshot().minDays ?? 1,
       maxRentalDaysSnapshot:
         r.getRentalTimeConstraintsSnapshot().maxDays ?? null,
+      parentReservationId: r.getParentReservationId(),
       createdAt: r.getCreatedAt(),
       updatedAt: r.getUpdatedAt(),
     };
@@ -304,6 +404,7 @@ export class PostgresReservationRepository implements ReservationRepository {
       cancellationPolicySnapshot: row.cancellationPolicySnapshot as CancellationPolicy,
       maxKilometrageSnapshot: maxKilometrage,
       rentalTimeConstraintsSnapshot: rentalTimeConstraints,
+      parentReservationId: row.parentReservationId,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });

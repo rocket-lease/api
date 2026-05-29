@@ -77,6 +77,21 @@ export class ReservationController {
     );
   }
 
+  @Post(':id/extend')
+  async extend(
+    @Param('id') id: string,
+    @Body() dto: Contracts.ExtendReservationRequest,
+    @Req() req: Request,
+  ): Promise<Contracts.ExtendReservationResponse> {
+    const conductorId = await this.requireUserId(req);
+    const parsed = Contracts.ExtendReservationRequestSchema.parse(dto);
+    return await this.reservationService.extendReservation(
+      conductorId,
+      id,
+      parsed,
+    );
+  }
+
   @Post(':id/cancel')
   @HttpCode(HttpStatus.OK)
   async cancel(
