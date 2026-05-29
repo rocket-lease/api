@@ -778,6 +778,11 @@ export class ReservationService {
    * la reserva permanece en `pending_payment` para que el conductor complete
    * el pago manualmente.
    *
+   * El snapshot de reglas y el precio de la extensión se toman de las reglas
+   * VIGENTES del vehículo al momento de extender, no del snapshot del padre.
+   * Es intencional: si el rentador subió el precio o ajustó las reglas, la
+   * extensión refleja las condiciones actuales (el padre mantiene las suyas).
+   *
    * @param conductorId - ID del conductor autenticado.
    * @param parentReservationId - ID de la reserva `in_progress` desde la que
    *   se solicita la extensión. Si tiene extensiones previas, el nuevo eslabón
@@ -942,6 +947,7 @@ export class ReservationService {
       extension.confirmPayment(paymentMethod, now, walletProvider ?? undefined);
       await this.reservationRepository.update(extension);
       await this.voucherProvider.generateVoucher(extension.getId());
+      this.logger.debug(`auto-charged extension ${extension.getId()}`);
     } catch (e) {
       this.logger.warn(
         `auto-charge extension failed ${extension.getId()}: ${e instanceof Error ? e.message : String(e)}`,
