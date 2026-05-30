@@ -30,6 +30,7 @@ describe('IdentityService', () => {
       markPhoneVerified: jest.fn(),
       isPhoneVerified: jest.fn(),
       updateAutoAccept: jest.fn(),
+      applyReputationPenalty: jest.fn(),
     };
     repository = {
       save: jest.fn(),

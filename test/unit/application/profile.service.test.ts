@@ -27,6 +27,7 @@ describe('ProfileService', () => {
       markPhoneVerified: jest.fn(),
       isPhoneVerified: jest.fn().mockResolvedValue(false),
       updateAutoAccept: jest.fn(),
+      applyReputationPenalty: jest.fn(),
     };
     mediaProviderMock = {
       uploadAvatar: jest.fn(),
