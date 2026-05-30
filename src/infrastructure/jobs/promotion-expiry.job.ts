@@ -6,6 +6,7 @@ import { PROMOTION_REPOSITORY, type PromotionRepository } from '@/domain/reposit
 @Injectable()
 export class PromotionExpiryJob {
   private readonly logger = new Logger(PromotionExpiryJob.name);
+  private running = false;
 
   constructor(
     @Inject(PROMOTION_REPOSITORY)
@@ -15,6 +16,8 @@ export class PromotionExpiryJob {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async handleExpiry(): Promise<void> {
+    if (this.running) return;
+    this.running = true;
     try {
       const expiredCount = await this.expirePromotions();
       if (expiredCount > 0) {
@@ -22,6 +25,8 @@ export class PromotionExpiryJob {
       }
     } catch (e) {
       this.logger.error('Failed to expire promotions', e as Error);
+    } finally {
+      this.running = false;
     }
   }
 

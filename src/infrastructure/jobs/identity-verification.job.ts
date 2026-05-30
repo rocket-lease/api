@@ -5,11 +5,14 @@ import { IdentityService } from '@/application/identity.service';
 @Injectable()
 export class IdentityVerificationJob {
   private readonly logger = new Logger(IdentityVerificationJob.name);
+  private running = false;
 
   constructor(@Inject(IdentityService) private readonly identityService: IdentityService) {}
 
   @Cron(CronExpression.EVERY_10_SECONDS)
   async processPending(): Promise<void> {
+    if (this.running) return;
+    this.running = true;
     try {
       const processed = await this.identityService.processDueVerifications();
       if (processed > 0) {
@@ -17,6 +20,8 @@ export class IdentityVerificationJob {
       }
     } catch (error) {
       this.logger.error('Failed to process identity verifications', error as Error);
+    } finally {
+      this.running = false;
     }
   }
 }

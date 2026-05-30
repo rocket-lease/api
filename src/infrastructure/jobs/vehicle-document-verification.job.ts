@@ -5,6 +5,7 @@ import { VehicleDocumentService } from '@/application/vehicle-document.service';
 @Injectable()
 export class VehicleDocumentVerificationJob {
   private readonly logger = new Logger(VehicleDocumentVerificationJob.name);
+  private running = false;
 
   constructor(
     @Inject(VehicleDocumentService)
@@ -13,6 +14,8 @@ export class VehicleDocumentVerificationJob {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async processPending(): Promise<void> {
+    if (this.running) return;
+    this.running = true;
     try {
       const processed =
         await this.vehicleDocumentService.processPendingVerifications();
@@ -26,6 +29,8 @@ export class VehicleDocumentVerificationJob {
         'Failed to process vehicle document verifications',
         error as Error,
       );
+    } finally {
+      this.running = false;
     }
   }
 }
