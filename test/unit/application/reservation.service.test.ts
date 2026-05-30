@@ -1507,6 +1507,30 @@ describe('ReservationService', () => {
       expect(result.completedAt).toBeDefined();
     });
 
+    it('credits the wallet when a reservation is completed', async () => {
+      const walletService = { recordReservationPayout: jest.fn().mockResolvedValue(undefined) } as any;
+      const localService = new ReservationService(
+        repo,
+        vehicleRepo,
+        userRepo,
+        ruleSetRepo,
+        clock,
+        voucherProvider,
+        notificationProvider,
+        paymentGateway,
+        emailProvider,
+        identityService,
+        driverLicenseService,
+        walletService,
+      );
+
+      const id = await makeInProgressReservation();
+      const saved = await repo.findById(id);
+      await localService.confirmReturn(conductorA, saved!.getReturnQrToken()!);
+
+      expect(walletService.recordReservationPayout).toHaveBeenCalledTimes(1);
+    });
+
     it('throws InvalidQrTokenException for unknown returnQrToken', async () => {
       await expect(
         service.confirmReturn(conductorA, randomUUID()),
