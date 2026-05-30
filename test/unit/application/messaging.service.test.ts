@@ -74,6 +74,9 @@ describe('MessagingService', () => {
       approveWithCascade: jest.fn(),
       hasActiveReservations: jest.fn(),
       findByUser: jest.fn(),
+      findChain: jest.fn().mockResolvedValue([]),
+      findChainTipFor: jest.fn().mockResolvedValue(null),
+      updateMany: jest.fn().mockResolvedValue(undefined),
     };
     notificationProviderMock = {
       notify: jest.fn().mockResolvedValue(undefined),

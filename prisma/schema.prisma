@@ -278,6 +278,9 @@ model Reservation {
   transferExpiresAt   DateTime?          @map("transfer_expires_at") @db.Timestamptz(6)
   transferCode        String?            @map("transfer_code")
   transferAlias       String?            @map("transfer_alias")
+  parentReservationId String?            @map("parent_reservation_id")
+  parentReservation   Reservation?       @relation("ReservationExtensions", fields: [parentReservationId], references: [id])
+  extensions          Reservation[]      @relation("ReservationExtensions")
   // Snapshot inmutable de reglas + precio al confirmar la reserva (US-49).
   // Si el rentador cambia el set o el precio post-confirmación, la reserva
   // mantiene los valores con que se firmó el contrato.
@@ -297,6 +300,7 @@ model Reservation {
   @@index([conductorId])
   @@index([rentadorId, status])
   @@index([status, createdAt])
+  @@index([parentReservationId])
   @@map("reservations")
 }
 

@@ -93,6 +93,7 @@ describe('VehicleService', () => {
       markPhoneVerified: jest.fn(),
       isPhoneVerified: jest.fn().mockResolvedValue(false),
       updateAutoAccept: jest.fn(),
+      applyReputationPenalty: jest.fn(),
     };
     reservationRuleSetServiceMock = {
       getRuleSetDetails: jest.fn().mockResolvedValue(null),

@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Inject,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -77,6 +78,36 @@ export class ReservationController {
     );
   }
 
+  @Post(':id/extend')
+  async extend(
+    @Param('id') id: string,
+    @Body() dto: Contracts.ExtendReservationRequest,
+    @Req() req: Request,
+  ): Promise<Contracts.ExtendReservationResponse> {
+    const conductorId = await this.requireUserId(req);
+    const parsed = Contracts.ExtendReservationRequestSchema.parse(dto);
+    return await this.reservationService.extendReservation(
+      conductorId,
+      id,
+      parsed,
+    );
+  }
+
+  @Patch(':id/extend')
+  async modifyExtension(
+    @Param('id') id: string,
+    @Body() dto: Contracts.ExtendReservationRequest,
+    @Req() req: Request,
+  ): Promise<Contracts.ExtendReservationResponse> {
+    const conductorId = await this.requireUserId(req);
+    const parsed = Contracts.ExtendReservationRequestSchema.parse(dto);
+    return await this.reservationService.modifyExtension(
+      conductorId,
+      id,
+      parsed,
+    );
+  }
+
   @Post(':id/cancel')
   @HttpCode(HttpStatus.OK)
   async cancel(
@@ -85,6 +116,16 @@ export class ReservationController {
   ): Promise<Contracts.CancelReservationResponse> {
     const conductorId = await this.requireUserId(req);
     return await this.reservationService.cancelReservation(conductorId, id);
+  }
+
+  @Post(':id/cancel-by-owner')
+  @HttpCode(HttpStatus.OK)
+  async cancelByOwner(
+    @Param('id') id: string,
+    @Req() req: Request,
+  ): Promise<Contracts.CancelReservationResponse> {
+    const rentadorId = await this.requireUserId(req);
+    return await this.reservationService.cancelReservationByRentador(rentadorId, id);
   }
 
   @Post(':id/approve')
