@@ -20,8 +20,10 @@ import { randomUUID } from 'node:crypto';
 import {
   ContractNotAcceptedException,
   ExtensionInvalidEndAtException,
+  ExtensionNotPendingException,
   ExtensionParentNotInProgressException,
   HoldExpiredException,
+  PendingExtensionExistsException,
   InvalidQrTokenException,
   OwnerCannotReserveOwnVehicleException,
   ReservationForbiddenException,
@@ -1667,6 +1669,61 @@ describe('ReservationService', () => {
       const child = await repo.findById(result.id);
       expect(child?.getStatus()).toBe('pending_payment');
       expect(child?.getHoldExpiresAt()).not.toBeNull();
+    });
+
+    async function setupManualInProgress(): Promise<string> {
+      const manualVehicle = makeVehicle({ autoAccept: false });
+      vehicleRepo = makeVehicleRepo([manualVehicle]);
+      service = new ReservationService(
+        repo,
+        vehicleRepo,
+        userRepo,
+        ruleSetRepo,
+        clock,
+        voucherProvider,
+        notificationProvider,
+        paymentGateway,
+        emailProvider,
+        identityService,
+        driverLicenseService,
+      );
+      return makeInProgressFor(manualVehicle);
+    }
+
+    it('bloquea una nueva extensión si ya hay una pendiente', async () => {
+      const id = await setupManualInProgress();
+      await service.extendReservation(conductorA, id, {
+        newEndAt: '2026-06-05T10:00:00.000Z',
+      });
+      await expect(
+        service.extendReservation(conductorA, id, {
+          newEndAt: '2026-06-07T10:00:00.000Z',
+        }),
+      ).rejects.toThrow(PendingExtensionExistsException);
+    });
+
+    it('modifyExtension cambia la fecha y recalcula el total de la pendiente', async () => {
+      const id = await setupManualInProgress();
+      const ext = await service.extendReservation(conductorA, id, {
+        newEndAt: '2026-06-05T10:00:00.000Z',
+      });
+      const beforeTotal = (await repo.findById(ext.id))!.getTotalCents();
+      const result = await service.modifyExtension(conductorA, ext.id, {
+        newEndAt: '2026-06-07T10:00:00.000Z',
+      });
+      expect(result.status).toBe('pending_approval');
+      expect(result.totalCents).toBeGreaterThan(beforeTotal);
+      const after = await repo.findById(ext.id);
+      expect(after?.getEndAt().toISOString()).toBe('2026-06-07T10:00:00.000Z');
+    });
+
+    it('modifyExtension rechaza una reserva que no es extensión pendiente', async () => {
+      const id = await makeInProgressFor(vehicle);
+      await expect(
+        service.modifyExtension(conductorA, id, {
+          newEndAt: '2026-06-05T10:00:00.000Z',
+        }),
+      ).rejects.toThrow(ExtensionNotPendingException);
     });
   });
 

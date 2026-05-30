@@ -77,3 +77,17 @@ export class ExtensionInvalidEndAtException extends DomainException {
     super(`invalid extension endAt: ${message}`);
   }
 }
+
+export class PendingExtensionExistsException extends DomainException {
+  constructor(reservationId: string) {
+    super(
+      `reservation ${reservationId} already has a pending extension request`,
+    );
+  }
+}
+
+export class ExtensionNotPendingException extends DomainException {
+  constructor(reservationId: string) {
+    super(`extension ${reservationId} is not pending and cannot be modified`);
+  }
+}
