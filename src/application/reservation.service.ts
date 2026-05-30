@@ -728,7 +728,8 @@ export class ReservationService {
 
     const now = this.clock.now();
     const chain = await this.reservationRepository.findChain(reservationId);
-    const cancelables = chain.length > 0 ? chain : [reservation];
+    const cancelables =
+      chain.length > 0 ? collectDescendants(reservationId, chain) : [reservation];
     const toCancel = cancelables.filter(isCancelable);
 
     if (toCancel.length === 0) {
@@ -1437,6 +1438,29 @@ function isCancelable(r: Reservation): boolean {
     r.isConfirmed() ||
     r.isInProgress()
   );
+}
+
+/**
+ * Devuelve el eslabón objetivo y todos sus descendientes en la cadena (las
+ * extensiones que cuelgan de él, directa o transitivamente). No incluye a sus
+ * ancestros: cancelar una extensión no debe afectar la parte del alquiler ya
+ * comprometida (el original en curso y las extensiones anteriores).
+ */
+function collectDescendants(
+  targetId: string,
+  chain: Reservation[],
+): Reservation[] {
+  const byId = new Map(chain.map((r) => [r.getId(), r]));
+  const reachesTarget = (r: Reservation): boolean => {
+    let cur: Reservation | undefined = r;
+    while (cur) {
+      if (cur.getId() === targetId) return true;
+      const parentId = cur.getParentReservationId();
+      cur = parentId ? byId.get(parentId) : undefined;
+    }
+    return false;
+  };
+  return chain.filter(reachesTarget);
 }
 
 function isExclusionViolation(e: unknown): boolean {
