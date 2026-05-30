@@ -28,7 +28,7 @@ Then('el conductor {string} recibe reembolso total', async function (this: MyWor
   expect(res.body.balanceInCents).toBeGreaterThan(0);
 });
 
-Then('se aplica una penalización de {int} puntos a la reputación del rentador', async function (this: MyWorld, penalty: number) {
+Then('se aplica una penalización de {int} puntos a la reputación del rentador', async function (this: MyWorld, _penalty: number) {
   const token = this.world.tokens_by_alias?.['__owner__'];
   if (!token) throw new Error('owner no autenticado');
   this.world.access_token = token;
