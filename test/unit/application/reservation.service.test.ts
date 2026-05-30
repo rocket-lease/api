@@ -802,6 +802,81 @@ describe('ReservationService', () => {
     });
   });
 
+  describe('getById — resolución del rule set', () => {
+    it('usa el set privado y no consulta el set compartido', async () => {
+      const { ReservationRuleSet } = await import(
+        '@/domain/entities/reservation-rule-set.entity'
+      );
+      await ruleSetRepo.save(
+        new ReservationRuleSet(
+          vehicle.getOwnerId(),
+          vehicle.getId(),
+          'Privado',
+          null,
+          'MODERATE',
+          30,
+          { type: 'LIMITED', value: 200 },
+          { minDays: 2, maxDays: 14 },
+          0,
+          new Date(),
+          new Date(),
+          randomUUID(),
+        ),
+      );
+      const created = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      const findPrivateSpy = jest.spyOn(ruleSetRepo, 'findPrivateByVehicleId');
+      const findByIdSpy = jest.spyOn(ruleSetRepo, 'findById');
+
+      const dto = await service.getById(conductorA, created.id);
+
+      expect(dto.vehicle.reservationRuleSet?.cancellationPolicy).toBe('MODERATE');
+      expect(findPrivateSpy).toHaveBeenCalledTimes(1);
+      expect(findPrivateSpy).toHaveBeenCalledWith(vehicle.getId());
+      expect(findByIdSpy).not.toHaveBeenCalled();
+    });
+
+    it('cae al set compartido cuando el vehículo no tiene set privado', async () => {
+      const { ReservationRuleSet } = await import(
+        '@/domain/entities/reservation-rule-set.entity'
+      );
+      const sharedId = randomUUID();
+      await ruleSetRepo.save(
+        new ReservationRuleSet(
+          vehicle.getOwnerId(),
+          null,
+          'Compartido',
+          null,
+          'FLEXIBLE',
+          null,
+          { type: 'UNLIMITED' },
+          { minDays: 1 },
+          0,
+          new Date(),
+          new Date(),
+          sharedId,
+        ),
+      );
+      vehicle.update({ reservationRuleSetId: sharedId });
+      const created = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      const findByIdSpy = jest.spyOn(ruleSetRepo, 'findById');
+
+      const dto = await service.getById(conductorA, created.id);
+
+      expect(dto.vehicle.reservationRuleSet?.cancellationPolicy).toBe('FLEXIBLE');
+      expect(findByIdSpy).toHaveBeenCalledWith(sharedId);
+    });
+  });
+
   describe('US-40 — pending_approval flow', () => {
     function makeVehicleWithAutoAccept(autoAccept: boolean | null): Vehicle {
       return makeVehicle({ autoAccept });

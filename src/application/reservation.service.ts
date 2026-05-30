@@ -831,23 +831,39 @@ export class ReservationService {
     });
   }
 
+  /**
+   * Resuelve el set de reglas vigente de un vehículo: el privado del vehículo
+   * tiene prioridad sobre el compartido. Si `prefetchedPrivate` se pasa (incluido
+   * `null`), se usa ese valor y se evita la query del set privado; si se omite,
+   * se consulta. Permite a los callers que ya tienen el set privado en mano
+   * (p. ej. resuelto en paralelo) ahorrarse un round-trip.
+   */
   private async resolveRuleSetForVehicle(
     vehicleId: string,
     sharedRuleSetId: string | null,
+    prefetchedPrivate?: ReservationRuleSet | null,
   ): Promise<ReservationRuleSet | null> {
     const privateRuleSet =
-      await this.reservationRuleSetRepository.findPrivateByVehicleId(vehicleId);
+      prefetchedPrivate !== undefined
+        ? prefetchedPrivate
+        : await this.reservationRuleSetRepository.findPrivateByVehicleId(
+            vehicleId,
+          );
     if (privateRuleSet) return privateRuleSet;
     if (!sharedRuleSetId) return null;
     return this.reservationRuleSetRepository.findById(sharedRuleSetId);
   }
 
   private async toDTO(r: Reservation): Promise<GetReservationResponse> {
-    const [vehicle, rentadorProfile] = await Promise.all([
+    const [vehicle, rentadorProfile, privateRuleSet] = await Promise.all([
       this.vehicleRepository.findById(r.getVehicleId()),
       this.userRepository.getProfileById(r.getRentadorId()),
+      this.reservationRuleSetRepository.findPrivateByVehicleId(r.getVehicleId()),
     ]);
-    const reservationRuleSet = await this.getVehicleReservationRuleSet(vehicle);
+    const reservationRuleSet = await this.getVehicleReservationRuleSet(
+      vehicle,
+      privateRuleSet,
+    );
 
     return GetReservationResponseSchema.parse({
       id: r.getId(),
@@ -896,12 +912,14 @@ export class ReservationService {
 
   private async getVehicleReservationRuleSet(
     vehicle: Vehicle | null,
+    prefetchedPrivate?: ReservationRuleSet | null,
   ): Promise<ReservationRuleSetPublic | null> {
     if (!vehicle) return null;
 
     const ruleSet = await this.resolveRuleSetForVehicle(
       vehicle.getId(),
       vehicle.getReservationRuleSetId(),
+      prefetchedPrivate,
     );
     if (!ruleSet) return null;
 
