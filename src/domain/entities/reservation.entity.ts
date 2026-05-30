@@ -130,9 +130,9 @@ export class Reservation {
   private readonly rentadorId: string;
   private status: ReservationStatus;
   private readonly startAt: Date;
-  private readonly endAt: Date;
+  private endAt: Date;
   private holdExpiresAt: Date | null;
-  private readonly totalCents: number;
+  private totalCents: number;
   private readonly currency: 'ARS';
   private paymentMethod: PaymentMethod | null;
   private walletProvider: WalletProvider | null;
@@ -362,6 +362,51 @@ export class Reservation {
     this.cancellationPolicySnapshot = snapshot.cancellationPolicy;
     this.maxKilometrageSnapshot = snapshot.maxKilometrage;
     this.rentalTimeConstraintsSnapshot = snapshot.rentalTimeConstraints;
+    this.validate();
+  }
+
+  /**
+   * Modifica una extensión pendiente: ajusta la fecha de devolución, el total,
+   * el estado (puede pasar entre `pending_approval` y `pending_payment` según
+   * el recálculo), el hold y el snapshot de reglas vigente. Solo válido para
+   * eslabones que sean extensiones (`parentReservationId` no nulo) y todavía
+   * estén pendientes.
+   */
+  public modifyExtension(params: {
+    newEndAt: Date;
+    totalCents: number;
+    status: ReservationStatus;
+    holdExpiresAt: Date;
+    snapshot: {
+      depositPercentage: number | null;
+      basePriceCents: number;
+      cancellationPolicy: CancellationPolicy;
+      maxKilometrage: MaxKilometrage;
+      rentalTimeConstraints: RentalTimeConstraints;
+    };
+    now: Date;
+  }): void {
+    if (this.parentReservationId === null) {
+      throw new InvalidEntityDataException('only extensions can be modified');
+    }
+    if (!this.isPendingApproval() && !this.isPendingPayment()) {
+      throw new InvalidEntityDataException(
+        'only pending extensions can be modified',
+      );
+    }
+    if (params.newEndAt.getTime() <= this.startAt.getTime()) {
+      throw new InvalidEntityDataException('endAt must be after startAt');
+    }
+    this.endAt = params.newEndAt;
+    this.totalCents = params.totalCents;
+    this.status = params.status;
+    this.holdExpiresAt = params.holdExpiresAt;
+    this.depositPercentageSnapshot = params.snapshot.depositPercentage;
+    this.basePriceCentsSnapshot = params.snapshot.basePriceCents;
+    this.cancellationPolicySnapshot = params.snapshot.cancellationPolicy;
+    this.maxKilometrageSnapshot = params.snapshot.maxKilometrage;
+    this.rentalTimeConstraintsSnapshot = params.snapshot.rentalTimeConstraints;
+    this.updatedAt = params.now;
     this.validate();
   }
 

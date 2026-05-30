@@ -24,7 +24,9 @@ import {
 import {
   ContractNotAcceptedException,
   ExtensionInvalidEndAtException,
+  ExtensionNotPendingException,
   ExtensionParentNotInProgressException,
+  PendingExtensionExistsException,
   HoldExpiredException,
   InvalidReservationTransitionException,
   OwnerCannotReserveOwnVehicleException,
@@ -165,6 +167,12 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.RESERVATION_EXTENSION_INVALID_END_AT;
       title = 'Bad Request';
+    } else if (exception instanceof PendingExtensionExistsException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.RESERVATION_EXTENSION_ALREADY_PENDING;
+    } else if (exception instanceof ExtensionNotPendingException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.RESERVATION_EXTENSION_NOT_PENDING;
     } else if (exception instanceof DepositPercentageOutOfRangeException) {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.DEPOSIT_PERCENTAGE_OUT_OF_RANGE;

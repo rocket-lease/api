@@ -71,7 +71,9 @@ import { EntityNotFoundException } from '@/domain/exceptions/domain.exception';
 import {
   ContractNotAcceptedException,
   ExtensionInvalidEndAtException,
+  ExtensionNotPendingException,
   ExtensionParentNotInProgressException,
+  PendingExtensionExistsException,
   HoldExpiredException,
   InvalidReservationTransitionException,
   OwnerCannotReserveOwnVehicleException,
@@ -458,10 +460,18 @@ export class ReservationService {
       throw e;
     }
 
+    const parentId = reservation.getParentReservationId();
+    if (parentId !== null) {
+      const parent = await this.reservationRepository.findById(parentId);
+      if (parent) {
+        await this.attemptAutoChargeExtension(reservation, parent);
+      }
+    }
+
     return ApproveReservationResponseSchema.parse({
       id: reservation.getId(),
-      status: RESERVATION_STATUS.pending_payment,
-      holdExpiresAt: reservation.getHoldExpiresAt()!.toISOString(),
+      status: reservation.getStatus(),
+      holdExpiresAt: reservation.getHoldExpiresAt()?.toISOString() ?? null,
     });
   }
 
@@ -718,7 +728,8 @@ export class ReservationService {
 
     const now = this.clock.now();
     const chain = await this.reservationRepository.findChain(reservationId);
-    const cancelables = chain.length > 0 ? chain : [reservation];
+    const cancelables =
+      chain.length > 0 ? collectDescendants(reservationId, chain) : [reservation];
     const toCancel = cancelables.filter(isCancelable);
 
     if (toCancel.length === 0) {
@@ -763,6 +774,18 @@ export class ReservationService {
   }
 
   /**
+   * Un eslabón es una extensión pendiente si tiene padre (no es el root del
+   * chain) y todavía espera aprobación del rentador (`pending_approval`) o
+   * pago del conductor (`pending_payment`).
+   */
+  private isPendingExtension(reservation: Reservation): boolean {
+    return (
+      reservation.getParentReservationId() !== null &&
+      (reservation.isPendingApproval() || reservation.isPendingPayment())
+    );
+  }
+
+  /**
    * Solicita una extensión del alquiler. La extensión es un nuevo eslabón en
    * la cadena de reservas: una row con `parentReservationId` apuntando al
    * último eslabón activo del chain, `startAt = endAt` de ese padre y
@@ -804,6 +827,11 @@ export class ReservationService {
       throw new ExtensionParentNotInProgressException(parentReservationId);
     }
 
+    const chain = await this.reservationRepository.findChain(parentReservationId);
+    if (chain.some((r) => this.isPendingExtension(r))) {
+      throw new PendingExtensionExistsException(parentReservationId);
+    }
+
     const tip =
       (await this.reservationRepository.findChainTipFor(parentReservationId)) ??
       parentRequest;
@@ -840,7 +868,6 @@ export class ReservationService {
     };
 
     const maxRentalDays = rules.rentalTimeConstraints.maxDays;
-    const chain = await this.reservationRepository.findChain(parentReservationId);
     const chainTotalDays = computeChainTotalDays(chain, tip);
     const extensionDays = countDays(tip.getEndAt(), newEndAt);
     const exceedsMax =
@@ -914,6 +941,145 @@ export class ReservationService {
     return ExtendReservationResponseSchema.parse({
       id: saved.getId(),
       parentReservationId: tip.getId(),
+      status: initialStatus,
+      holdExpiresAt: holdExpiresAtIso,
+      totalCents: saved.getTotalCents(),
+      currency: 'ARS',
+      requiresApproval,
+    });
+  }
+
+  /**
+   * Modifica una extensión todavía pendiente (de aprobación o de pago),
+   * cambiando su fecha de devolución. Recalcula total, `requiresApproval` y
+   * estado con las mismas reglas que `extendReservation`, pero sobre el
+   * eslabón existente en vez de crear uno nuevo.
+   *
+   * @param conductorId - ID del conductor autenticado (dueño de la extensión).
+   * @param extensionId - ID del eslabón de extensión pendiente a modificar.
+   * @param dto - Payload con el nuevo `newEndAt`.
+   */
+  public async modifyExtension(
+    conductorId: string,
+    extensionId: string,
+    dto: ExtendReservationRequest,
+  ): Promise<ExtendReservationResponse> {
+    const extension = await this.reservationRepository.findById(extensionId);
+    if (!extension) throw new ReservationNotFoundException(extensionId);
+    if (!extension.isOwnedByConductor(conductorId)) {
+      throw new ReservationForbiddenException();
+    }
+    if (!this.isPendingExtension(extension)) {
+      throw new ExtensionNotPendingException(extensionId);
+    }
+
+    const parentId = extension.getParentReservationId()!;
+    const parent = await this.reservationRepository.findById(parentId);
+    if (!parent) throw new ReservationNotFoundException(parentId);
+
+    const newEndAt = new Date(dto.newEndAt);
+    if (newEndAt.getTime() <= parent.getEndAt().getTime()) {
+      throw new ExtensionInvalidEndAtException(
+        'newEndAt must be strictly after the previous chain endAt',
+      );
+    }
+
+    const vehicle = await this.vehicleRepository.findById(
+      extension.getVehicleId(),
+    );
+    if (!vehicle) {
+      throw new EntityNotFoundException('vehicle', extension.getVehicleId());
+    }
+    if (!vehicle.isEnabled()) {
+      throw new VehicleNotAvailableException(vehicle.getId());
+    }
+
+    const ruleSet = await this.resolveRuleSetForVehicle(
+      vehicle.getId(),
+      vehicle.getReservationRuleSetId(),
+    );
+    const rules = {
+      depositPercentage:
+        ruleSet?.getDepositPercentage() ?? RESERVATION_RULES_DEFAULTS.depositPercentage,
+      basePriceCents: vehicle.getBasePriceCents(),
+      cancellationPolicy:
+        ruleSet?.getCancellationPolicy() ?? RESERVATION_RULES_DEFAULTS.cancellationPolicy,
+      maxKilometrage:
+        ruleSet?.getMaxKilometrage() ?? RESERVATION_RULES_DEFAULTS.maxKilometrage,
+      rentalTimeConstraints:
+        ruleSet?.getRentalTimeConstraints() ?? RESERVATION_RULES_DEFAULTS.rentalTimeConstraints,
+    };
+
+    const maxRentalDays = rules.rentalTimeConstraints.maxDays;
+    const chain = await this.reservationRepository.findChain(parentId);
+    const chainWithoutThis = chain.filter(
+      (r) => r.getId() !== extension.getId(),
+    );
+    const chainTotalDays = computeChainTotalDays(chainWithoutThis, parent);
+    const extensionDays = countDays(parent.getEndAt(), newEndAt);
+    const exceedsMax =
+      typeof maxRentalDays === 'number' && chainTotalDays + extensionDays > maxRentalDays;
+
+    const ownerProfile = await this.userRepository.getProfileById(
+      vehicle.getOwnerId(),
+    );
+    const vehicleAutoAccept =
+      vehicle.getAutoAccept() ?? ownerProfile?.autoAccept ?? false;
+    const effectiveAutoAccept = vehicleAutoAccept && !exceedsMax;
+    const requiresApproval = !effectiveAutoAccept;
+
+    const now = this.clock.now();
+    const totalCents = computeReservationTotalCents(
+      rules.basePriceCents,
+      parent.getEndAt(),
+      newEndAt,
+    );
+    const status = requiresApproval
+      ? RESERVATION_STATUS.pending_approval
+      : RESERVATION_STATUS.pending_payment;
+    const ttlMs = requiresApproval ? APPROVAL_TTL_MS : HOLD_TTL_MS;
+
+    const overlapping = await this.reservationRepository.findOverlapping(
+      vehicle.getId(),
+      parent.getEndAt(),
+      newEndAt,
+      BLOCKING_STATUSES,
+    );
+    const conflicting = overlapping.find(
+      (r) => r.getId() !== extension.getId() && r.getId() !== parent.getId(),
+    );
+    if (conflicting) {
+      throw new VehicleNotAvailableException(vehicle.getId());
+    }
+
+    extension.modifyExtension({
+      newEndAt,
+      totalCents,
+      status,
+      holdExpiresAt: new Date(now.getTime() + ttlMs),
+      snapshot: rules,
+      now,
+    });
+
+    let saved: Reservation;
+    try {
+      saved = await this.reservationRepository.update(extension);
+    } catch (e) {
+      if (isExclusionViolation(e)) {
+        throw new VehicleNotAvailableException(vehicle.getId());
+      }
+      throw e;
+    }
+
+    const holdExpiresAtIso = saved.getHoldExpiresAt()!.toISOString();
+    const initialStatus = saved.getStatus();
+    if (!requiresApproval) {
+      await this.attemptAutoChargeExtension(saved, parent);
+    }
+
+    return ExtendReservationResponseSchema.parse({
+      id: saved.getId(),
+      parentReservationId: parentId,
       status: initialStatus,
       holdExpiresAt: holdExpiresAtIso,
       totalCents: saved.getTotalCents(),
@@ -1272,6 +1438,29 @@ function isCancelable(r: Reservation): boolean {
     r.isConfirmed() ||
     r.isInProgress()
   );
+}
+
+/**
+ * Devuelve el eslabón objetivo y todos sus descendientes en la cadena (las
+ * extensiones que cuelgan de él, directa o transitivamente). No incluye a sus
+ * ancestros: cancelar una extensión no debe afectar la parte del alquiler ya
+ * comprometida (el original en curso y las extensiones anteriores).
+ */
+function collectDescendants(
+  targetId: string,
+  chain: Reservation[],
+): Reservation[] {
+  const byId = new Map(chain.map((r) => [r.getId(), r]));
+  const reachesTarget = (r: Reservation): boolean => {
+    let cur: Reservation | undefined = r;
+    while (cur) {
+      if (cur.getId() === targetId) return true;
+      const parentId = cur.getParentReservationId();
+      cur = parentId ? byId.get(parentId) : undefined;
+    }
+    return false;
+  };
+  return chain.filter(reachesTarget);
 }
 
 function isExclusionViolation(e: unknown): boolean {

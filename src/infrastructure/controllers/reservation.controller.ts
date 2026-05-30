@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Inject,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -86,6 +87,21 @@ export class ReservationController {
     const conductorId = await this.requireUserId(req);
     const parsed = Contracts.ExtendReservationRequestSchema.parse(dto);
     return await this.reservationService.extendReservation(
+      conductorId,
+      id,
+      parsed,
+    );
+  }
+
+  @Patch(':id/extend')
+  async modifyExtension(
+    @Param('id') id: string,
+    @Body() dto: Contracts.ExtendReservationRequest,
+    @Req() req: Request,
+  ): Promise<Contracts.ExtendReservationResponse> {
+    const conductorId = await this.requireUserId(req);
+    const parsed = Contracts.ExtendReservationRequestSchema.parse(dto);
+    return await this.reservationService.modifyExtension(
       conductorId,
       id,
       parsed,

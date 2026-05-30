@@ -20,8 +20,10 @@ import { randomUUID } from 'node:crypto';
 import {
   ContractNotAcceptedException,
   ExtensionInvalidEndAtException,
+  ExtensionNotPendingException,
   ExtensionParentNotInProgressException,
   HoldExpiredException,
+  PendingExtensionExistsException,
   InvalidQrTokenException,
   OwnerCannotReserveOwnVehicleException,
   ReservationForbiddenException,
@@ -902,7 +904,7 @@ describe('ReservationService', () => {
         const res = await service.approve(rentadorId, created.id);
 
         expect(res.status).toBe('pending_payment');
-        expect(new Date(res.holdExpiresAt).getTime()).toBe(
+        expect(new Date(res.holdExpiresAt!).getTime()).toBe(
           clock.now().getTime() + 10 * 60 * 1000,
         );
         const after = await repo.findById(created.id);
@@ -1668,6 +1670,89 @@ describe('ReservationService', () => {
       expect(child?.getStatus()).toBe('pending_payment');
       expect(child?.getHoldExpiresAt()).not.toBeNull();
     });
+
+    async function setupManualInProgress(): Promise<string> {
+      const manualVehicle = makeVehicle({ autoAccept: false });
+      vehicleRepo = makeVehicleRepo([manualVehicle]);
+      service = new ReservationService(
+        repo,
+        vehicleRepo,
+        userRepo,
+        ruleSetRepo,
+        clock,
+        voucherProvider,
+        notificationProvider,
+        paymentGateway,
+        emailProvider,
+        identityService,
+        driverLicenseService,
+      );
+      return makeInProgressFor(manualVehicle);
+    }
+
+    it('bloquea una nueva extensión si ya hay una pendiente', async () => {
+      const id = await setupManualInProgress();
+      await service.extendReservation(conductorA, id, {
+        newEndAt: '2026-06-05T10:00:00.000Z',
+      });
+      await expect(
+        service.extendReservation(conductorA, id, {
+          newEndAt: '2026-06-07T10:00:00.000Z',
+        }),
+      ).rejects.toThrow(PendingExtensionExistsException);
+    });
+
+    it('modifyExtension cambia la fecha y recalcula el total de la pendiente', async () => {
+      const id = await setupManualInProgress();
+      const ext = await service.extendReservation(conductorA, id, {
+        newEndAt: '2026-06-05T10:00:00.000Z',
+      });
+      const beforeTotal = (await repo.findById(ext.id))!.getTotalCents();
+      const result = await service.modifyExtension(conductorA, ext.id, {
+        newEndAt: '2026-06-07T10:00:00.000Z',
+      });
+      expect(result.status).toBe('pending_approval');
+      expect(result.totalCents).toBeGreaterThan(beforeTotal);
+      const after = await repo.findById(ext.id);
+      expect(after?.getEndAt().toISOString()).toBe('2026-06-07T10:00:00.000Z');
+    });
+
+    it('modifyExtension rechaza una reserva que no es extensión pendiente', async () => {
+      const id = await makeInProgressFor(vehicle);
+      await expect(
+        service.modifyExtension(conductorA, id, {
+          newEndAt: '2026-06-05T10:00:00.000Z',
+        }),
+      ).rejects.toThrow(ExtensionNotPendingException);
+    });
+
+    it('aprobar una extensión la auto-cobra con el medio de pago del padre', async () => {
+      const manualVehicle = makeVehicle({ autoAccept: false });
+      vehicleRepo = makeVehicleRepo([manualVehicle]);
+      service = new ReservationService(
+        repo,
+        vehicleRepo,
+        userRepo,
+        ruleSetRepo,
+        clock,
+        voucherProvider,
+        notificationProvider,
+        paymentGateway,
+        emailProvider,
+        identityService,
+        driverLicenseService,
+      );
+      const id = await makeInProgressFor(manualVehicle);
+      const ext = await service.extendReservation(conductorA, id, {
+        newEndAt: '2026-06-05T10:00:00.000Z',
+      });
+      expect(ext.requiresApproval).toBe(true);
+
+      const result = await service.approve(manualVehicle.getOwnerId(), ext.id);
+      expect(result.status).toBe('confirmed');
+      const after = await repo.findById(ext.id);
+      expect(after?.getStatus()).toBe('confirmed');
+    });
   });
 
   describe('cancelReservation cascada por chain', () => {
@@ -1696,14 +1781,31 @@ describe('ReservationService', () => {
       expect(ext?.getStatus()).toBe('cancelled');
     });
 
-    it('cancelar desde un eslabón hijo también cancela al padre', async () => {
-      const parentId = await makeInProgressFor(vehicle);
+    it('cancelar un eslabón hijo NO cancela al padre comprometido', async () => {
+      const manualVehicle = makeVehicle({ autoAccept: false });
+      vehicleRepo = makeVehicleRepo([manualVehicle]);
+      service = new ReservationService(
+        repo,
+        vehicleRepo,
+        userRepo,
+        ruleSetRepo,
+        clock,
+        voucherProvider,
+        notificationProvider,
+        paymentGateway,
+        emailProvider,
+        identityService,
+        driverLicenseService,
+      );
+      const parentId = await makeInProgressFor(manualVehicle);
       const extension = await service.extendReservation(conductorA, parentId, {
         newEndAt: '2026-06-05T10:00:00.000Z',
       });
       await service.cancelReservation(conductorA, extension.id);
       const parent = await repo.findById(parentId);
-      expect(parent?.getStatus()).toBe('cancelled');
+      const ext = await repo.findById(extension.id);
+      expect(ext?.getStatus()).toBe('cancelled');
+      expect(parent?.getStatus()).toBe('in_progress');
     });
   });
 
