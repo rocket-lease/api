@@ -904,7 +904,7 @@ describe('ReservationService', () => {
         const res = await service.approve(rentadorId, created.id);
 
         expect(res.status).toBe('pending_payment');
-        expect(new Date(res.holdExpiresAt).getTime()).toBe(
+        expect(new Date(res.holdExpiresAt!).getTime()).toBe(
           clock.now().getTime() + 10 * 60 * 1000,
         );
         const after = await repo.findById(created.id);
@@ -1724,6 +1724,34 @@ describe('ReservationService', () => {
           newEndAt: '2026-06-05T10:00:00.000Z',
         }),
       ).rejects.toThrow(ExtensionNotPendingException);
+    });
+
+    it('aprobar una extensión la auto-cobra con el medio de pago del padre', async () => {
+      const manualVehicle = makeVehicle({ autoAccept: false });
+      vehicleRepo = makeVehicleRepo([manualVehicle]);
+      service = new ReservationService(
+        repo,
+        vehicleRepo,
+        userRepo,
+        ruleSetRepo,
+        clock,
+        voucherProvider,
+        notificationProvider,
+        paymentGateway,
+        emailProvider,
+        identityService,
+        driverLicenseService,
+      );
+      const id = await makeInProgressFor(manualVehicle);
+      const ext = await service.extendReservation(conductorA, id, {
+        newEndAt: '2026-06-05T10:00:00.000Z',
+      });
+      expect(ext.requiresApproval).toBe(true);
+
+      const result = await service.approve(manualVehicle.getOwnerId(), ext.id);
+      expect(result.status).toBe('confirmed');
+      const after = await repo.findById(ext.id);
+      expect(after?.getStatus()).toBe('confirmed');
     });
   });
 

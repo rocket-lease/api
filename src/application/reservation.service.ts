@@ -460,10 +460,18 @@ export class ReservationService {
       throw e;
     }
 
+    const parentId = reservation.getParentReservationId();
+    if (parentId !== null) {
+      const parent = await this.reservationRepository.findById(parentId);
+      if (parent) {
+        await this.attemptAutoChargeExtension(reservation, parent);
+      }
+    }
+
     return ApproveReservationResponseSchema.parse({
       id: reservation.getId(),
-      status: RESERVATION_STATUS.pending_payment,
-      holdExpiresAt: reservation.getHoldExpiresAt()!.toISOString(),
+      status: reservation.getStatus(),
+      holdExpiresAt: reservation.getHoldExpiresAt()?.toISOString() ?? null,
     });
   }
 
