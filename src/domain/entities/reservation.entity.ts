@@ -609,6 +609,23 @@ export class Reservation {
     this.updatedAt = now;
   }
 
+  public cancelByRentador(now: Date, reason?: string | null): void {
+    if (
+      !this.isPendingPayment() &&
+      !this.isPendingApproval() &&
+      !this.isConfirmed() &&
+      !this.isInProgress()
+    ) {
+      throw new InvalidReservationTransitionException(this.status, RESERVATION_STATUS.cancelled);
+    }
+    this.status = RESERVATION_STATUS.cancelled;
+    if (reason) {
+      this.rejectionReason = reason;
+    }
+    this.holdExpiresAt = null;
+    this.updatedAt = now;
+  }
+
   public confirmPickup(now: Date): void {
     if (!this.isConfirmed()) {
       throw new InvalidReservationTransitionException(this.status, RESERVATION_STATUS.in_progress);

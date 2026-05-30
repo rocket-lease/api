@@ -118,6 +118,16 @@ export class ReservationController {
     return await this.reservationService.cancelReservation(conductorId, id);
   }
 
+  @Post(':id/cancel-by-owner')
+  @HttpCode(HttpStatus.OK)
+  async cancelByOwner(
+    @Param('id') id: string,
+    @Req() req: Request,
+  ): Promise<Contracts.CancelReservationResponse> {
+    const rentadorId = await this.requireUserId(req);
+    return await this.reservationService.cancelReservationByRentador(rentadorId, id);
+  }
+
   @Post(':id/approve')
   @HttpCode(HttpStatus.OK)
   async approve(

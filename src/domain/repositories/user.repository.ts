@@ -55,6 +55,7 @@ export interface UserRepository {
    * @param value - Nuevo valor del flag.
    */
   updateAutoAccept(id: string, value: boolean): Promise<void>;
+  applyReputationPenalty(id: string, points: number): Promise<UserProfile>;
 }
 
 export const USER_REPOSITORY = Symbol('UserRepository');
