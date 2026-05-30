@@ -739,7 +739,9 @@ export class ReservationService {
       return CancelReservationResponseSchema.parse({
         id: saved.getId(),
         status: RESERVATION_STATUS.cancelled,
+        cancelledBy: 'conductor',
         refundCents: 0,
+        reputationPenalty: 0,
         balanceInCents: profile?.balanceInCents ?? 0,
         currency: 'ARS',
       });
@@ -767,7 +769,95 @@ export class ReservationService {
     return CancelReservationResponseSchema.parse({
       id: reservationId,
       status: RESERVATION_STATUS.cancelled,
+      cancelledBy: 'conductor',
       refundCents: totalRefundCents,
+      reputationPenalty: 0,
+      balanceInCents: updatedProfile.balanceInCents,
+      currency: 'ARS',
+    });
+  }
+
+  public async cancelReservationByRentador(
+    rentadorId: string,
+    reservationId: string,
+  ): Promise<CancelReservationResponse> {
+    const reservation =
+      await this.reservationRepository.findById(reservationId);
+    if (!reservation) throw new ReservationNotFoundException(reservationId);
+    if (!reservation.isOwnedByRentador(rentadorId)) {
+      throw new ReservationForbiddenException();
+    }
+
+    const now = this.clock.now();
+    const chain = await this.reservationRepository.findChain(reservationId);
+    const cancelables =
+      chain.length > 0 ? collectDescendants(reservationId, chain) : [reservation];
+    const toCancel = cancelables.filter(isCancelable);
+
+    if (toCancel.length === 0) {
+      reservation.cancelByRentador(now);
+      const saved = await this.reservationRepository.update(reservation);
+      const profile = await this.userRepository.getProfileById(reservation.getConductorId());
+      return CancelReservationResponseSchema.parse({
+        id: saved.getId(),
+        status: RESERVATION_STATUS.cancelled,
+        cancelledBy: 'owner',
+        refundCents: 0,
+        reputationPenalty: 0,
+        balanceInCents: profile?.balanceInCents ?? 0,
+        currency: 'ARS',
+      });
+    }
+
+    let totalRefundCents = 0;
+    for (const r of toCancel) {
+      totalRefundCents += r.getTotalCents();
+      r.cancelByRentador(now);
+    }
+    await this.reservationRepository.updateMany(toCancel);
+
+    const updatedProfile = await this.userRepository.creditBalance(
+      reservation.getConductorId(),
+      totalRefundCents,
+    );
+
+    const REPUTATION_PENALTY = -50;
+    await this.userRepository.applyReputationPenalty(rentadorId, REPUTATION_PENALTY);
+
+    await this.notificationProvider.notify(
+      reservation.getConductorId(),
+      'Reserva cancelada por el rentador',
+      `El rentador ha cancelado tu reserva. Recibiste un reembolso de $${totalRefundCents / 100} ARS.`,
+    );
+    const conductorProfile = await this.userRepository.getProfileById(reservation.getConductorId());
+    if (conductorProfile?.email) {
+      await this.emailProvider.sendCancellationEmail(
+        conductorProfile.email,
+        'Reserva cancelada por el rentador',
+        `El rentador ha cancelado tu reserva ${reservationId}. Recibiste un reembolso de $${totalRefundCents / 100} ARS.`,
+      );
+    }
+
+    await this.notificationProvider.notify(
+      rentadorId,
+      'Reserva cancelada',
+      `Has cancelado la reserva ${reservationId}. Se aplicó una penalización de ${Math.abs(REPUTATION_PENALTY)} puntos.`,
+    );
+    const rentadorProfile = await this.userRepository.getProfileById(rentadorId);
+    if (rentadorProfile?.email) {
+      await this.emailProvider.sendCancellationEmail(
+        rentadorProfile.email,
+        'Reserva cancelada',
+        `Has cancelado la reserva ${reservationId}. Se aplicó una penalización de ${Math.abs(REPUTATION_PENALTY)} puntos.`,
+      );
+    }
+
+    return CancelReservationResponseSchema.parse({
+      id: reservationId,
+      status: RESERVATION_STATUS.cancelled,
+      cancelledBy: 'owner',
+      refundCents: totalRefundCents,
+      reputationPenalty: REPUTATION_PENALTY,
       balanceInCents: updatedProfile.balanceInCents,
       currency: 'ARS',
     });

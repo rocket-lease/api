@@ -163,6 +163,7 @@ function makeUserRepo(): jest.Mocked<UserRepository> {
     markPhoneVerified: jest.fn(),
     isPhoneVerified: jest.fn(),
     updateAutoAccept: jest.fn(),
+    applyReputationPenalty: jest.fn(),
   };
 }
 
@@ -223,7 +224,10 @@ describe('ReservationService', () => {
     voucherProvider = makeVoucherProvider();
     notificationProvider = makeNotificationProvider();
     paymentGateway = makePaymentGatewayProvider();
-    emailProvider = { sendVoucherEmail: jest.fn().mockResolvedValue(undefined) };
+    emailProvider = { 
+      sendVoucherEmail: jest.fn().mockResolvedValue(undefined),
+      sendCancellationEmail: jest.fn().mockResolvedValue(undefined),
+    };
     identityService = { assertVerified: jest.fn().mockResolvedValue(undefined) };
     driverLicenseService = { assertVerified: jest.fn().mockResolvedValue(undefined) };
     service = new ReservationService(
@@ -1830,6 +1834,49 @@ describe('ReservationService', () => {
       expect(detail.chain![0].id).toBe(r.id);
       expect(detail.chain![1].id).toBe(ext.id);
       expect(detail.chain![1].parentReservationId).toBe(r.id);
+    });
+  });
+
+  describe('cancelReservationByRentador', () => {
+    it('cancela la reserva, reembolsa al conductor, penaliza al rentador y notifica a ambos', async () => {
+      const r = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      await service.confirmPayment(conductorA, r.id, { paymentMethod: 'credit_card' });
+
+      // Limpiar mocks
+      (notificationProvider.notify as jest.Mock).mockClear();
+      (userRepo.creditBalance as jest.Mock).mockClear();
+      (userRepo.applyReputationPenalty as jest.Mock).mockClear();
+      
+      const res = await service.cancelReservationByRentador(vehicle.getOwnerId(), r.id);
+
+      expect(res.status).toBe('cancelled');
+      expect(res.cancelledBy).toBe('owner');
+      expect(res.reputationPenalty).toBe(-50);
+      
+      const saved = await repo.findById(r.id);
+      expect(saved?.getStatus()).toBe('cancelled');
+
+      expect(userRepo.creditBalance).toHaveBeenCalledWith(conductorA, r.totalCents);
+      expect(userRepo.applyReputationPenalty).toHaveBeenCalledWith(vehicle.getOwnerId(), -50);
+      expect(notificationProvider.notify).toHaveBeenCalledTimes(2);
+    });
+
+    it('falla si lo intenta cancelar alguien que no es el rentador', async () => {
+      const r = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+
+      await expect(
+        service.cancelReservationByRentador('otro-usuario', r.id),
+      ).rejects.toThrow('forbidden: this reservation does not belong to the current user');
     });
   });
 });

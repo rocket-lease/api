@@ -139,6 +139,21 @@ export class InMemoryUserRepository implements UserRepository {
     return nextProfile;
   }
 
+  public async applyReputationPenalty(id: string, points: number): Promise<UserProfile> {
+    const existing = this.profiles.get(id);
+    if (!existing) {
+      throw new Error('User profile not found');
+    }
+
+    const nextProfile: UserProfile = {
+      ...existing,
+      reputationScore: Math.max(0, existing.reputationScore + points),
+    };
+
+    this.profiles.set(id, nextProfile);
+    return nextProfile;
+  }
+
   public async deleteById(id: string): Promise<void> {
     const user = this.storageById.get(id);
     if (user) this.storageByEmail.delete(user.getEmail());
