@@ -811,12 +811,21 @@ export class ReservationService {
    * precio del momento).
    */
   private async snapshotReservationRules(reservation: Reservation): Promise<void> {
-    const vehicle = await this.vehicleRepository.findById(reservation.getVehicleId());
+    const [vehicle, privateRuleSet] = await Promise.all([
+      this.vehicleRepository.findById(reservation.getVehicleId()),
+      this.reservationRuleSetRepository.findPrivateByVehicleId(
+        reservation.getVehicleId(),
+      ),
+    ]);
     if (!vehicle) {
       throw new EntityNotFoundException('vehicle', reservation.getVehicleId());
     }
 
-    const ruleSet = await this.resolveRuleSetForVehicle(vehicle.getId(), vehicle.getReservationRuleSetId());
+    const ruleSet = await this.resolveRuleSetForVehicle(
+      vehicle.getId(),
+      vehicle.getReservationRuleSetId(),
+      privateRuleSet,
+    );
 
     reservation.applyRulesSnapshot({
       depositPercentage:
