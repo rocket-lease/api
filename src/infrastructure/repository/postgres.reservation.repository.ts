@@ -316,9 +316,19 @@ export class PostgresReservationRepository implements ReservationRepository {
         max_kilometrage_value_snapshot AS "maxKilometrageValueSnapshot",
         min_rental_days_snapshot      AS "minRentalDaysSnapshot",
         max_rental_days_snapshot      AS "maxRentalDaysSnapshot",
-        parent_reservation_id AS "parentReservationId",
-        created_at            AS "createdAt",
-        updated_at            AS "updatedAt"
+        with_home_delivery            AS "withHomeDelivery",
+        home_delivery_fee_cents_snapshot AS "homeDeliveryFeeCentsSnapshot",
+        delivery_address              AS "deliveryAddress",
+        delivery_latitude             AS "deliveryLatitude",
+        delivery_longitude            AS "deliveryLongitude",
+        with_home_return              AS "withHomeReturn",
+        home_return_fee_cents_snapshot AS "homeReturnFeeCentsSnapshot",
+        return_address                AS "returnAddress",
+        return_latitude               AS "returnLatitude",
+        return_longitude              AS "returnLongitude",
+        parent_reservation_id         AS "parentReservationId",
+        created_at                    AS "createdAt",
+        updated_at                    AS "updatedAt"
       FROM downward
       ORDER BY start_at ASC
     `;
