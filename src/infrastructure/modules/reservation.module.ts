@@ -15,13 +15,10 @@ import {
   VOUCHER_PROVIDER,
 } from '@/domain/providers/voucher.provider';
 import {
-  NOTIFICATION_PROVIDER,
-} from '@/domain/providers/notification.provider';
-import {
   PAYMENT_GATEWAY_PROVIDER,
 } from '@/domain/providers/payment-gateway.provider';
 import { StubVoucherProvider } from '@/infrastructure/providers/stub.voucher.provider';
-import { StubNotificationProvider } from '@/infrastructure/providers/stub.notification.provider';
+import { PushSubscriptionModule } from './push-subscription.module';
 import { StubPaymentGatewayProvider } from '@/infrastructure/providers/stub.payment-gateway.provider';
 import { ReservationExpiryJob } from '@/infrastructure/jobs/reservation-expiry.job';
 import { AuthModule } from './auth.module';
@@ -34,7 +31,7 @@ import { DriverLicenseModule } from './driver-license.module';
 import { WalletModule } from './wallet.module';
 
 @Module({
-  imports: [AuthModule, IdentityModule, DriverLicenseModule, WalletModule],
+  imports: [AuthModule, IdentityModule, DriverLicenseModule, WalletModule, PushSubscriptionModule],
   controllers: [ReservationController],
   providers: [
     ReservationService,
@@ -65,10 +62,6 @@ import { WalletModule } from './wallet.module';
       useClass: StubVoucherProvider,
     },
     {
-      provide: NOTIFICATION_PROVIDER,
-      useClass: StubNotificationProvider,
-    },
-    {
       provide: PAYMENT_GATEWAY_PROVIDER,
       useClass: StubPaymentGatewayProvider,
     },
@@ -87,7 +80,6 @@ import { WalletModule } from './wallet.module';
     CLOCK,
     RESERVATION_REPOSITORY,
     VOUCHER_PROVIDER,
-    NOTIFICATION_PROVIDER,
     PAYMENT_GATEWAY_PROVIDER,
   ],
 })
