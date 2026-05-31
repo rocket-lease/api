@@ -14,6 +14,7 @@ import { MessagingModule } from './messaging.module';
 import { BankAccountModule } from './bank-account.module';
 import { PromotionModule } from './promotion.module';
 import { IdentityModule } from './identity.module';
+import { WalletModule } from './wallet.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { IdentityModule } from './identity.module';
     BankAccountModule,
     PromotionModule,
     VehicleDocumentModule,
+    WalletModule,
   ],
 })
 export class AppModule {}
