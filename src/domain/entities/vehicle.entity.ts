@@ -39,6 +39,10 @@ const vehicleSchema = z.object({
   locationApproximate: z.boolean(),
   availableFrom: z.string().date('Invalid date format'),
   autoAccept: z.boolean().nullable(),
+  homeDeliveryEnabled: z.boolean(),
+  homeDeliveryFeeCents: z.number().int().nonnegative().nullable(),
+  homeReturnEnabled: z.boolean(),
+  homeReturnFeeCents: z.number().int().nonnegative().nullable(),
   characteristics: z.array(
     z.enum([
       'GPS',
@@ -90,6 +94,10 @@ export class Vehicle {
     private latitude: number | null = null,
     private longitude: number | null = null,
     private locationApproximate: boolean = false,
+    private homeDeliveryEnabled: boolean = false,
+    private homeDeliveryFeeCents: number | null = null,
+    private homeReturnEnabled: boolean = false,
+    private homeReturnFeeCents: number | null = null,
   ) {
     this.validate();
   }
@@ -178,6 +186,18 @@ export class Vehicle {
   public isLocationApproximate(): boolean {
     return this.locationApproximate;
   }
+  public getHomeDeliveryEnabled(): boolean {
+    return this.homeDeliveryEnabled;
+  }
+  public getHomeDeliveryFeeCents(): number | null {
+    return this.homeDeliveryFeeCents;
+  }
+  public getHomeReturnEnabled(): boolean {
+    return this.homeReturnEnabled;
+  }
+  public getHomeReturnFeeCents(): number | null {
+    return this.homeReturnFeeCents;
+  }
 
   public isEnabled(): boolean {
     return this.enabled;
@@ -228,6 +248,10 @@ export class Vehicle {
     if (data.availableFrom !== undefined)
       this.availableFrom = data.availableFrom as string;
     if (data.autoAccept !== undefined) this.autoAccept = data.autoAccept as boolean | null;
+    if (data.homeDeliveryEnabled !== undefined) this.homeDeliveryEnabled = data.homeDeliveryEnabled as boolean;
+    if (data.homeDeliveryFeeCents !== undefined) this.homeDeliveryFeeCents = data.homeDeliveryFeeCents as number | null;
+    if (data.homeReturnEnabled !== undefined) this.homeReturnEnabled = data.homeReturnEnabled as boolean;
+    if (data.homeReturnFeeCents !== undefined) this.homeReturnFeeCents = data.homeReturnFeeCents as number | null;
     this.validate();
   }
 
@@ -258,6 +282,10 @@ export class Vehicle {
       locationApproximate: this.locationApproximate,
       availableFrom: this.availableFrom,
       autoAccept: this.autoAccept,
+      homeDeliveryEnabled: this.homeDeliveryEnabled,
+      homeDeliveryFeeCents: this.homeDeliveryFeeCents,
+      homeReturnEnabled: this.homeReturnEnabled,
+      homeReturnFeeCents: this.homeReturnFeeCents,
       characteristics: this.characteristics,
     });
 

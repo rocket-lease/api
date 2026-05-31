@@ -52,6 +52,16 @@ type Row = {
   maxKilometrageValueSnapshot: number | null;
   minRentalDaysSnapshot: number;
   maxRentalDaysSnapshot: number | null;
+  withHomeDelivery: boolean;
+  homeDeliveryFeeCentsSnapshot: number | null;
+  deliveryAddress: string | null;
+  deliveryLatitude: number | null;
+  deliveryLongitude: number | null;
+  withHomeReturn: boolean;
+  homeReturnFeeCentsSnapshot: number | null;
+  returnAddress: string | null;
+  returnLatitude: number | null;
+  returnLongitude: number | null;
   parentReservationId: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -391,6 +401,16 @@ export class PostgresReservationRepository implements ReservationRepository {
         r.getRentalTimeConstraintsSnapshot().minDays ?? 1,
       maxRentalDaysSnapshot:
         r.getRentalTimeConstraintsSnapshot().maxDays ?? null,
+      withHomeDelivery: r.getWithHomeDelivery(),
+      homeDeliveryFeeCentsSnapshot: r.getHomeDeliveryFeeCentsSnapshot(),
+      deliveryAddress: r.getDeliveryAddress()?.address ?? null,
+      deliveryLatitude: r.getDeliveryAddress()?.latitude ?? null,
+      deliveryLongitude: r.getDeliveryAddress()?.longitude ?? null,
+      withHomeReturn: r.getWithHomeReturn(),
+      homeReturnFeeCentsSnapshot: r.getHomeReturnFeeCentsSnapshot(),
+      returnAddress: r.getReturnAddress()?.address ?? null,
+      returnLatitude: r.getReturnAddress()?.latitude ?? null,
+      returnLongitude: r.getReturnAddress()?.longitude ?? null,
       parentReservationId: r.getParentReservationId(),
       createdAt: r.getCreatedAt(),
       updatedAt: r.getUpdatedAt(),
@@ -443,6 +463,16 @@ export class PostgresReservationRepository implements ReservationRepository {
       cancellationPolicySnapshot: row.cancellationPolicySnapshot as CancellationPolicy,
       maxKilometrageSnapshot: maxKilometrage,
       rentalTimeConstraintsSnapshot: rentalTimeConstraints,
+      withHomeDelivery: row.withHomeDelivery,
+      homeDeliveryFeeCentsSnapshot: row.homeDeliveryFeeCentsSnapshot,
+      deliveryAddress: row.deliveryAddress
+        ? { address: row.deliveryAddress, latitude: row.deliveryLatitude!, longitude: row.deliveryLongitude! }
+        : null,
+      withHomeReturn: row.withHomeReturn,
+      homeReturnFeeCentsSnapshot: row.homeReturnFeeCentsSnapshot,
+      returnAddress: row.returnAddress
+        ? { address: row.returnAddress, latitude: row.returnLatitude!, longitude: row.returnLongitude! }
+        : null,
       parentReservationId: row.parentReservationId,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,

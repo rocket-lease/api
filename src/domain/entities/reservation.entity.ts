@@ -9,6 +9,7 @@ import {
   type CancellationPolicy,
   type MaxKilometrage,
   type RentalTimeConstraints,
+  type ReservationAddress,
 } from '@rocket-lease/contracts';
 import { InvalidEntityDataException } from '../exceptions/domain.exception';
 import {
@@ -31,6 +32,12 @@ const PaymentMethodEnum = z.enum([
 ]);
 
 export const WalletProviderEnum = z.enum(['mercadopago', 'uala']);
+
+const ReservationAddressSchemaInternal = z.object({
+  address: z.string().min(1),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+}).nullable();
 
 const reservationSchema = z.object({
   id: z.string().uuid(),
@@ -65,6 +72,12 @@ const reservationSchema = z.object({
   cancellationPolicySnapshot: CancellationPolicySchema,
   maxKilometrageSnapshot: MaxKilometrageSchema,
   rentalTimeConstraintsSnapshot: RentalTimeConstraintsSchema,
+  withHomeDelivery: z.boolean(),
+  homeDeliveryFeeCentsSnapshot: z.number().int().nonnegative().nullable(),
+  deliveryAddress: ReservationAddressSchemaInternal,
+  withHomeReturn: z.boolean(),
+  homeReturnFeeCentsSnapshot: z.number().int().nonnegative().nullable(),
+  returnAddress: ReservationAddressSchemaInternal,
   parentReservationId: z.string().uuid().nullable(),
   createdAt: z.date(),
   updatedAt: z.date(),
@@ -159,6 +172,12 @@ export interface ReservationProps {
   cancellationPolicySnapshot?: CancellationPolicy;
   maxKilometrageSnapshot?: MaxKilometrage;
   rentalTimeConstraintsSnapshot?: RentalTimeConstraints;
+  withHomeDelivery?: boolean;
+  homeDeliveryFeeCentsSnapshot?: number | null;
+  deliveryAddress?: ReservationAddress | null;
+  withHomeReturn?: boolean;
+  homeReturnFeeCentsSnapshot?: number | null;
+  returnAddress?: ReservationAddress | null;
   parentReservationId?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
@@ -197,6 +216,12 @@ export class Reservation {
   private cancellationPolicySnapshot: CancellationPolicy;
   private maxKilometrageSnapshot: MaxKilometrage;
   private rentalTimeConstraintsSnapshot: RentalTimeConstraints;
+  private readonly withHomeDelivery: boolean;
+  private readonly homeDeliveryFeeCentsSnapshot: number | null;
+  private readonly deliveryAddress: ReservationAddress | null;
+  private readonly withHomeReturn: boolean;
+  private readonly homeReturnFeeCentsSnapshot: number | null;
+  private readonly returnAddress: ReservationAddress | null;
   private readonly parentReservationId: string | null;
   private readonly createdAt: Date;
   private updatedAt: Date;
@@ -287,6 +312,12 @@ export class Reservation {
       props.maxKilometrageSnapshot ?? RESERVATION_RULES_DEFAULTS.maxKilometrage;
     this.rentalTimeConstraintsSnapshot =
       props.rentalTimeConstraintsSnapshot ?? RESERVATION_RULES_DEFAULTS.rentalTimeConstraints;
+    this.withHomeDelivery = props.withHomeDelivery ?? false;
+    this.homeDeliveryFeeCentsSnapshot = props.homeDeliveryFeeCentsSnapshot ?? null;
+    this.deliveryAddress = props.deliveryAddress ?? null;
+    this.withHomeReturn = props.withHomeReturn ?? false;
+    this.homeReturnFeeCentsSnapshot = props.homeReturnFeeCentsSnapshot ?? null;
+    this.returnAddress = props.returnAddress ?? null;
     this.parentReservationId = props.parentReservationId ?? null;
     this.createdAt = props.createdAt ?? new Date();
     this.updatedAt = props.updatedAt ?? this.createdAt;
@@ -401,6 +432,24 @@ export class Reservation {
   }
   public getParentReservationId(): string | null {
     return this.parentReservationId;
+  }
+  public getWithHomeDelivery(): boolean {
+    return this.withHomeDelivery;
+  }
+  public getHomeDeliveryFeeCentsSnapshot(): number | null {
+    return this.homeDeliveryFeeCentsSnapshot;
+  }
+  public getDeliveryAddress(): ReservationAddress | null {
+    return this.deliveryAddress;
+  }
+  public getWithHomeReturn(): boolean {
+    return this.withHomeReturn;
+  }
+  public getHomeReturnFeeCentsSnapshot(): number | null {
+    return this.homeReturnFeeCentsSnapshot;
+  }
+  public getReturnAddress(): ReservationAddress | null {
+    return this.returnAddress;
   }
   public getCreatedAt() {
     return this.createdAt;
@@ -942,6 +991,12 @@ export class Reservation {
       cancellationPolicySnapshot: this.cancellationPolicySnapshot,
       maxKilometrageSnapshot: this.maxKilometrageSnapshot,
       rentalTimeConstraintsSnapshot: this.rentalTimeConstraintsSnapshot,
+      withHomeDelivery: this.withHomeDelivery,
+      homeDeliveryFeeCentsSnapshot: this.homeDeliveryFeeCentsSnapshot,
+      deliveryAddress: this.deliveryAddress,
+      withHomeReturn: this.withHomeReturn,
+      homeReturnFeeCentsSnapshot: this.homeReturnFeeCentsSnapshot,
+      returnAddress: this.returnAddress,
       parentReservationId: this.parentReservationId,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
