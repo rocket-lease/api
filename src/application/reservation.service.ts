@@ -103,6 +103,7 @@ import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { EMAIL_PROVIDER, type EmailProvider } from '@/domain/providers/email.provider';
 import { IdentityService } from '@/application/identity.service';
 import { DriverLicenseService } from '@/application/driver-license.service';
+import { WalletService } from '@/application/wallet.service';
 
 @Injectable()
 export class ReservationService {
@@ -134,6 +135,10 @@ export class ReservationService {
     @Inject(DriverLicenseService)
     private readonly driverLicenseService: Pick<DriverLicenseService, 'assertVerified'> = {
       assertVerified: async () => undefined,
+    },
+    @Inject(WalletService)
+    private readonly walletService: Pick<WalletService, 'recordReservationPayout'> = {
+      recordReservationPayout: async () => undefined,
     },
   ) {}
 
@@ -1244,11 +1249,11 @@ export class ReservationService {
       throw new ReservationForbiddenException();
     }
     reservation.confirmReturn(returnQrToken, this.clock.now());
-    const saved = await this.reservationRepository.update(reservation);
+    await this.walletService.recordReservationPayout(reservation);
     return ConfirmReturnResponseSchema.parse({
-      reservationId: saved.getId(),
+      reservationId: reservation.getId(),
       status: RESERVATION_STATUS.completed,
-      completedAt: saved.getCompletedAt()!.toISOString(),
+      completedAt: reservation.getCompletedAt()!.toISOString(),
     });
   }
 

@@ -18,6 +18,10 @@ import {
   UserHasVehiclesException,
 } from '@/domain/exceptions/domain.exception';
 import {
+  InsufficientBalanceException,
+  InvalidWithdrawAmountException,
+} from '@/domain/exceptions/wallet.exception';
+import {
   BulkPriceVehicleNotOwnedException,
   BulkPriceResultInvalidException,
 } from '@/domain/exceptions/bulk-price.exception';
@@ -101,6 +105,14 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.FORBIDDEN;
       code = ErrorCodes.BANK_ACCOUNT_REQUIRED;
       title = 'Forbidden';
+    } else if (exception instanceof InvalidWithdrawAmountException) {
+      status = HttpStatus.BAD_REQUEST;
+      code = ErrorCodes.INVALID_WITHDRAW_AMOUNT;
+      title = 'Bad Request';
+    } else if (exception instanceof InsufficientBalanceException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.INSUFFICIENT_BALANCE;
+      title = 'Conflict';
     } else if (exception instanceof IdentityVerificationRequiredException) {
       status = HttpStatus.FORBIDDEN;
       code = ErrorCodes.IDENTITY_VERIFICATION_REQUIRED;
