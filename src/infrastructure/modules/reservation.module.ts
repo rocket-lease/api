@@ -15,9 +15,6 @@ import {
   VOUCHER_PROVIDER,
 } from '@/domain/providers/voucher.provider';
 import {
-  NOTIFICATION_PROVIDER,
-} from '@/domain/providers/notification.provider';
-import {
   PAYMENT_GATEWAY_PROVIDER,
 } from '@/domain/providers/payment-gateway.provider';
 import { StubVoucherProvider } from '@/infrastructure/providers/stub.voucher.provider';
