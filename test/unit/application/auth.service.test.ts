@@ -34,6 +34,8 @@ describe('AuthService', () => {
       findOverlappingPendingApproval: jest.fn(),
       approveWithCascade: jest.fn(),
       findExpiredTransfers: jest.fn(),
+      findOverdueBalances: jest.fn().mockResolvedValue([]),
+      findBalanceReminderCandidates: jest.fn().mockResolvedValue([]),
       findActiveByVehicleId: jest.fn(),
       findByUser: jest.fn(),
       hasActiveReservations: jest.fn().mockResolvedValue(false),

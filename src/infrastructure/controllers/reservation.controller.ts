@@ -60,10 +60,16 @@ export class ReservationController {
   @Post(':id/transfer')
   async initiateTransfer(
     @Param('id') id: string,
+    @Body() dto: Contracts.InitiateTransferRequest,
     @Req() req: Request,
   ): Promise<Contracts.InitiateTransferResponse> {
     const conductorId = await this.requireUserId(req);
-    return await this.reservationService.initiateBankTransfer(conductorId, id);
+    const parsed = Contracts.InitiateTransferRequestSchema.parse(dto ?? {});
+    return await this.reservationService.initiateBankTransfer(
+      conductorId,
+      id,
+      parsed,
+    );
   }
 
   @Post(':id/transfer/confirm')
@@ -76,6 +82,37 @@ export class ReservationController {
       conductorId,
       id,
     );
+  }
+
+  // US-30: pago del saldo de una reserva señada.
+  @Post(':id/balance')
+  @HttpCode(HttpStatus.OK)
+  async payBalance(
+    @Param('id') id: string,
+    @Body() dto: Contracts.ConfirmReservationBalanceRequest,
+    @Req() req: Request,
+  ): Promise<Contracts.ConfirmReservationBalanceResponse> {
+    const conductorId = await this.requireUserId(req);
+    const parsed = Contracts.ConfirmReservationBalanceRequestSchema.parse(dto);
+    return await this.reservationService.payBalance(conductorId, id, parsed);
+  }
+
+  @Post(':id/balance/transfer')
+  async initiateBalanceTransfer(
+    @Param('id') id: string,
+    @Req() req: Request,
+  ): Promise<Contracts.InitiateBalanceTransferResponse> {
+    const conductorId = await this.requireUserId(req);
+    return await this.reservationService.initiateBalanceTransfer(conductorId, id);
+  }
+
+  @Post(':id/balance/transfer/confirm')
+  async confirmBalanceTransfer(
+    @Param('id') id: string,
+    @Req() req: Request,
+  ): Promise<Contracts.ConfirmBalanceTransferResponse> {
+    const conductorId = await this.requireUserId(req);
+    return await this.reservationService.confirmBalanceTransfer(conductorId, id);
   }
 
   @Post(':id/extend')

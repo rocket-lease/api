@@ -91,3 +91,21 @@ export class ExtensionNotPendingException extends DomainException {
     super(`extension ${reservationId} is not pending and cannot be modified`);
   }
 }
+
+export class DepositNotAvailableException extends DomainException {
+  constructor(reservationId: string) {
+    super(`reservation ${reservationId} does not allow paying a deposit`);
+  }
+}
+
+export class BalanceNotDueException extends DomainException {
+  constructor(reservationId: string) {
+    super(`reservation ${reservationId} has no balance pending payment`);
+  }
+}
+
+export class BalanceOverdueException extends DomainException {
+  constructor(reservationId: string) {
+    super(`balance payment deadline has passed for reservation ${reservationId}`);
+  }
+}

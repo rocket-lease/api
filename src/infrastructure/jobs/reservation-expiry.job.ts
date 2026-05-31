@@ -28,6 +28,31 @@ export class ReservationExpiryJob {
     } catch (e) {
       this.logger.error('Failed to expire transfers', e as Error);
     }
+
+    // US-26: cancelar reservas señadas cuyo saldo no se pagó a tiempo.
+    try {
+      const expiredBalances =
+        await this.reservationService.expireOverdueBalances();
+      if (expiredBalances > 0) {
+        this.logger.log(`Cancelled ${expiredBalances} overdue balance(s)`);
+      }
+    } catch (e) {
+      this.logger.error('Failed to expire overdue balances', e as Error);
+    }
+  }
+
+  // US-30: recordatorio 24h antes del vencimiento del saldo. Idempotente.
+  @Cron(CronExpression.EVERY_HOUR)
+  async handleBalanceReminders(): Promise<void> {
+    try {
+      const reminded =
+        await this.reservationService.sendUpcomingBalanceReminders();
+      if (reminded > 0) {
+        this.logger.log(`Sent ${reminded} balance reminder(s)`);
+      }
+    } catch (e) {
+      this.logger.error('Failed to send balance reminders', e as Error);
+    }
   }
 
   /**

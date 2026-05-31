@@ -30,10 +30,18 @@ import {
   ReservationsListResponseSchema,
   type PaymentMethodsResponse,
   PaymentMethodsResponseSchema,
+  type InitiateTransferRequest,
   type InitiateTransferResponse,
   InitiateTransferResponseSchema,
   type ConfirmTransferResponse,
   ConfirmTransferResponseSchema,
+  type ConfirmReservationBalanceRequest,
+  type ConfirmReservationBalanceResponse,
+  ConfirmReservationBalanceResponseSchema,
+  type InitiateBalanceTransferResponse,
+  InitiateBalanceTransferResponseSchema,
+  type ConfirmBalanceTransferResponse,
+  ConfirmBalanceTransferResponseSchema,
   type Voucher,
   type ReservationRuleSetPublic,
   VoucherSchema,
@@ -42,6 +50,7 @@ import {
 } from '@rocket-lease/contracts';
 import {
   APPROVAL_TTL_MS,
+  BALANCE_OVERDUE_REASON,
   BLOCKING_STATUSES,
   CASCADE_REJECTION_REASON,
   HOLD_TTL_MS,
@@ -83,6 +92,8 @@ import {
   InvalidQrTokenException,
   VoucherNotFoundException,
   VoucherReservationCancelledException,
+  DepositNotAvailableException,
+  BalanceNotDueException,
 } from '@/domain/exceptions/reservation.exception';
 import {
   VOUCHER_PROVIDER,
@@ -97,7 +108,7 @@ import {
   type PaymentGatewayProvider,
 } from '@/domain/providers/payment-gateway.provider';
 import { CLOCK, type Clock } from '@/domain/providers/clock.provider';
-import { computeReservationTotalCents } from './helpers/pricing';
+import { computeReservationTotalCents, computeDepositCents } from './helpers/pricing';
 import { calculateCancellationRefund } from './helpers/cancellation-refund';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { EMAIL_PROVIDER, type EmailProvider } from '@/domain/providers/email.provider';
@@ -287,6 +298,46 @@ export class ReservationService {
 
     await this.snapshotReservationRules(reservation);
 
+    // US-26: el conductor elige pagar solo la seña. La reserva queda 'señada'
+    // (pending_balance) con fecha límite para completar el saldo.
+    if (dto.paymentMode === 'deposit') {
+      if (reservation.getDepositPercentageSnapshot() === null) {
+        throw new DepositNotAvailableException(reservationId);
+      }
+      const depositCents = computeDepositCents(
+        reservation.getTotalCents(),
+        reservation.getDepositPercentageSnapshot(),
+      );
+      reservation.payDeposit(
+        dto.paymentMethod,
+        depositCents,
+        now,
+        parsedWalletProvider,
+      );
+      const savedDeposit = await this.reservationRepository.update(reservation);
+
+      await this.notificationProvider.notify(
+        savedDeposit.getConductorId(),
+        'Seña confirmada',
+        `Señaste la reserva ${savedDeposit.getId().slice(0, 8)}. Tenés hasta el ${savedDeposit.getBalanceDueAt()!.toISOString()} para pagar el saldo.`,
+      );
+      await this.notificationProvider.notify(
+        savedDeposit.getRentadorId(),
+        'Reserva señada',
+        `Un conductor señó una reserva para tu vehículo.`,
+      );
+
+      return ConfirmReservationPaymentResponseSchema.parse({
+        id: savedDeposit.getId(),
+        status: RESERVATION_STATUS.pending_balance,
+        paidAt: savedDeposit.getDepositPaidAt()!.toISOString(),
+        voucherToken: null,
+        paidCents: savedDeposit.getDepositPaidCents()!,
+        balanceCents: savedDeposit.getBalanceCents(),
+        balanceDueAt: savedDeposit.getBalanceDueAt()!.toISOString(),
+      });
+    }
+
     reservation.confirmPayment(
       dto.paymentMethod,
       now,
@@ -319,12 +370,16 @@ export class ReservationService {
       status: RESERVATION_STATUS.confirmed,
       paidAt: saved.getPaidAt()!.toISOString(),
       voucherToken: saved.getVoucherToken()!,
+      paidCents: saved.getTotalCents(),
+      balanceCents: 0,
+      balanceDueAt: null,
     });
   }
 
   public async initiateBankTransfer(
     conductorId: string,
     reservationId: string,
+    dto: InitiateTransferRequest = { paymentMode: 'full' },
   ): Promise<InitiateTransferResponse> {
     const reservation =
       await this.reservationRepository.findById(reservationId);
@@ -342,9 +397,24 @@ export class ReservationService {
       throw new HoldExpiredException(reservationId);
     }
 
+    // El snapshot debe estar resuelto antes de validar/cobrar la seña.
+    await this.snapshotReservationRules(reservation);
+
+    const mode = dto.paymentMode ?? 'full';
+    if (mode === 'deposit' && reservation.getDepositPercentageSnapshot() === null) {
+      throw new DepositNotAvailableException(reservationId);
+    }
+    const amountCents =
+      mode === 'deposit'
+        ? computeDepositCents(
+            reservation.getTotalCents(),
+            reservation.getDepositPercentageSnapshot(),
+          )
+        : reservation.getTotalCents();
+
     const { code: transferCode, alias: transferAlias } =
       await this.paymentGateway.generateTransferCode();
-    reservation.initiateBankTransfer(now, transferCode, transferAlias);
+    reservation.initiateBankTransfer(now, transferCode, transferAlias, mode);
     const saved = await this.reservationRepository.update(reservation);
 
     this.autoConfirmTransfer(reservationId);
@@ -356,6 +426,7 @@ export class ReservationService {
       transferAlias: saved.getTransferAlias()!,
       transferExpiresAt: saved.getTransferExpiresAt()!.toISOString(),
       totalCents: saved.getTotalCents(),
+      amountCents,
       currency: 'ARS',
     });
   }
@@ -371,9 +442,18 @@ export class ReservationService {
           const r = await this.reservationRepository.findById(reservationId);
           if (!r) return;
           if (!r.isPendingApproval()) return;
-          if (r.isTransferExpired(this.clock.now())) return;
+          const nowTs = this.clock.now();
+          if (r.isTransferExpired(nowTs)) return;
           await this.snapshotReservationRules(r);
-          r.confirmTransferPayment(this.clock.now());
+          if (r.getTransferPaymentMode() === 'deposit') {
+            const depositCents = computeDepositCents(
+              r.getTotalCents(),
+              r.getDepositPercentageSnapshot(),
+            );
+            r.confirmTransferAsDeposit(depositCents, nowTs);
+          } else {
+            r.confirmTransferPayment(nowTs);
+          }
           await this.reservationRepository.update(r);
         } catch (e) {
           this.logger.warn(
@@ -397,6 +477,35 @@ export class ReservationService {
 
     const now = this.clock.now();
     await this.snapshotReservationRules(reservation);
+
+    // US-26: transferencia que cubre solo la seña → reserva señada.
+    if (reservation.getTransferPaymentMode() === 'deposit') {
+      const depositCents = computeDepositCents(
+        reservation.getTotalCents(),
+        reservation.getDepositPercentageSnapshot(),
+      );
+      reservation.confirmTransferAsDeposit(depositCents, now);
+      const savedDeposit = await this.reservationRepository.update(reservation);
+
+      await this.notificationProvider.notify(
+        savedDeposit.getConductorId(),
+        'Seña acreditada',
+        `Tu seña fue acreditada. Tenés hasta el ${savedDeposit.getBalanceDueAt()!.toISOString()} para pagar el saldo.`,
+      );
+      await this.notificationProvider.notify(
+        savedDeposit.getRentadorId(),
+        'Reserva señada',
+        `Un conductor señó una reserva para tu vehículo.`,
+      );
+
+      return ConfirmTransferResponseSchema.parse({
+        id: savedDeposit.getId(),
+        status: RESERVATION_STATUS.pending_balance,
+        paidAt: savedDeposit.getDepositPaidAt()!.toISOString(),
+        notified: true,
+      });
+    }
+
     reservation.confirmTransferPayment(now);
     const saved = await this.reservationRepository.update(reservation);
 
@@ -410,6 +519,164 @@ export class ReservationService {
     );
 
     return ConfirmTransferResponseSchema.parse({
+      id: saved.getId(),
+      status: RESERVATION_STATUS.confirmed,
+      paidAt: saved.getPaidAt()!.toISOString(),
+      voucher: { qrCode: voucher.qrCode },
+      notified: true,
+    });
+  }
+
+  /**
+   * US-30: el conductor paga el saldo restante de una reserva señada por medio
+   * inmediato (tarjeta/billetera). La reserva pasa a `confirmed` y se genera el
+   * voucher.
+   */
+  public async payBalance(
+    conductorId: string,
+    reservationId: string,
+    dto: ConfirmReservationBalanceRequest,
+  ): Promise<ConfirmReservationBalanceResponse> {
+    const reservation =
+      await this.reservationRepository.findById(reservationId);
+    if (!reservation) throw new ReservationNotFoundException(reservationId);
+    if (!reservation.isOwnedByConductor(conductorId)) {
+      throw new ReservationForbiddenException();
+    }
+    if (!reservation.isPendingBalance()) {
+      throw new BalanceNotDueException(reservationId);
+    }
+
+    const now = this.clock.now();
+    const parsedWalletProvider = dto.walletProvider
+      ? WalletProviderEnum.parse(dto.walletProvider)
+      : undefined;
+
+    const balanceCents = reservation.getBalanceCents();
+    await this.paymentGateway.processPayment(
+      balanceCents,
+      reservation.getCurrency(),
+      dto.paymentMethod,
+    );
+    reservation.payBalance(dto.paymentMethod, now, parsedWalletProvider);
+    const saved = await this.reservationRepository.update(reservation);
+
+    await this.voucherProvider.generateVoucher(saved.getId());
+
+    await this.notificationProvider.notify(
+      saved.getConductorId(),
+      'Reserva pagada',
+      `Completaste el pago de la reserva ${saved.getId().slice(0, 8)}. Ya está confirmada.`,
+    );
+    await this.notificationProvider.notify(
+      saved.getRentadorId(),
+      'Saldo acreditado',
+      `El conductor completó el pago de una reserva de tu vehículo.`,
+    );
+    const conductorProfile = await this.userRepository.getProfileById(conductorId);
+    if (conductorProfile?.email) {
+      const voucherData = await this.getVoucher(saved.getId(), conductorId);
+      await this.emailProvider.sendVoucherEmail(conductorProfile.email, voucherData);
+    }
+
+    return ConfirmReservationBalanceResponseSchema.parse({
+      id: saved.getId(),
+      status: RESERVATION_STATUS.confirmed,
+      paidAt: saved.getPaidAt()!.toISOString(),
+      voucherToken: saved.getVoucherToken()!,
+      balancePaidCents: balanceCents,
+    });
+  }
+
+  /**
+   * US-30: inicia el pago del saldo por transferencia bancaria. La reserva sigue
+   * `pending_balance`; la acreditación (auto a los 5s en demo, o manual) la cierra.
+   */
+  public async initiateBalanceTransfer(
+    conductorId: string,
+    reservationId: string,
+  ): Promise<InitiateBalanceTransferResponse> {
+    const reservation =
+      await this.reservationRepository.findById(reservationId);
+    if (!reservation) throw new ReservationNotFoundException(reservationId);
+    if (!reservation.isOwnedByConductor(conductorId)) {
+      throw new ReservationForbiddenException();
+    }
+    if (!reservation.isPendingBalance()) {
+      throw new BalanceNotDueException(reservationId);
+    }
+
+    const now = this.clock.now();
+    const amountCents = reservation.getBalanceCents();
+    const { code: transferCode, alias: transferAlias } =
+      await this.paymentGateway.generateTransferCode();
+    reservation.initiateBalanceTransfer(now, transferCode, transferAlias);
+    const saved = await this.reservationRepository.update(reservation);
+
+    this.autoConfirmBalanceTransfer(reservationId);
+
+    return InitiateBalanceTransferResponseSchema.parse({
+      id: saved.getId(),
+      status: RESERVATION_STATUS.pending_balance,
+      transferCode: saved.getTransferCode()!,
+      transferAlias: saved.getTransferAlias()!,
+      transferExpiresAt: saved.getTransferExpiresAt()!.toISOString(),
+      amountCents,
+      currency: 'ARS',
+    });
+  }
+
+  /** Auto-acredita la transferencia del saldo después de 5 segundos (demo). */
+  private autoConfirmBalanceTransfer(reservationId: string): void {
+    setTimeout(() => {
+      void (async (): Promise<void> => {
+        try {
+          const r = await this.reservationRepository.findById(reservationId);
+          if (!r) return;
+          if (!r.isPendingBalance()) return;
+          const nowTs = this.clock.now();
+          if (r.getTransferPaymentMode() !== 'balance') return;
+          r.confirmBalanceTransfer(nowTs);
+          await this.reservationRepository.update(r);
+        } catch (e) {
+          this.logger.warn(
+            `autoConfirmBalanceTransfer failed for reservation ${reservationId}: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        }
+      })();
+    }, 5000);
+  }
+
+  /** US-30: acredita el saldo pagado por transferencia → reserva confirmada. */
+  public async confirmBalanceTransfer(
+    conductorId: string,
+    reservationId: string,
+  ): Promise<ConfirmBalanceTransferResponse> {
+    const reservation =
+      await this.reservationRepository.findById(reservationId);
+    if (!reservation) throw new ReservationNotFoundException(reservationId);
+    if (!reservation.isOwnedByConductor(conductorId)) {
+      throw new ReservationForbiddenException();
+    }
+
+    const now = this.clock.now();
+    reservation.confirmBalanceTransfer(now);
+    const saved = await this.reservationRepository.update(reservation);
+
+    const voucher = await this.voucherProvider.generateVoucher(saved.getId());
+
+    await this.notificationProvider.notify(
+      saved.getConductorId(),
+      'Reserva pagada',
+      `Tu transferencia fue acreditada. Reserva ${saved.getId().slice(0, 8)} confirmada.`,
+    );
+    await this.notificationProvider.notify(
+      saved.getRentadorId(),
+      'Saldo acreditado',
+      `El conductor completó el pago de una reserva de tu vehículo.`,
+    );
+
+    return ConfirmBalanceTransferResponseSchema.parse({
       id: saved.getId(),
       status: RESERVATION_STATUS.confirmed,
       paidAt: saved.getPaidAt()!.toISOString(),
@@ -708,6 +975,75 @@ export class ReservationService {
   }
 
   /**
+   * US-26: cancela automáticamente las reservas señadas cuyo saldo no se pagó
+   * antes de la fecha límite. Aplica la política de cancelación sobre la seña
+   * pagada (no sobre el total) y acredita el reembolso al balance del conductor.
+   * El vehículo vuelve a estar disponible al salir del estado bloqueante.
+   */
+  public async expireOverdueBalances(): Promise<number> {
+    const now = this.clock.now();
+    const overdue = await this.reservationRepository.findOverdueBalances(now);
+    let processed = 0;
+    for (const r of overdue) {
+      try {
+        const depositPaid = r.getDepositPaidCents() ?? 0;
+        const refund = calculateCancellationRefund({
+          startAt: r.getStartAt(),
+          paidAt: r.getDepositPaidAt(),
+          totalCents: depositPaid,
+          cancellationPolicy: r.getCancellationPolicySnapshot(),
+          now,
+        });
+        r.expireOverdueBalance(now);
+        await this.reservationRepository.update(r);
+        if (refund.refundCents > 0) {
+          await this.userRepository.creditBalance(
+            r.getConductorId(),
+            refund.refundCents,
+          );
+        }
+        await this.notificationProvider.notify(
+          r.getConductorId(),
+          'Reserva cancelada por falta de pago',
+          `Tu reserva ${r.getId().slice(0, 8)} se canceló porque no se pagó el saldo a tiempo. Reembolso de la seña: ${refund.refundCents} centavos.`,
+        );
+        await this.notificationProvider.notify(
+          r.getRentadorId(),
+          'Reserva señada cancelada',
+          `Una reserva señada de tu vehículo se canceló por falta de pago del saldo. El vehículo vuelve a estar disponible.`,
+        );
+        processed += 1;
+      } catch (e) {
+        // Race condition: el conductor pudo pagar el saldo justo antes del job.
+        this.logger.warn(
+          `expireOverdueBalances skipped reservation ${r.getId()}: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
+    return processed;
+  }
+
+  /**
+   * US-30: envía un recordatorio al conductor cuando faltan ~24h para la fecha
+   * límite de pago del saldo. Idempotente vía `balanceReminderSentAt`.
+   */
+  public async sendUpcomingBalanceReminders(): Promise<number> {
+    const now = this.clock.now();
+    const candidates =
+      await this.reservationRepository.findBalanceReminderCandidates(now);
+    for (const r of candidates) {
+      await this.notificationProvider.notify(
+        r.getConductorId(),
+        'Recordatorio: pago de saldo pendiente',
+        `Tu reserva ${r.getId().slice(0, 8)} vence el ${r.getBalanceDueAt()!.toISOString()}. Completá el pago para no perderla.`,
+      );
+      r.markBalanceReminderSent(now);
+      await this.reservationRepository.update(r);
+    }
+    return candidates.length;
+  }
+
+  /**
    * Cancela una reserva pendiente del conductor. Acepta tanto `pending_payment`
    * (hold de pago activo) como `pending_approval` (solicitud sin respuesta del
    * rentador — el conductor la retira) y `confirmed`/`in_progress` (cancelación
@@ -757,10 +1093,18 @@ export class ReservationService {
 
     let totalRefundCents = 0;
     for (const r of toCancel) {
+      // Reservas señadas: el conductor solo abonó la seña, así que el reembolso
+      // se calcula sobre `depositPaidCents` y la fecha del pago de la seña.
+      const refundBaseCents = r.isPendingBalance()
+        ? (r.getDepositPaidCents() ?? 0)
+        : r.getTotalCents();
+      const refundPaidAt = r.isPendingBalance()
+        ? r.getDepositPaidAt()
+        : r.getPaidAt();
       const refund = calculateCancellationRefund({
         startAt: r.getStartAt(),
-        paidAt: r.getPaidAt(),
-        totalCents: r.getTotalCents(),
+        paidAt: refundPaidAt,
+        totalCents: refundBaseCents,
         cancellationPolicy: r.getCancellationPolicySnapshot(),
         now,
       });
@@ -1376,6 +1720,14 @@ export class ReservationService {
         ? r.getContractAcceptedAt()!.toISOString()
         : null,
       paidAt: r.getPaidAt() ? r.getPaidAt()!.toISOString() : null,
+      depositPaidCents: r.getDepositPaidCents(),
+      depositPaidAt: r.getDepositPaidAt()
+        ? r.getDepositPaidAt()!.toISOString()
+        : null,
+      balanceDueAt: r.getBalanceDueAt() ? r.getBalanceDueAt()!.toISOString() : null,
+      balanceReminderSentAt: r.getBalanceReminderSentAt()
+        ? r.getBalanceReminderSentAt()!.toISOString()
+        : null,
       voucherToken: r.getVoucherToken() ?? null,
       returnQrToken: r.getReturnQrToken() ?? null,
       startedAt: r.getStartedAt() ? r.getStartedAt()!.toISOString() : null,
@@ -1386,6 +1738,7 @@ export class ReservationService {
         : null,
       transferCode: r.getTransferCode(),
       transferAlias: r.getTransferAlias(),
+      transferPaymentMode: r.getTransferPaymentMode(),
       depositPercentageSnapshot: r.getDepositPercentageSnapshot(),
       basePriceCentsSnapshot: r.getBasePriceCentsSnapshot(),
       cancellationPolicySnapshot: r.getCancellationPolicySnapshot(),
@@ -1446,6 +1799,9 @@ export class ReservationService {
       currency: r.getCurrency(),
       paymentMethod: r.getPaymentMethod(),
       paidAt: r.getPaidAt() ? r.getPaidAt()!.toISOString() : null,
+      voucherToken: r.getVoucherToken() ?? null,
+      depositPaidCents: r.getDepositPaidCents(),
+      balanceDueAt: r.getBalanceDueAt() ? r.getBalanceDueAt()!.toISOString() : null,
       rejectionReason: r.getRejectionReason(),
       parentReservationId: r.getParentReservationId(),
       createdAt: r.getCreatedAt().toISOString(),
@@ -1535,6 +1891,7 @@ function isCancelable(r: Reservation): boolean {
   return (
     r.isPendingPayment() ||
     r.isPendingApproval() ||
+    r.isPendingBalance() ||
     r.isConfirmed() ||
     r.isInProgress()
   );

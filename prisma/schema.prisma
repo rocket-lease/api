@@ -279,6 +279,12 @@ model Reservation {
   transferExpiresAt   DateTime?          @map("transfer_expires_at") @db.Timestamptz(6)
   transferCode        String?            @map("transfer_code")
   transferAlias       String?            @map("transfer_alias")
+  // US-26/US-30: pago con seña + saldo.
+  depositPaidCents      Int?      @map("deposit_paid_cents")
+  depositPaidAt         DateTime? @map("deposit_paid_at") @db.Timestamptz(6)
+  balanceDueAt          DateTime? @map("balance_due_at") @db.Timestamptz(6)
+  balanceReminderSentAt DateTime? @map("balance_reminder_sent_at") @db.Timestamptz(6)
+  transferPaymentMode   String?   @map("transfer_payment_mode")
   parentReservationId String?            @map("parent_reservation_id")
   parentReservation   Reservation?       @relation("ReservationExtensions", fields: [parentReservationId], references: [id])
   extensions          Reservation[]      @relation("ReservationExtensions")
@@ -413,6 +419,7 @@ enum DriverLicenseVerificationStatus {
 enum ReservationStatus {
   pending_approval
   pending_payment
+  pending_balance
   confirmed
   in_progress
   completed

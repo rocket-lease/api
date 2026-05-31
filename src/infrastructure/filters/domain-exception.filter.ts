@@ -41,6 +41,9 @@ import {
   VoucherNotFoundException,
   VoucherReservationCancelledException,
   InvalidQrTokenException,
+  DepositNotAvailableException,
+  BalanceNotDueException,
+  BalanceOverdueException,
 } from '@/domain/exceptions/reservation.exception';
 import {
   InvalidMapBoundsException,
@@ -163,6 +166,15 @@ export class DomainExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof TransferExpiredException) {
       status = HttpStatus.CONFLICT;
       code = ErrorCodes.RESERVATION_TRANSFER_EXPIRED;
+    } else if (exception instanceof DepositNotAvailableException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.RESERVATION_DEPOSIT_NOT_AVAILABLE;
+    } else if (exception instanceof BalanceNotDueException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.RESERVATION_BALANCE_NOT_DUE;
+    } else if (exception instanceof BalanceOverdueException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.RESERVATION_BALANCE_OVERDUE;
     } else if (exception instanceof VoucherNotFoundException) {
       status = HttpStatus.NOT_FOUND;
       code = ErrorCodes.VOUCHER_NOT_FOUND;

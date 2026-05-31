@@ -1,11 +1,17 @@
 import {
   Reservation,
   HOLD_TTL_MS,
+  computeBalanceDueAt,
+  BALANCE_MIN_WINDOW_MS,
+  BALANCE_OVERDUE_REASON,
 } from '@/domain/entities/reservation.entity';
 import {
   ContractNotAcceptedException,
   InvalidQrTokenException,
   InvalidReservationTransitionException,
+  DepositNotAvailableException,
+  BalanceNotDueException,
+  BalanceOverdueException,
 } from '@/domain/exceptions/reservation.exception';
 import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
 import { randomUUID } from 'node:crypto';
@@ -263,6 +269,104 @@ describe('Reservation entity', () => {
     it('fails when pending_payment', () => {
       const r = makeReservation();
       expect(() => r.markApprovalExpired(new Date())).toThrow(
+        InvalidReservationTransitionException,
+      );
+    });
+  });
+
+  // US-26 / US-30: seña + saldo
+  describe('payDeposit', () => {
+    it('transitions to pending_balance and records deposit + deadline', () => {
+      const r = makeReservation({ depositPercentageSnapshot: 30 });
+      const now = new Date('2026-06-01T10:05:00Z');
+      r.payDeposit('credit_card', 30000, now);
+      expect(r.getStatus()).toBe('pending_balance');
+      expect(r.getDepositPaidCents()).toBe(30000);
+      expect(r.getDepositPaidAt()).toEqual(now);
+      expect(r.getBalanceCents()).toBe(70000);
+      expect(r.getHoldExpiresAt()).toBeNull();
+      expect(r.getBalanceDueAt()).not.toBeNull();
+    });
+
+    it('fails if the snapshot has no deposit configured', () => {
+      const r = makeReservation({ depositPercentageSnapshot: null });
+      expect(() => r.payDeposit('credit_card', 0, new Date())).toThrow(
+        DepositNotAvailableException,
+      );
+    });
+
+    it('requires the contract to be accepted', () => {
+      const r = makeReservation({
+        depositPercentageSnapshot: 30,
+        contractAcceptedAt: null,
+      });
+      expect(() => r.payDeposit('credit_card', 30000, new Date())).toThrow(
+        ContractNotAcceptedException,
+      );
+    });
+  });
+
+  describe('computeBalanceDueAt', () => {
+    it('caps at 24h before start when start is near', () => {
+      const now = new Date('2026-06-01T10:00:00Z');
+      const startAt = new Date('2026-06-03T10:00:00Z'); // 48h ahead
+      const due = computeBalanceDueAt(now, startAt);
+      // 24h before start = 2026-06-02T10:00:00Z
+      expect(due.toISOString()).toBe('2026-06-02T10:00:00.000Z');
+    });
+
+    it('never returns a deadline in the past (1h floor)', () => {
+      const now = new Date('2026-06-01T10:00:00Z');
+      const startAt = new Date('2026-06-01T11:00:00Z'); // 1h ahead → start-24h is past
+      const due = computeBalanceDueAt(now, startAt);
+      expect(due.getTime()).toBe(now.getTime() + BALANCE_MIN_WINDOW_MS);
+    });
+  });
+
+  describe('payBalance', () => {
+    function señada() {
+      const r = makeReservation({ depositPercentageSnapshot: 30 });
+      r.payDeposit('credit_card', 30000, new Date('2026-06-01T10:05:00Z'));
+      return r;
+    }
+
+    it('transitions pending_balance → confirmed and issues a voucher', () => {
+      const r = señada();
+      const now = new Date('2026-06-01T11:00:00Z');
+      r.payBalance('credit_card', now);
+      expect(r.getStatus()).toBe('confirmed');
+      expect(r.getPaidAt()).toEqual(now);
+      expect(r.getVoucherToken()).not.toBeNull();
+    });
+
+    it('fails when not in pending_balance', () => {
+      const r = makeReservation();
+      expect(() => r.payBalance('credit_card', new Date())).toThrow(
+        BalanceNotDueException,
+      );
+    });
+
+    it('fails when the balance deadline has passed', () => {
+      const r = señada();
+      const past = new Date(r.getBalanceDueAt()!.getTime() + 1000);
+      expect(() => r.payBalance('credit_card', past)).toThrow(
+        BalanceOverdueException,
+      );
+    });
+  });
+
+  describe('expireOverdueBalance', () => {
+    it('cancels a señada reservation with the overdue reason', () => {
+      const r = makeReservation({ depositPercentageSnapshot: 30 });
+      r.payDeposit('credit_card', 30000, new Date('2026-06-01T10:05:00Z'));
+      r.expireOverdueBalance(new Date('2026-06-10T10:00:00Z'));
+      expect(r.getStatus()).toBe('cancelled');
+      expect(r.getRejectionReason()).toBe(BALANCE_OVERDUE_REASON);
+    });
+
+    it('fails when not in pending_balance', () => {
+      const r = makeReservation();
+      expect(() => r.expireOverdueBalance(new Date())).toThrow(
         InvalidReservationTransitionException,
       );
     });

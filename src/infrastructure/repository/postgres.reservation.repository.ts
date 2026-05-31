@@ -40,6 +40,11 @@ type Row = {
   transferExpiresAt: Date | null;
   transferCode: string | null;
   transferAlias: string | null;
+  transferPaymentMode: string | null;
+  depositPaidCents: number | null;
+  depositPaidAt: Date | null;
+  balanceDueAt: Date | null;
+  balanceReminderSentAt: Date | null;
   depositPercentageSnapshot: number | null;
   basePriceCentsSnapshot: number;
   cancellationPolicySnapshot: string;
@@ -127,6 +132,29 @@ export class PostgresReservationRepository implements ReservationRepository {
       where: {
         status: 'pending_approval',
         transferExpiresAt: { lte: now },
+      },
+    });
+    return rows.map((r) => this.toEntity(r));
+  }
+
+  async findOverdueBalances(now: Date): Promise<Reservation[]> {
+    const rows = await this.prisma.reservation.findMany({
+      where: {
+        status: 'pending_balance',
+        balanceDueAt: { lte: now },
+      },
+    });
+    return rows.map((r) => this.toEntity(r));
+  }
+
+  async findBalanceReminderCandidates(now: Date): Promise<Reservation[]> {
+    const from = new Date(now.getTime() + 23 * 60 * 60 * 1000);
+    const to = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+    const rows = await this.prisma.reservation.findMany({
+      where: {
+        status: 'pending_balance',
+        balanceReminderSentAt: null,
+        balanceDueAt: { gte: from, lte: to },
       },
     });
     return rows.map((r) => this.toEntity(r));
@@ -346,6 +374,11 @@ export class PostgresReservationRepository implements ReservationRepository {
       transferExpiresAt: r.getTransferExpiresAt(),
       transferCode: r.getTransferCode() ?? null,
       transferAlias: r.getTransferAlias() ?? null,
+      transferPaymentMode: r.getTransferPaymentMode() ?? null,
+      depositPaidCents: r.getDepositPaidCents(),
+      depositPaidAt: r.getDepositPaidAt(),
+      balanceDueAt: r.getBalanceDueAt(),
+      balanceReminderSentAt: r.getBalanceReminderSentAt(),
       depositPercentageSnapshot: r.getDepositPercentageSnapshot(),
       basePriceCentsSnapshot: r.getBasePriceCentsSnapshot(),
       cancellationPolicySnapshot: r.getCancellationPolicySnapshot(),
@@ -399,6 +432,12 @@ export class PostgresReservationRepository implements ReservationRepository {
       transferExpiresAt: row.transferExpiresAt,
       transferCode: row.transferCode,
       transferAlias: row.transferAlias,
+      transferPaymentMode:
+        (row.transferPaymentMode as 'full' | 'deposit' | 'balance' | null) ?? null,
+      depositPaidCents: row.depositPaidCents,
+      depositPaidAt: row.depositPaidAt,
+      balanceDueAt: row.balanceDueAt,
+      balanceReminderSentAt: row.balanceReminderSentAt,
       depositPercentageSnapshot: row.depositPercentageSnapshot,
       basePriceCentsSnapshot: row.basePriceCentsSnapshot,
       cancellationPolicySnapshot: row.cancellationPolicySnapshot as CancellationPolicy,
