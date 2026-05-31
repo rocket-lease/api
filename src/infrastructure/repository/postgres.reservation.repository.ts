@@ -465,14 +465,16 @@ export class PostgresReservationRepository implements ReservationRepository {
       rentalTimeConstraintsSnapshot: rentalTimeConstraints,
       withHomeDelivery: row.withHomeDelivery,
       homeDeliveryFeeCentsSnapshot: row.homeDeliveryFeeCentsSnapshot,
-      deliveryAddress: row.deliveryAddress
-        ? { address: row.deliveryAddress, latitude: row.deliveryLatitude!, longitude: row.deliveryLongitude! }
-        : null,
+      deliveryAddress:
+        row.deliveryAddress !== null && row.deliveryLatitude !== null && row.deliveryLongitude !== null
+          ? { address: row.deliveryAddress, latitude: row.deliveryLatitude, longitude: row.deliveryLongitude }
+          : null,
       withHomeReturn: row.withHomeReturn,
       homeReturnFeeCentsSnapshot: row.homeReturnFeeCentsSnapshot,
-      returnAddress: row.returnAddress
-        ? { address: row.returnAddress, latitude: row.returnLatitude!, longitude: row.returnLongitude! }
-        : null,
+      returnAddress:
+        row.returnAddress !== null && row.returnLatitude !== null && row.returnLongitude !== null
+          ? { address: row.returnAddress, latitude: row.returnLatitude, longitude: row.returnLongitude }
+          : null,
       parentReservationId: row.parentReservationId,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
