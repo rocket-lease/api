@@ -47,6 +47,7 @@ model User {
   withdrawals           Withdrawal[]
   identityVerification  IdentityVerification?
   driverLicenseVerification DriverLicenseVerification?
+  pushSubscriptions     PushSubscription[]
 
   @@map("users")
 }
@@ -441,6 +442,20 @@ model UserPaymentMethod {
 
   @@index([userId])
   @@map("user_payment_methods")
+}
+
+model PushSubscription {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  endpoint       String   @unique
+  auth           String
+  p256dh         String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 enum Characteristic {

@@ -300,11 +300,13 @@ export class ReservationService {
       saved.getConductorId(),
       'Reserva confirmada',
       `Tu reserva ${saved.getId().slice(0, 8)} fue confirmada.`,
+      { url: `/reservas/${saved.getId()}` },
     );
     await this.notificationProvider.notify(
       saved.getRentadorId(),
       'Nueva reserva confirmada',
       `Tenés una nueva reserva confirmada para el vehículo.`,
+      { url: `/reservas/${saved.getId()}` },
     );
     const conductorProfile = await this.userRepository.getProfileById(conductorId);
     if (conductorProfile?.email) {
@@ -404,6 +406,7 @@ export class ReservationService {
       saved.getConductorId(),
       'Transferencia acreditada',
       `Tu transferencia fue acreditada. Reserva ${saved.getId().slice(0, 8)} confirmada.`,
+      { url: `/reservas/${saved.getId()}` },
     );
 
     return ConfirmTransferResponseSchema.parse({
@@ -833,6 +836,7 @@ export class ReservationService {
       reservation.getConductorId(),
       'Reserva cancelada por el rentador',
       `El rentador ha cancelado tu reserva. Recibiste un reembolso de $${totalRefundCents / 100} ARS.`,
+      { url: `/reservas/${reservation.getId()}` },
     );
     const conductorProfile = await this.userRepository.getProfileById(reservation.getConductorId());
     if (conductorProfile?.email) {
@@ -847,6 +851,7 @@ export class ReservationService {
       rentadorId,
       'Reserva cancelada',
       `Has cancelado la reserva ${reservationId}. Se aplicó una penalización de ${Math.abs(REPUTATION_PENALTY)} puntos.`,
+      { url: `/reservas/${reservationId}` },
     );
     const rentadorProfile = await this.userRepository.getProfileById(rentadorId);
     if (rentadorProfile?.email) {
@@ -1031,7 +1036,7 @@ export class ReservationService {
     const message = requiresApproval
       ? 'Tenés una solicitud de extensión pendiente de aprobación.'
       : 'Tu alquiler fue extendido. Completá el pago para confirmar.';
-    await this.notificationProvider.notify(audienceId, subject, message);
+    await this.notificationProvider.notify(audienceId, subject, message, { url: `/reservas/${saved.getId()}` });
 
     return ExtendReservationResponseSchema.parse({
       id: saved.getId(),
