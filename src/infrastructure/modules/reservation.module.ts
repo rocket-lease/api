@@ -83,7 +83,6 @@ import { WalletModule } from './wallet.module';
     CLOCK,
     RESERVATION_REPOSITORY,
     VOUCHER_PROVIDER,
-    NOTIFICATION_PROVIDER,
     PAYMENT_GATEWAY_PROVIDER,
   ],
 })
