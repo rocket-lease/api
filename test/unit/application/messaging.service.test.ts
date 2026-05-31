@@ -162,6 +162,7 @@ describe('MessagingService', () => {
         rentadorId,
         'Nuevo mensaje',
         expect.any(String),
+        expect.objectContaining({ url: expect.any(String) }),
       );
     });
 
@@ -176,6 +177,7 @@ describe('MessagingService', () => {
         conductorId,
         'Nuevo mensaje',
         expect.any(String),
+        expect.objectContaining({ url: expect.any(String) }),
       );
     });
   });
