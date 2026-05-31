@@ -50,7 +50,6 @@ import {
 } from '@rocket-lease/contracts';
 import {
   APPROVAL_TTL_MS,
-  BALANCE_OVERDUE_REASON,
   BLOCKING_STATUSES,
   CASCADE_REJECTION_REASON,
   HOLD_TTL_MS,

@@ -43,7 +43,7 @@ export class PostgresWalletRepository implements WalletRepository {
       where: { userId },
       orderBy: { createdAt: 'desc' },
     });
-    return rows.map((row) => this.toMovementEntity(row as WalletMovementRow));
+    return rows.map((row) => this.toMovementEntity(row));
   }
 
   async recordReservationPayout(reservation: Reservation): Promise<void> {
@@ -148,7 +148,7 @@ export class PostgresWalletRepository implements WalletRepository {
       return withdrawal;
     });
 
-    return this.toWithdrawalEntity(row as PrismaWithdrawal);
+    return this.toWithdrawalEntity(row);
   }
 
   private toMovementEntity(row: WalletMovementRow): WalletTransaction {
@@ -182,8 +182,8 @@ export class PostgresWalletRepository implements WalletRepository {
       currency: row.currency as 'ARS',
       providerName: row.providerName,
       providerTransactionId: row.providerTransactionId,
-      providerStatus: row.providerStatus as 'processed' | 'processing' | 'failed',
-      status: row.status as 'processed' | 'processing' | 'failed',
+      providerStatus: row.providerStatus,
+      status: row.status,
       providerMetadata: row.providerMetadata as Record<string, unknown>,
       balanceAfterCents: row.balanceAfterCents,
       createdAt: row.createdAt,
