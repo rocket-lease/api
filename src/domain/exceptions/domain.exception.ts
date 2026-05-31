@@ -62,7 +62,7 @@ export class EmailUnverifiedPendingException extends DomainException {
 
 export class BankAccountRequiredException extends DomainException {
   constructor() {
-    super('rentador must link a bank account');
+    super('user must link a bank account');
   }
 }
 

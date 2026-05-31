@@ -31,9 +31,10 @@ import { ResendEmailProvider } from '@/infrastructure/providers/resend.email.pro
 import { SmtpEmailProvider } from '@/infrastructure/providers/smtp.email.provider';
 import { IdentityModule } from './identity.module';
 import { DriverLicenseModule } from './driver-license.module';
+import { WalletModule } from './wallet.module';
 
 @Module({
-  imports: [AuthModule, IdentityModule, DriverLicenseModule],
+  imports: [AuthModule, IdentityModule, DriverLicenseModule, WalletModule],
   controllers: [ReservationController],
   providers: [
     ReservationService,

@@ -71,6 +71,7 @@ export class MessagingService {
       recipientId,
       'Nuevo mensaje',
       'Tenés un nuevo mensaje sobre tu reserva.',
+      { url: `/reservas/${reservationId}/chat` },
     );
 
     return SendMessageResponseSchema.parse({

@@ -57,6 +57,7 @@ const reservationSchema = z.object({
   cancellationPolicySnapshot: CancellationPolicySchema,
   maxKilometrageSnapshot: MaxKilometrageSchema,
   rentalTimeConstraintsSnapshot: RentalTimeConstraintsSchema,
+  parentReservationId: z.string().uuid().nullable(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
@@ -117,6 +118,7 @@ export interface ReservationProps {
   cancellationPolicySnapshot?: CancellationPolicy;
   maxKilometrageSnapshot?: MaxKilometrage;
   rentalTimeConstraintsSnapshot?: RentalTimeConstraints;
+  parentReservationId?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -128,9 +130,9 @@ export class Reservation {
   private readonly rentadorId: string;
   private status: ReservationStatus;
   private readonly startAt: Date;
-  private readonly endAt: Date;
+  private endAt: Date;
   private holdExpiresAt: Date | null;
-  private readonly totalCents: number;
+  private totalCents: number;
   private readonly currency: 'ARS';
   private paymentMethod: PaymentMethod | null;
   private walletProvider: WalletProvider | null;
@@ -149,8 +151,58 @@ export class Reservation {
   private cancellationPolicySnapshot: CancellationPolicy;
   private maxKilometrageSnapshot: MaxKilometrage;
   private rentalTimeConstraintsSnapshot: RentalTimeConstraints;
+  private readonly parentReservationId: string | null;
   private readonly createdAt: Date;
   private updatedAt: Date;
+
+  /**
+   * Construye un eslabón nuevo de la cadena de reservas a partir de un padre
+   * existente. El padre puede ser la reserva original o la última extensión
+   * confirmada del chain — la continuidad se garantiza fijando `startAt` al
+   * `endAt` del padre. El snapshot de reglas se pasa explícito porque debe
+   * tomarse del set actual del vehículo (no se hereda del padre), y el
+   * `paymentMethod` + `walletProvider` se copian del padre para soportar el
+   * cobro automático sin reingresar datos del conductor.
+   */
+  public static fromExtensionRequest(params: {
+    parent: Reservation;
+    newEndAt: Date;
+    totalCents: number;
+    status: ReservationStatus;
+    holdExpiresAt: Date;
+    snapshot: {
+      depositPercentage: number | null;
+      basePriceCents: number;
+      cancellationPolicy: CancellationPolicy;
+      maxKilometrage: MaxKilometrage;
+      rentalTimeConstraints: RentalTimeConstraints;
+    };
+    now: Date;
+  }): Reservation {
+    return new Reservation({
+      vehicleId: params.parent.getVehicleId(),
+      conductorId: params.parent.getConductorId(),
+      rentadorId: params.parent.getRentadorId(),
+      status: params.status,
+      startAt: params.parent.getEndAt(),
+      endAt: params.newEndAt,
+      holdExpiresAt: params.holdExpiresAt,
+      totalCents: params.totalCents,
+      currency: 'ARS',
+      paymentMethod: params.parent.getPaymentMethod(),
+      walletProvider: params.parent.getWalletProvider(),
+      contractAcceptedAt: params.now,
+      paidAt: null,
+      depositPercentageSnapshot: params.snapshot.depositPercentage,
+      basePriceCentsSnapshot: params.snapshot.basePriceCents,
+      cancellationPolicySnapshot: params.snapshot.cancellationPolicy,
+      maxKilometrageSnapshot: params.snapshot.maxKilometrage,
+      rentalTimeConstraintsSnapshot: params.snapshot.rentalTimeConstraints,
+      parentReservationId: params.parent.getId(),
+      createdAt: params.now,
+      updatedAt: params.now,
+    });
+  }
 
   constructor(props: ReservationProps) {
     this.id = props.id ?? randomUUID();
@@ -184,6 +236,7 @@ export class Reservation {
       props.maxKilometrageSnapshot ?? RESERVATION_RULES_DEFAULTS.maxKilometrage;
     this.rentalTimeConstraintsSnapshot =
       props.rentalTimeConstraintsSnapshot ?? RESERVATION_RULES_DEFAULTS.rentalTimeConstraints;
+    this.parentReservationId = props.parentReservationId ?? null;
     this.createdAt = props.createdAt ?? new Date();
     this.updatedAt = props.updatedAt ?? this.createdAt;
     this.validate();
@@ -273,6 +326,9 @@ export class Reservation {
   public getRentalTimeConstraintsSnapshot(): RentalTimeConstraints {
     return this.rentalTimeConstraintsSnapshot;
   }
+  public getParentReservationId(): string | null {
+    return this.parentReservationId;
+  }
   public getCreatedAt() {
     return this.createdAt;
   }
@@ -306,6 +362,51 @@ export class Reservation {
     this.cancellationPolicySnapshot = snapshot.cancellationPolicy;
     this.maxKilometrageSnapshot = snapshot.maxKilometrage;
     this.rentalTimeConstraintsSnapshot = snapshot.rentalTimeConstraints;
+    this.validate();
+  }
+
+  /**
+   * Modifica una extensión pendiente: ajusta la fecha de devolución, el total,
+   * el estado (puede pasar entre `pending_approval` y `pending_payment` según
+   * el recálculo), el hold y el snapshot de reglas vigente. Solo válido para
+   * eslabones que sean extensiones (`parentReservationId` no nulo) y todavía
+   * estén pendientes.
+   */
+  public modifyExtension(params: {
+    newEndAt: Date;
+    totalCents: number;
+    status: ReservationStatus;
+    holdExpiresAt: Date;
+    snapshot: {
+      depositPercentage: number | null;
+      basePriceCents: number;
+      cancellationPolicy: CancellationPolicy;
+      maxKilometrage: MaxKilometrage;
+      rentalTimeConstraints: RentalTimeConstraints;
+    };
+    now: Date;
+  }): void {
+    if (this.parentReservationId === null) {
+      throw new InvalidEntityDataException('only extensions can be modified');
+    }
+    if (!this.isPendingApproval() && !this.isPendingPayment()) {
+      throw new InvalidEntityDataException(
+        'only pending extensions can be modified',
+      );
+    }
+    if (params.newEndAt.getTime() <= this.startAt.getTime()) {
+      throw new InvalidEntityDataException('endAt must be after startAt');
+    }
+    this.endAt = params.newEndAt;
+    this.totalCents = params.totalCents;
+    this.status = params.status;
+    this.holdExpiresAt = params.holdExpiresAt;
+    this.depositPercentageSnapshot = params.snapshot.depositPercentage;
+    this.basePriceCentsSnapshot = params.snapshot.basePriceCents;
+    this.cancellationPolicySnapshot = params.snapshot.cancellationPolicy;
+    this.maxKilometrageSnapshot = params.snapshot.maxKilometrage;
+    this.rentalTimeConstraintsSnapshot = params.snapshot.rentalTimeConstraints;
+    this.updatedAt = params.now;
     this.validate();
   }
 
@@ -495,10 +596,32 @@ export class Reservation {
    * @param now - Instante actual usado para `updatedAt`.
    */
   public cancel(now: Date): void {
-    if (!this.isPendingPayment() && !this.isPendingApproval() && !this.isConfirmed()) {
+    if (
+      !this.isPendingPayment() &&
+      !this.isPendingApproval() &&
+      !this.isConfirmed() &&
+      !this.isInProgress()
+    ) {
       throw new InvalidReservationTransitionException(this.status, RESERVATION_STATUS.cancelled);
     }
     this.status = RESERVATION_STATUS.cancelled;
+    this.holdExpiresAt = null;
+    this.updatedAt = now;
+  }
+
+  public cancelByRentador(now: Date, reason?: string | null): void {
+    if (
+      !this.isPendingPayment() &&
+      !this.isPendingApproval() &&
+      !this.isConfirmed() &&
+      !this.isInProgress()
+    ) {
+      throw new InvalidReservationTransitionException(this.status, RESERVATION_STATUS.cancelled);
+    }
+    this.status = RESERVATION_STATUS.cancelled;
+    if (reason) {
+      this.rejectionReason = reason;
+    }
     this.holdExpiresAt = null;
     this.updatedAt = now;
   }
@@ -554,6 +677,7 @@ export class Reservation {
       cancellationPolicySnapshot: this.cancellationPolicySnapshot,
       maxKilometrageSnapshot: this.maxKilometrageSnapshot,
       rentalTimeConstraintsSnapshot: this.rentalTimeConstraintsSnapshot,
+      parentReservationId: this.parentReservationId,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     });

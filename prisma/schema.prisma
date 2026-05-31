@@ -8,6 +8,17 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum WalletMovementType {
+  reservation_credit
+  withdrawal_debit
+}
+
+enum WithdrawalStatus {
+  processing
+  processed
+  failed
+}
+
 model User {
   id                    String     @id
   name                  String
@@ -32,8 +43,11 @@ model User {
   paymentMethods        UserPaymentMethod[]
   messages              Message[]
   bankAccounts          BankAccount[]
+  walletMovements       WalletMovement[]
+  withdrawals           Withdrawal[]
   identityVerification  IdentityVerification?
   driverLicenseVerification DriverLicenseVerification?
+  pushSubscriptions     PushSubscription[]
 
   @@map("users")
 }
@@ -149,9 +163,64 @@ model BankAccount {
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  withdrawals Withdrawal[]
+  walletMovements WalletMovement[]
 
   @@index([ownerId, deletedAt])
   @@map("bank_accounts")
+}
+
+model Withdrawal {
+  id                    String            @id @default(uuid())
+  userId                String            @map("user_id")
+  bankAccountId         String            @map("bank_account_id")
+  bankAccountAlias      String            @map("bank_account_alias")
+  bankAccountMaskedCbu  String            @map("bank_account_masked_cbu")
+  bankAccountProvider   String            @map("bank_account_provider")
+  amountCents           Int               @map("amount_cents")
+  currency              String            @default("ARS")
+  providerName          String            @map("provider_name")
+  providerTransactionId String            @unique @map("provider_transaction_id")
+  providerStatus        WithdrawalStatus   @map("provider_status")
+  status                WithdrawalStatus   @default(processed)
+  providerMetadata      Json              @default("{}") @map("provider_metadata")
+  balanceAfterCents      Int               @map("balance_after_cents")
+  createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  processedAt           DateTime?         @map("processed_at") @db.Timestamptz(6)
+  updatedAt             DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bankAccount           BankAccount       @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  walletMovement        WalletMovement?
+
+  @@index([userId, createdAt])
+  @@map("withdrawals")
+}
+
+model WalletMovement {
+  id                    String            @id @default(uuid())
+  userId                String            @map("user_id")
+  type                  WalletMovementType
+  amountCents           Int               @map("amount_cents")
+  currency              String            @default("ARS")
+  reservationId         String?           @unique @map("reservation_id")
+  withdrawalId          String?           @unique @map("withdrawal_id")
+  providerTransactionId String?           @map("provider_transaction_id")
+  bankAccountId         String?           @map("bank_account_id")
+  bankAccountAlias      String?           @map("bank_account_alias")
+  bankAccountMaskedCbu  String?           @map("bank_account_masked_cbu")
+  providerStatus        WithdrawalStatus?  @map("provider_status")
+  balanceAfterCents      Int               @map("balance_after_cents")
+  createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reservation           Reservation?      @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  withdrawal            Withdrawal?       @relation(fields: [withdrawalId], references: [id], onDelete: Cascade)
+  bankAccount           BankAccount?      @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([withdrawalId])
+  @@map("wallet_movements")
 }
 
 model ReservationRuleSet {
@@ -210,6 +279,9 @@ model Reservation {
   transferExpiresAt   DateTime?          @map("transfer_expires_at") @db.Timestamptz(6)
   transferCode        String?            @map("transfer_code")
   transferAlias       String?            @map("transfer_alias")
+  parentReservationId String?            @map("parent_reservation_id")
+  parentReservation   Reservation?       @relation("ReservationExtensions", fields: [parentReservationId], references: [id])
+  extensions          Reservation[]      @relation("ReservationExtensions")
   // Snapshot inmutable de reglas + precio al confirmar la reserva (US-49).
   // Si el rentador cambia el set o el precio post-confirmación, la reserva
   // mantiene los valores con que se firmó el contrato.
@@ -223,11 +295,13 @@ model Reservation {
   createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
   messages            Message[]
+  walletMovement      WalletMovement?
 
   @@index([vehicleId, status])
   @@index([conductorId])
   @@index([rentadorId, status])
   @@index([status, createdAt])
+  @@index([parentReservationId])
   @@map("reservations")
 }
 
@@ -368,6 +442,20 @@ model UserPaymentMethod {
 
   @@index([userId])
   @@map("user_payment_methods")
+}
+
+model PushSubscription {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  endpoint       String   @unique
+  auth           String
+  p256dh         String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 enum Characteristic {

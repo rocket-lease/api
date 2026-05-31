@@ -156,6 +156,23 @@ export class PostgresUserRepository implements UserRepository {
     return this.mapProfile(row);
   }
 
+  async applyReputationPenalty(id: string, points: number): Promise<UserProfile> {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new InvalidEntityDataException('User not found');
+    
+    // El score debe mantenerse en el rango de 0 a 5.
+    const newScore = Math.max(0, user.reputationScore + points);
+    
+    const row = await this.prisma.user.update({
+      where: { id },
+      data: {
+        reputationScore: newScore,
+      },
+    });
+
+    return this.mapProfile(row);
+  }
+
   async deleteById(id: string): Promise<void> {
     try {
       await this.prisma.user.delete({ where: { id } });

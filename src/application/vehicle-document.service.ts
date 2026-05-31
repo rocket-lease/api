@@ -142,6 +142,7 @@ export class VehicleDocumentService {
           verification.getRentadorId(),
           'Documentación aprobada',
           'La documentación de tu vehículo ha sido aprobada. Ya puede alquilarse en la plataforma.',
+          { url: '/perfil' },
         );
 
         processed += 1;
@@ -157,6 +158,7 @@ export class VehicleDocumentService {
           verification.getRentadorId(),
           'Documentación rechazada',
           `La documentación de tu vehículo ha sido rechazada: ${providerResult.rejectionReason ?? 'Motivo no especificado'}. Por favor, sube documentos válidos.`,
+          { url: '/perfil' },
         );
 
         processed += 1;

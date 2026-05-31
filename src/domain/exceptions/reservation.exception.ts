@@ -65,3 +65,29 @@ export class InvalidQrTokenException extends DomainException {
     super('QR token is not valid for this operation');
   }
 }
+
+export class ExtensionParentNotInProgressException extends DomainException {
+  constructor(reservationId: string) {
+    super(`reservation ${reservationId} must be in_progress to be extended`);
+  }
+}
+
+export class ExtensionInvalidEndAtException extends DomainException {
+  constructor(message: string) {
+    super(`invalid extension endAt: ${message}`);
+  }
+}
+
+export class PendingExtensionExistsException extends DomainException {
+  constructor(reservationId: string) {
+    super(
+      `reservation ${reservationId} already has a pending extension request`,
+    );
+  }
+}
+
+export class ExtensionNotPendingException extends DomainException {
+  constructor(reservationId: string) {
+    super(`extension ${reservationId} is not pending and cannot be modified`);
+  }
+}

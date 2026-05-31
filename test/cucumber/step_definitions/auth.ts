@@ -105,6 +105,8 @@ Given('que estoy autenticado', async function (this: MyWorld) {
     password: 'Passw0rd!',
   });
   this.world.access_token = loginRes.body.access_token;
+  if (!this.world.tokens_by_alias) this.world.tokens_by_alias = {};
+  this.world.tokens_by_alias['__owner__'] = loginRes.body.access_token;
   await verifyCurrentIdentity(this);
 });
 

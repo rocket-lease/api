@@ -98,4 +98,38 @@ export class SmtpEmailProvider implements EmailProvider {
       this.logger.error(`Fallo al enviar el voucher por SMTP a ${to}: ${error instanceof Error ? error.message : error}`);
     }
   }
+
+  async sendCancellationEmail(to: string, subject: string, message: string): Promise<void> {
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+    if (!user || !pass) {
+      this.logger.warn('SMTP_USER o SMTP_PASS no configurados. Saltando envío de mail real.');
+      return;
+    }
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+        <h2 style="color: #1e3a8a; text-align: center;">${subject}</h2>
+        <p>Hola,</p>
+        <p>${message}</p>
+        <div style="text-align: center; color: #9ca3af; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+          Este es un correo automático de Rocket Lease. Por favor, no respondas a este mensaje.
+        </div>
+      </div>
+    `;
+
+    try {
+      const transporter = this.getTransporter();
+      await transporter.sendMail({
+        from: `"Rocket Lease" <${user}>`,
+        to,
+        subject,
+        html: htmlContent,
+      });
+
+      this.logger.log(`Email de cancelación enviado exitosamente a ${to}`);
+    } catch (error) {
+      this.logger.error(`Fallo al enviar email de cancelación a ${to}: ${error instanceof Error ? error.message : error}`);
+    }
+  }
 }

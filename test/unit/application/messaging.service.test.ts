@@ -74,6 +74,9 @@ describe('MessagingService', () => {
       approveWithCascade: jest.fn(),
       hasActiveReservations: jest.fn(),
       findByUser: jest.fn(),
+      findChain: jest.fn().mockResolvedValue([]),
+      findChainTipFor: jest.fn().mockResolvedValue(null),
+      updateMany: jest.fn().mockResolvedValue(undefined),
     };
     notificationProviderMock = {
       notify: jest.fn().mockResolvedValue(undefined),
@@ -159,6 +162,7 @@ describe('MessagingService', () => {
         rentadorId,
         'Nuevo mensaje',
         expect.any(String),
+        expect.objectContaining({ url: expect.any(String) }),
       );
     });
 
@@ -173,6 +177,7 @@ describe('MessagingService', () => {
         conductorId,
         'Nuevo mensaje',
         expect.any(String),
+        expect.objectContaining({ url: expect.any(String) }),
       );
     });
   });
