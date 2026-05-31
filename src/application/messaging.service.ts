@@ -70,7 +70,7 @@ export class MessagingService {
     await this.notificationProvider.notify(
       recipientId,
       'Nuevo mensaje',
-      'Tenés un nuevo mensaje sobre tu reserva.',
+      dto.body.length > 80 ? dto.body.slice(0, 77) + '...' : dto.body,
       { url: `/reservas/${reservationId}/chat` },
     );
 
