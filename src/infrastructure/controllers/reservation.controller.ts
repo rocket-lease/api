@@ -15,12 +15,14 @@ import {
 import type { Request } from 'express';
 import { AuthService } from '@/application/auth.service';
 import { ReservationService } from '@/application/reservation.service';
+import { ReviewService } from '@/application/review.service';
 import * as Contracts from '@rocket-lease/contracts';
 
 @Controller('reservations')
 export class ReservationController {
   constructor(
     @Inject(ReservationService) private readonly reservationService: ReservationService,
+    @Inject(ReviewService) private readonly reviewService: ReviewService,
     @Inject(AuthService) private readonly authService: AuthService,
   ) {}
 
@@ -272,13 +274,27 @@ export class ReservationController {
     return await this.reservationService.getVoucher(id, conductorId);
   }
 
+  @Post(':id/review')
+  @HttpCode(HttpStatus.CREATED)
+  async createReview(
+    @Param('id') id: string,
+    @Body() dto: Contracts.CreateReviewRequest,
+    @Req() req: Request,
+  ): Promise<Contracts.CreateReviewResponse> {
+    const conductorId = await this.requireUserId(req);
+    const parsed = Contracts.CreateReviewRequestSchema.parse(dto);
+    return await this.reviewService.createReview(conductorId, id, parsed);
+  }
+
   @Get(':id')
   async getById(
     @Param('id') id: string,
     @Req() req: Request,
   ): Promise<Contracts.GetReservationResponse> {
-    const conductorId = await this.requireUserId(req);
-    return await this.reservationService.getById(conductorId, id);
+    const userId = await this.requireUserId(req);
+    const reservation = await this.reservationService.getById(userId, id);
+    const review = await this.reviewService.getReservationReview(id);
+    return { ...reservation, review };
   }
 
   private async requireUserId(req: Request): Promise<string> {

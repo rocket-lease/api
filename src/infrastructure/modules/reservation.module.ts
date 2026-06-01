@@ -29,9 +29,10 @@ import { SmtpEmailProvider } from '@/infrastructure/providers/smtp.email.provide
 import { IdentityModule } from './identity.module';
 import { DriverLicenseModule } from './driver-license.module';
 import { WalletModule } from './wallet.module';
+import { ReviewModule } from './review.module';
 
 @Module({
-  imports: [AuthModule, IdentityModule, DriverLicenseModule, WalletModule, PushSubscriptionModule],
+  imports: [AuthModule, IdentityModule, DriverLicenseModule, WalletModule, ReviewModule, PushSubscriptionModule],
   controllers: [ReservationController],
   providers: [
     ReservationService,
