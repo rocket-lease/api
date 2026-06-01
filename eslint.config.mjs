@@ -5,7 +5,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['eslint.config.mjs', 'cucumber.js', 'dist/**', 'coverage/**'],
+    ignores: ['eslint.config.mjs', 'cucumber.js', 'dist/**', 'coverage/**', '.venv/**', 'scripts/**', 'webpack.config.js'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,

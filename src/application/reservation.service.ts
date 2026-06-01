@@ -1871,6 +1871,7 @@ export class ReservationService {
         model: '—',
         year: 0,
         photo: null,
+        plate: '—',
         reservationRuleSet,
       };
     }
@@ -1881,6 +1882,7 @@ export class ReservationService {
       model: vehicle.getModel(),
       year: vehicle.getYear(),
       photo: photos.length > 0 ? photos[0] : null,
+      plate: vehicle.getPlate(),
       reservationRuleSet,
     };
   }
