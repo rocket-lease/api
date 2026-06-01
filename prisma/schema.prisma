@@ -48,6 +48,8 @@ model User {
   identityVerification  IdentityVerification?
   driverLicenseVerification DriverLicenseVerification?
   pushSubscriptions     PushSubscription[]
+  reviewsWritten        Review[]                  @relation("Reviewer")
+  reviewsReceived       Review[]                  @relation("Reviewed")
 
   @@map("users")
 }
@@ -317,6 +319,7 @@ model Reservation {
   updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
   messages            Message[]
   walletMovement      WalletMovement?
+  review              Review?
 
   @@index([vehicleId, status])
   @@index([conductorId])
@@ -478,6 +481,23 @@ model PushSubscription {
 
   @@index([userId])
   @@map("push_subscriptions")
+}
+
+model Review {
+  id            String      @id @default(uuid())
+  reservationId String      @unique @map("reservation_id")
+  reviewerId    String      @map("reviewer_id")
+  reviewedId    String      @map("reviewed_id")
+  targetType    String      @map("target_type")
+  rating        Int
+  comment       String
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  reviewer      User        @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewed      User        @relation("Reviewed", fields: [reviewedId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
 }
 
 enum Characteristic {
