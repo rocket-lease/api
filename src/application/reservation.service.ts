@@ -192,7 +192,6 @@ export class ReservationService {
     const endAt = new Date(dto.endAt);
     const now = this.clock.now();
 
-    // Validate home delivery/return options against vehicle settings
     const withHomeDelivery = dto.withHomeDelivery ?? false;
     const withHomeReturn = dto.withHomeReturn ?? false;
 
@@ -209,7 +208,6 @@ export class ReservationService {
       throw new HomeReturnAddressRequiredException();
     }
 
-    // Snapshot fees at booking time
     const homeDeliveryFeeCentsSnapshot = withHomeDelivery
       ? (vehicle.getHomeDeliveryFeeCents() ?? null)
       : null;
@@ -313,7 +311,6 @@ export class ReservationService {
       throw new HoldExpiredException(reservationId);
     }
 
-    // Validate digital_wallet requires walletProvider
     if (
       dto.paymentMethod === 'digital_wallet' &&
       !dto.walletProvider

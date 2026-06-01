@@ -1960,7 +1960,6 @@ describe('ReservationService', () => {
       });
       await service.confirmPayment(conductorA, r.id, { paymentMethod: 'credit_card' });
 
-      // Limpiar mocks
       (notificationProvider.notify as jest.Mock).mockClear();
       (userRepo.creditBalance as jest.Mock).mockClear();
       (userRepo.applyReputationPenalty as jest.Mock).mockClear();

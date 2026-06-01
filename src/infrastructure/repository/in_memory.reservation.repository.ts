@@ -258,7 +258,6 @@ export class InMemoryReservationRepository implements ReservationRepository {
     }
   }
 
-  // test helper
   clear() {
     this.store.clear();
   }
