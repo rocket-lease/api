@@ -52,6 +52,16 @@ type Row = {
   maxKilometrageValueSnapshot: number | null;
   minRentalDaysSnapshot: number;
   maxRentalDaysSnapshot: number | null;
+  withHomeDelivery: boolean;
+  homeDeliveryFeeCentsSnapshot: number | null;
+  deliveryAddress: string | null;
+  deliveryLatitude: number | null;
+  deliveryLongitude: number | null;
+  withHomeReturn: boolean;
+  homeReturnFeeCentsSnapshot: number | null;
+  returnAddress: string | null;
+  returnLatitude: number | null;
+  returnLongitude: number | null;
   parentReservationId: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -306,9 +316,19 @@ export class PostgresReservationRepository implements ReservationRepository {
         max_kilometrage_value_snapshot AS "maxKilometrageValueSnapshot",
         min_rental_days_snapshot      AS "minRentalDaysSnapshot",
         max_rental_days_snapshot      AS "maxRentalDaysSnapshot",
-        parent_reservation_id AS "parentReservationId",
-        created_at            AS "createdAt",
-        updated_at            AS "updatedAt"
+        with_home_delivery            AS "withHomeDelivery",
+        home_delivery_fee_cents_snapshot AS "homeDeliveryFeeCentsSnapshot",
+        delivery_address              AS "deliveryAddress",
+        delivery_latitude             AS "deliveryLatitude",
+        delivery_longitude            AS "deliveryLongitude",
+        with_home_return              AS "withHomeReturn",
+        home_return_fee_cents_snapshot AS "homeReturnFeeCentsSnapshot",
+        return_address                AS "returnAddress",
+        return_latitude               AS "returnLatitude",
+        return_longitude              AS "returnLongitude",
+        parent_reservation_id         AS "parentReservationId",
+        created_at                    AS "createdAt",
+        updated_at                    AS "updatedAt"
       FROM downward
       ORDER BY start_at ASC
     `;
@@ -391,6 +411,16 @@ export class PostgresReservationRepository implements ReservationRepository {
         r.getRentalTimeConstraintsSnapshot().minDays ?? 1,
       maxRentalDaysSnapshot:
         r.getRentalTimeConstraintsSnapshot().maxDays ?? null,
+      withHomeDelivery: r.getWithHomeDelivery(),
+      homeDeliveryFeeCentsSnapshot: r.getHomeDeliveryFeeCentsSnapshot(),
+      deliveryAddress: r.getDeliveryAddress()?.address ?? null,
+      deliveryLatitude: r.getDeliveryAddress()?.latitude ?? null,
+      deliveryLongitude: r.getDeliveryAddress()?.longitude ?? null,
+      withHomeReturn: r.getWithHomeReturn(),
+      homeReturnFeeCentsSnapshot: r.getHomeReturnFeeCentsSnapshot(),
+      returnAddress: r.getReturnAddress()?.address ?? null,
+      returnLatitude: r.getReturnAddress()?.latitude ?? null,
+      returnLongitude: r.getReturnAddress()?.longitude ?? null,
       parentReservationId: r.getParentReservationId(),
       createdAt: r.getCreatedAt(),
       updatedAt: r.getUpdatedAt(),
@@ -443,6 +473,18 @@ export class PostgresReservationRepository implements ReservationRepository {
       cancellationPolicySnapshot: row.cancellationPolicySnapshot as CancellationPolicy,
       maxKilometrageSnapshot: maxKilometrage,
       rentalTimeConstraintsSnapshot: rentalTimeConstraints,
+      withHomeDelivery: row.withHomeDelivery,
+      homeDeliveryFeeCentsSnapshot: row.homeDeliveryFeeCentsSnapshot,
+      deliveryAddress:
+        row.deliveryAddress !== null && row.deliveryLatitude !== null && row.deliveryLongitude !== null
+          ? { address: row.deliveryAddress, latitude: row.deliveryLatitude, longitude: row.deliveryLongitude }
+          : null,
+      withHomeReturn: row.withHomeReturn,
+      homeReturnFeeCentsSnapshot: row.homeReturnFeeCentsSnapshot,
+      returnAddress:
+        row.returnAddress !== null && row.returnLatitude !== null && row.returnLongitude !== null
+          ? { address: row.returnAddress, latitude: row.returnLatitude, longitude: row.returnLongitude }
+          : null,
       parentReservationId: row.parentReservationId,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,

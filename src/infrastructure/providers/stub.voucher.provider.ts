@@ -10,7 +10,6 @@ export class StubVoucherProvider implements VoucherProvider {
 
   async generateVoucher(reservationId: string): Promise<Voucher> {
     this.logger.log(`[STUB] Generating voucher for reservation ${reservationId}`);
-    // Simula un QR code como hash del ID de reserva
     const qrCode = `QR-${reservationId}-${Date.now()}`;
     return { qrCode };
   }

@@ -70,7 +70,6 @@ Given(
       });
     }
 
-    // Restore owner token for the next vehicle steps.
     this.world.access_token = ownerToken;
     // touch reservationService so the import is not pruned
     void reservationService;

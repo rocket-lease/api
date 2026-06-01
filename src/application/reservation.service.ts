@@ -93,6 +93,10 @@ import {
   VoucherReservationCancelledException,
   DepositNotAvailableException,
   BalanceNotDueException,
+  VehicleHomeDeliveryNotEnabledException,
+  VehicleHomeReturnNotEnabledException,
+  HomeDeliveryAddressRequiredException,
+  HomeReturnAddressRequiredException,
 } from '@/domain/exceptions/reservation.exception';
 import {
   VOUCHER_PROVIDER,
@@ -188,6 +192,29 @@ export class ReservationService {
     const endAt = new Date(dto.endAt);
     const now = this.clock.now();
 
+    const withHomeDelivery = dto.withHomeDelivery ?? false;
+    const withHomeReturn = dto.withHomeReturn ?? false;
+
+    if (withHomeDelivery && !vehicle.getHomeDeliveryEnabled()) {
+      throw new VehicleHomeDeliveryNotEnabledException(vehicle.getId());
+    }
+    if (withHomeDelivery && !dto.deliveryAddress) {
+      throw new HomeDeliveryAddressRequiredException();
+    }
+    if (withHomeReturn && !vehicle.getHomeReturnEnabled()) {
+      throw new VehicleHomeReturnNotEnabledException(vehicle.getId());
+    }
+    if (withHomeReturn && !dto.returnAddress) {
+      throw new HomeReturnAddressRequiredException();
+    }
+
+    const homeDeliveryFeeCentsSnapshot = withHomeDelivery
+      ? (vehicle.getHomeDeliveryFeeCents() ?? null)
+      : null;
+    const homeReturnFeeCentsSnapshot = withHomeReturn
+      ? (vehicle.getHomeReturnFeeCents() ?? null)
+      : null;
+
     const overlapping = await this.reservationRepository.findOverlapping(
       vehicle.getId(),
       startAt,
@@ -208,6 +235,8 @@ export class ReservationService {
       vehicle.getBasePriceCents(),
       startAt,
       endAt,
+      homeDeliveryFeeCentsSnapshot,
+      homeReturnFeeCentsSnapshot,
     );
 
     const status = effectiveAutoAccept ? RESERVATION_STATUS.pending_payment : RESERVATION_STATUS.pending_approval;
@@ -226,6 +255,12 @@ export class ReservationService {
       paymentMethod: null,
       contractAcceptedAt: now,
       paidAt: null,
+      withHomeDelivery,
+      homeDeliveryFeeCentsSnapshot,
+      deliveryAddress: dto.deliveryAddress ?? null,
+      withHomeReturn,
+      homeReturnFeeCentsSnapshot,
+      returnAddress: dto.returnAddress ?? null,
       createdAt: now,
       updatedAt: now,
     });
@@ -276,7 +311,6 @@ export class ReservationService {
       throw new HoldExpiredException(reservationId);
     }
 
-    // Validate digital_wallet requires walletProvider
     if (
       dto.paymentMethod === 'digital_wallet' &&
       !dto.walletProvider
@@ -1743,6 +1777,12 @@ export class ReservationService {
       cancellationPolicySnapshot: r.getCancellationPolicySnapshot(),
       maxKilometrageSnapshot: r.getMaxKilometrageSnapshot(),
       rentalTimeConstraintsSnapshot: r.getRentalTimeConstraintsSnapshot(),
+      withHomeDelivery: r.getWithHomeDelivery(),
+      homeDeliveryFeeCentsSnapshot: r.getHomeDeliveryFeeCentsSnapshot(),
+      deliveryAddress: r.getDeliveryAddress(),
+      withHomeReturn: r.getWithHomeReturn(),
+      homeReturnFeeCentsSnapshot: r.getHomeReturnFeeCentsSnapshot(),
+      returnAddress: r.getReturnAddress(),
       parentReservationId: r.getParentReservationId(),
       chain: chainPayload,
       createdAt: r.getCreatedAt().toISOString(),

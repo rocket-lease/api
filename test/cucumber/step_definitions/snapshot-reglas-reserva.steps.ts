@@ -120,7 +120,6 @@ async function conductorAConfirmsReservation(world: MyWorld, plate: string): Pro
   setReservationId(world, CONDUCTOR_A_ALIAS, reservationId);
   world.world.reservation_response = createRes;
 
-  // Confirm payment so snapshot is taken
   const payRes = await api(world).post(`/reservations/${reservationId}/payment`, {
     paymentMethod: 'credit_card',
   });
@@ -200,7 +199,6 @@ Given(
   async function (this: MyWorld, alias: string, plate: string) {
     // Only alias "A" is supported in this feature; keep generic for flexibility.
     if (alias !== CONDUCTOR_A_ALIAS) {
-      // Ensure the conductor is registered under the given alias
       if (!this.world.tokens_by_alias?.[alias]) {
         await registerAndLoginVerified(this, alias);
       }

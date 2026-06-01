@@ -44,6 +44,10 @@ import {
   DepositNotAvailableException,
   BalanceNotDueException,
   BalanceOverdueException,
+  VehicleHomeDeliveryNotEnabledException,
+  VehicleHomeReturnNotEnabledException,
+  HomeDeliveryAddressRequiredException,
+  HomeReturnAddressRequiredException,
 } from '@/domain/exceptions/reservation.exception';
 import {
   InvalidMapBoundsException,
@@ -224,6 +228,22 @@ export class DomainExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof BulkPriceResultInvalidException) {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.BULK_PRICE_RESULT_INVALID;
+      title = 'Bad Request';
+    } else if (exception instanceof VehicleHomeDeliveryNotEnabledException) {
+      status = HttpStatus.UNPROCESSABLE_ENTITY;
+      code = ErrorCodes.VEHICLE_HOME_DELIVERY_NOT_ENABLED;
+      title = 'Unprocessable Entity';
+    } else if (exception instanceof VehicleHomeReturnNotEnabledException) {
+      status = HttpStatus.UNPROCESSABLE_ENTITY;
+      code = ErrorCodes.VEHICLE_HOME_RETURN_NOT_ENABLED;
+      title = 'Unprocessable Entity';
+    } else if (exception instanceof HomeDeliveryAddressRequiredException) {
+      status = HttpStatus.BAD_REQUEST;
+      code = ErrorCodes.HOME_DELIVERY_ADDRESS_REQUIRED;
+      title = 'Bad Request';
+    } else if (exception instanceof HomeReturnAddressRequiredException) {
+      status = HttpStatus.BAD_REQUEST;
+      code = ErrorCodes.HOME_RETURN_ADDRESS_REQUIRED;
       title = 'Bad Request';
     } else if (exception instanceof EmailNotVerifiedException) {
       status = HttpStatus.FORBIDDEN;
