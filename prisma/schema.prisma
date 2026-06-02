@@ -25,6 +25,11 @@ enum TicketReportedBy {
   rentador
 }
 
+enum TicketType {
+  vehicle_issue
+  counterpart_report
+}
+
 enum WithdrawalStatus {
   processing
   processed
@@ -555,6 +560,7 @@ enum MaxKilometrageType {
 model Ticket {
   id            String           @id @default(uuid())
   reservationId String           @map("reservation_id")
+  type          TicketType       @default(vehicle_issue)
   reportedBy    TicketReportedBy @map("reported_by")
   reporterId    String           @map("reporter_id")
   status        TicketStatus     @default(open)

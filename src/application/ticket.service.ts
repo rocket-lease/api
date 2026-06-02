@@ -58,6 +58,7 @@ export class TicketService {
     const ticket = Ticket.create({
       id: randomUUID(),
       reservationId: dto.reservationId,
+      type: dto.type,
       reportedBy,
       reporterId: callerId,
       description: dto.description,
@@ -89,6 +90,7 @@ export class TicketService {
     return TicketResponseSchema.parse({
       id: ticket.getId(),
       reservationId: ticket.getReservationId(),
+      type: ticket.getType(),
       reportedBy: ticket.getReportedBy(),
       status: ticket.getStatus(),
       description: ticket.getDescription(),

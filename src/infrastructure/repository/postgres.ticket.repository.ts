@@ -12,6 +12,7 @@ export class PostgresTicketRepository implements TicketRepository {
   private toDomain(row: {
     id: string;
     reservationId: string;
+    type: string;
     reportedBy: string;
     reporterId: string;
     status: string;
@@ -23,6 +24,7 @@ export class PostgresTicketRepository implements TicketRepository {
     return Ticket.fromPersistence({
       id: row.id,
       reservationId: row.reservationId,
+      type: row.type as 'vehicle_issue' | 'counterpart_report',
       reportedBy: row.reportedBy as 'conductor' | 'rentador',
       reporterId: row.reporterId,
       status: row.status as 'open' | 'under_review' | 'resolved' | 'rejected',
@@ -38,6 +40,7 @@ export class PostgresTicketRepository implements TicketRepository {
       data: {
         id: ticket.getId(),
         reservationId: ticket.getReservationId(),
+        type: ticket.getType(),
         reportedBy: ticket.getReportedBy(),
         reporterId: ticket.getReporterId(),
         status: ticket.getStatus(),

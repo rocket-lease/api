@@ -1,6 +1,7 @@
 export interface TicketProps {
   id: string;
   reservationId: string;
+  type: 'vehicle_issue' | 'counterpart_report';
   reportedBy: 'conductor' | 'rentador';
   reporterId: string;
   status: 'open' | 'under_review' | 'resolved' | 'rejected';
@@ -28,6 +29,7 @@ export class Ticket {
 
   getId()            { return this.props.id; }
   getReservationId() { return this.props.reservationId; }
+  getType()          { return this.props.type; }
   getReportedBy()    { return this.props.reportedBy; }
   getReporterId()    { return this.props.reporterId; }
   getStatus()        { return this.props.status; }
