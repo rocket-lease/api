@@ -2122,5 +2122,245 @@ describe('ReservationService', () => {
       ).rejects.toThrow('forbidden: this reservation does not belong to the current user');
     });
   });
+
+  // ─────────────────────────────────────────────
+  // Discount + payment scenarios
+  // ─────────────────────────────────────────────
+  describe('descuentos por alquiler prolongado', () => {
+    function makeDiscountedVehicle() {
+      return makeVehicle({
+        discountTiers: [{ minimumDays: 3, discountPercentage: 15 }],
+      });
+    }
+
+    /** Crea un vehículo con descuento, monta el repo y el service */
+    function setupDiscountedService(extraSetup?: (v: Vehicle) => Promise<void>) {
+      return async (): Promise<Vehicle> => {
+        const v = makeDiscountedVehicle();
+        vehicleRepo = makeVehicleRepo([v]);
+        if (extraSetup) await extraSetup(v);
+        service = new ReservationService(
+          repo, vehicleRepo, userRepo, ruleSetRepo, clock,
+          voucherProvider, notificationProvider, paymentGateway,
+          emailProvider, identityService, driverLicenseService,
+        );
+        return v;
+      };
+    }
+
+    it('crea reserva con descuento aplicado correctamente', async () => {
+      const discounted = await setupDiscountedService()();
+
+      const res = await service.createReservation(conductorA, {
+        vehicleId: discounted.getId(),
+        startAt: '2026-06-01T10:00:00.000Z',
+        endAt: '2026-06-04T10:00:00.000Z',
+        contractAccepted: true,
+      });
+
+      const baseDaily = 24000;
+      const subtotal = 3 * baseDaily;
+      const discount = Math.floor((subtotal * 15) / 100);
+      const total = subtotal - discount;
+
+      expect(res.totalCents).toBe(total);
+      expect(res.pricingSnapshot.subtotalCents).toBe(subtotal);
+      expect(res.pricingSnapshot.discountCents).toBe(discount);
+      expect(res.pricingSnapshot.totalCents).toBe(total);
+      expect(res.pricingSnapshot.appliedDiscountPercentage).toBe(15);
+    });
+
+    it('confirma pago total con descuento', async () => {
+      const discounted = await setupDiscountedService()();
+
+      const res = await service.createReservation(conductorA, {
+        vehicleId: discounted.getId(),
+        startAt: '2026-06-01T10:00:00.000Z',
+        endAt: '2026-06-04T10:00:00.000Z',
+        contractAccepted: true,
+      });
+
+      const payment = await service.confirmPayment(conductorA, res.id, {
+        paymentMethod: 'credit_card',
+      });
+
+      const expectedTotal = res.pricingSnapshot.totalCents;
+      expect(payment.paidCents).toBe(expectedTotal);
+      expect(payment.status).toBe('confirmed');
+      expect(payment.balanceCents).toBe(0);
+      expect(payment.voucherToken).toBeTruthy();
+    });
+
+    // Escenario 1: Descuento + seña
+    describe('Escenario 1: descuento + seña', () => {
+      const setupDepositScenario = setupDiscountedService(async (v) => {
+        vehicleRepo.findById.mockImplementation(async (id: string) =>
+          id === v.getId() ? v : null,
+        );
+        await ruleSetRepo.save(
+          new ReservationRuleSet(
+            v.getOwnerId(), v.getId(), 'Reglas seña descuento', null,
+            'FLEXIBLE', 30, { type: 'UNLIMITED' }, {},
+          ),
+        );
+      });
+
+      it('seña calculada sobre monto con descuento', async () => {
+        const dv = await setupDepositScenario();
+
+        const creadaConDescuento = await service.createReservation(conductorA, {
+          vehicleId: dv.getId(),
+          startAt: '2026-06-01T10:00:00.000Z',
+          endAt: '2026-06-04T10:00:00.000Z',
+          contractAccepted: true,
+        });
+
+        const subtotal = 3 * 24000;
+        const descuento = Math.floor((subtotal * 15) / 100);
+        const totalConDescuento = subtotal - descuento;
+
+        expect(creadaConDescuento.pricingSnapshot.appliedDiscountTier).toEqual({
+          minimumDays: 3, discountPercentage: 15,
+        });
+        expect(creadaConDescuento.totalCents).toBe(totalConDescuento);
+
+        const sena = Math.floor((totalConDescuento * 30) / 100);
+        const saldo = totalConDescuento - sena;
+
+        const pagoSeña = await service.confirmPayment(conductorA, creadaConDescuento.id, {
+          paymentMethod: 'credit_card', paymentMode: 'deposit',
+        });
+        expect(pagoSeña.status).toBe('pending_balance');
+        expect(pagoSeña.paidCents).toBe(sena);
+        expect(pagoSeña.balanceCents).toBe(saldo);
+        expect(pagoSeña.balanceDueAt).not.toBeNull();
+
+        const pagoSaldo = await service.payBalance(conductorA, creadaConDescuento.id, {
+          paymentMethod: 'credit_card',
+        });
+        expect(pagoSaldo.status).toBe('confirmed');
+        expect(pagoSaldo.balancePaidCents).toBe(saldo);
+        expect(pagoSaldo.voucherToken).toBeTruthy();
+        expect(paymentGateway.processPayment).toHaveBeenLastCalledWith(
+          saldo, 'ARS', 'credit_card',
+        );
+      });
+    });
+
+    // Escenario 2: Extensión + descuento
+    describe('Escenario 2: extensión + descuento', () => {
+      it('extiende reserva con descuento en la extension', async () => {
+        const discounted = await setupDiscountedService()();
+
+        const parent = await service.createReservation(conductorA, {
+          vehicleId: discounted.getId(),
+          startAt: '2026-06-01T10:00:00.000Z',
+          endAt: '2026-06-03T10:00:00.000Z',
+          contractAccepted: true,
+        });
+        expect(parent.pricingSnapshot.appliedDiscountTier).toBeNull();
+
+        await service.confirmPayment(conductorA, parent.id, { paymentMethod: 'credit_card' });
+        const savedParent = await repo.findById(parent.id);
+        await service.confirmPickup(discounted.getOwnerId(), savedParent!.getVoucherToken()!);
+
+        const ext = await service.extendReservation(conductorA, parent.id, {
+          newEndAt: '2026-06-07T10:00:00.000Z',
+        });
+
+        const extSubtotal = 4 * 24000;
+        const extDiscount = Math.floor((extSubtotal * 15) / 100);
+        const extTotal = extSubtotal - extDiscount;
+
+        expect(ext.pricingSnapshot.appliedDiscountPercentage).toBe(15);
+        expect(ext.pricingSnapshot.subtotalCents).toBe(extSubtotal);
+        expect(ext.pricingSnapshot.discountCents).toBe(extDiscount);
+        expect(ext.totalCents).toBe(extTotal);
+        expect(paymentGateway.processPayment).toHaveBeenCalledWith(
+          extTotal, 'ARS', 'credit_card',
+        );
+      });
+    });
+
+    // Escenario 3: seña + extensión + descuento (combinado)
+    describe('Escenario 3: seña + extensión + descuento', () => {
+      const setupComboScenario = setupDiscountedService(async (v) => {
+        vehicleRepo.findById.mockImplementation(async (id: string) =>
+          id === v.getId() ? v : null,
+        );
+        await ruleSetRepo.save(
+          new ReservationRuleSet(
+            v.getOwnerId(), v.getId(), 'Reglas combo', null,
+            'FLEXIBLE', 30, { type: 'UNLIMITED' }, {},
+          ),
+        );
+      });
+
+      it('flujo completo: pago total + pickup + extensión + descuento', async () => {
+        const dv = await setupComboScenario();
+
+        const original = await service.createReservation(conductorA, {
+          vehicleId: dv.getId(),
+          startAt: '2026-06-01T10:00:00.000Z',
+          endAt: '2026-06-04T10:00:00.000Z',
+          contractAccepted: true,
+        });
+
+        const subtotalOrig = 3 * 24000;
+        const discountOrig = Math.floor((subtotalOrig * 15) / 100);
+        const totalOrig = subtotalOrig - discountOrig;
+        expect(original.pricingSnapshot.totalCents).toBe(totalOrig);
+
+        await service.confirmPayment(conductorA, original.id, { paymentMethod: 'credit_card' });
+        const saved = await repo.findById(original.id);
+        await service.confirmPickup(dv.getOwnerId(), saved!.getVoucherToken()!);
+
+        const ext = await service.extendReservation(conductorA, original.id, {
+          newEndAt: '2026-06-08T10:00:00.000Z',
+        });
+
+        const extSubtotal = 4 * 24000;
+        const extDiscount = Math.floor((extSubtotal * 15) / 100);
+        const extTotal = extSubtotal - extDiscount;
+
+        expect(ext.totalCents).toBe(extTotal);
+        expect(paymentGateway.processPayment).toHaveBeenLastCalledWith(
+          extTotal, 'ARS', 'credit_card',
+        );
+      });
+    });
+
+    // Refund con descuento
+    describe('reembolso con descuento', () => {
+      const setupRefundScenario = setupDiscountedService(async (v) => {
+        await ruleSetRepo.save(
+          new ReservationRuleSet(
+            v.getOwnerId(), v.getId(), 'Reglas flexibles', null,
+            'FLEXIBLE', 30, { type: 'UNLIMITED' }, {},
+          ),
+        );
+      });
+
+      it('FLEXIBLE reembolsa total con descuento (sin penalidad)', async () => {
+        const discounted = await setupRefundScenario();
+
+        const res = await service.createReservation(conductorA, {
+          vehicleId: discounted.getId(),
+          startAt: '2026-06-04T10:00:00.000Z',
+          endAt: '2026-06-07T10:00:00.000Z',
+          contractAccepted: true,
+        });
+
+        await service.confirmPayment(conductorA, res.id, { paymentMethod: 'credit_card' });
+
+        const cancelRes = await service.cancelReservation(conductorA, res.id);
+
+        const totalConDescuento = res.pricingSnapshot.totalCents;
+        expect(cancelRes.refundCents).toBe(totalConDescuento);
+        expect(cancelRes.status).toBe('cancelled');
+        expect(userRepo.creditBalance).toHaveBeenCalledWith(conductorA, totalConDescuento);
+      });
+    });
+  });
 });
 

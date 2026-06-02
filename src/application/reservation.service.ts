@@ -1719,6 +1719,7 @@ export class ReservationService {
             endAt: item.getEndAt().toISOString(),
             totalCents: item.getTotalCents(),
             parentReservationId: item.getParentReservationId(),
+            pricingSnapshot: this.resolvePricingSnapshot(item),
           }))
         : undefined;
 
