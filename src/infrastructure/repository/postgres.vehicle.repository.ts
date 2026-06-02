@@ -16,6 +16,7 @@ const VEHICLE_INCLUDE = {
   // siempre estables. Para fotos sin sufijo numérico el orden es lex de URL.
   photos: { orderBy: { url: 'asc' } },
   characteristics: true,
+  discountTiers: { orderBy: { minimumDays: 'asc' } },
 } as const satisfies Prisma.VehicleInclude;
 
 type VehicleWithRelations = Prisma.VehicleGetPayload<{
@@ -28,6 +29,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
 
   async save(vehicle: Vehicle): Promise<Vehicle> {
     const characteristics = vehicle.getCharacteristics();
+    const discountTiers = vehicle.getDiscountTiers();
 
     await this.prisma.$transaction(async (tx) => {
       await tx.vehicle.upsert({
@@ -83,6 +85,21 @@ export class PostgresVehicleRepository implements VehicleRepository {
           },
         },
       });
+
+      await tx.vehicleDiscountTier.deleteMany({
+        where: { vehicleId: vehicle.getId() },
+      });
+
+      if (discountTiers.length > 0) {
+        await tx.vehicleDiscountTier.createMany({
+          data: discountTiers.map((tier) => ({
+            id: randomUUID(),
+            vehicleId: vehicle.getId(),
+            minimumDays: tier.minimumDays,
+            discountPercentage: tier.discountPercentage,
+          })),
+        });
+      }
 
       await tx.vehicleCharacteristic.deleteMany({
         where: { vehicleId: vehicle.getId() },
@@ -279,6 +296,10 @@ export class PostgresVehicleRepository implements VehicleRepository {
       raw.color,
       raw.mileage,
       raw.basePriceCents,
+      raw.discountTiers.map((tier) => ({
+        minimumDays: tier.minimumDays,
+        discountPercentage: tier.discountPercentage,
+      })),
       raw.description,
       raw.province,
       raw.city,

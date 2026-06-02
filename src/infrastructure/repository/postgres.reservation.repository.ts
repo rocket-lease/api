@@ -1,4 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import {
   Reservation,
   ReservationStatus,
@@ -47,6 +48,7 @@ type Row = {
   balanceReminderSentAt: Date | null;
   depositPercentageSnapshot: number | null;
   basePriceCentsSnapshot: number;
+  pricingSnapshot: any | null;
   cancellationPolicySnapshot: string;
   maxKilometrageTypeSnapshot: string;
   maxKilometrageValueSnapshot: number | null;
@@ -299,6 +301,7 @@ export class PostgresReservationRepository implements ReservationRepository {
         transfer_expires_at   AS "transferExpiresAt",
         transfer_code         AS "transferCode",
         transfer_alias        AS "transferAlias",
+        pricing_snapshot      AS "pricingSnapshot",
         deposit_percentage_snapshot   AS "depositPercentageSnapshot",
         base_price_cents_snapshot     AS "basePriceCentsSnapshot",
         cancellation_policy_snapshot  AS "cancellationPolicySnapshot",
@@ -381,6 +384,7 @@ export class PostgresReservationRepository implements ReservationRepository {
       balanceReminderSentAt: r.getBalanceReminderSentAt(),
       depositPercentageSnapshot: r.getDepositPercentageSnapshot(),
       basePriceCentsSnapshot: r.getBasePriceCentsSnapshot(),
+      pricingSnapshot: r.getPricingSnapshot() ?? Prisma.DbNull,
       cancellationPolicySnapshot: r.getCancellationPolicySnapshot(),
       maxKilometrageTypeSnapshot: r.getMaxKilometrageSnapshot().type,
       maxKilometrageValueSnapshot:
@@ -440,6 +444,7 @@ export class PostgresReservationRepository implements ReservationRepository {
       balanceReminderSentAt: row.balanceReminderSentAt,
       depositPercentageSnapshot: row.depositPercentageSnapshot,
       basePriceCentsSnapshot: row.basePriceCentsSnapshot,
+      pricingSnapshot: row.pricingSnapshot,
       cancellationPolicySnapshot: row.cancellationPolicySnapshot as CancellationPolicy,
       maxKilometrageSnapshot: maxKilometrage,
       rentalTimeConstraintsSnapshot: rentalTimeConstraints,

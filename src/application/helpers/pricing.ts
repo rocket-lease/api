@@ -1,3 +1,9 @@
+import type {
+  PricingDiscountTier,
+  PricingDiscountTiers,
+  PricingQuote,
+} from '@rocket-lease/contracts';
+
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
@@ -15,6 +21,66 @@ export function computeReservationTotalCents(
   const hours = Math.ceil(ms / HOUR_MS);
   const hourlyRate = Math.round(basePriceDailyCents / 24);
   return hours * hourlyRate;
+}
+
+export function selectAppliedDiscountTier(
+  durationDays: number,
+  discountTiers: PricingDiscountTiers,
+): PricingDiscountTier | null {
+  const sorted = [...discountTiers].sort(
+    (left, right) => left.minimumDays - right.minimumDays,
+  );
+
+  let applied: PricingDiscountTier | null = null;
+  for (const tier of sorted) {
+    if (durationDays >= tier.minimumDays) {
+      applied = tier;
+      continue;
+    }
+    break;
+  }
+
+  return applied;
+}
+
+export function computePricingQuote(params: {
+  vehicleId: string;
+  basePriceDailyCents: number;
+  discountTiers: PricingDiscountTiers;
+  startAt: Date;
+  endAt: Date;
+}): PricingQuote {
+  const ms = params.endAt.getTime() - params.startAt.getTime();
+  if (ms <= 0) {
+    throw new Error('endAt must be after startAt');
+  }
+
+  const subtotalCents = computeReservationTotalCents(
+    params.basePriceDailyCents,
+    params.startAt,
+    params.endAt,
+  );
+  const durationDays = Math.max(1, Math.ceil(ms / DAY_MS));
+  const appliedDiscountTier = selectAppliedDiscountTier(
+    durationDays,
+    params.discountTiers,
+  );
+  const appliedDiscountPercentage = appliedDiscountTier?.discountPercentage ?? 0;
+  const discountCents = Math.floor(
+    (subtotalCents * appliedDiscountPercentage) / 100,
+  );
+
+  return {
+    vehicleId: params.vehicleId,
+    currency: 'ARS',
+    basePriceCents: params.basePriceDailyCents,
+    durationDays,
+    subtotalCents,
+    appliedDiscountTier,
+    appliedDiscountPercentage,
+    discountCents,
+    totalCents: subtotalCents - discountCents,
+  };
 }
 
 /**

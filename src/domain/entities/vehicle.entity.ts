@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import { InvalidEntityDataException } from '../exceptions/domain.exception';
+import { PricingDiscountTiersSchema } from '@rocket-lease/contracts';
 
 const vehicleSchema = z.object({
   id: z.string().uuid('Invalid ID format'),
@@ -30,6 +31,7 @@ const vehicleSchema = z.object({
   color: z.string().min(1, 'Color is required'),
   mileage: z.number().min(0, 'Mileage cannot be negative'),
   basePriceCents: z.number().int().gt(0, 'Base price must be greater than zero'),
+  discountTiers: PricingDiscountTiersSchema,
   description: z.string().nullable(),
   province: z.string().min(1, 'Province is required'),
   city: z.string().min(1, 'City is required'),
@@ -80,6 +82,7 @@ export class Vehicle {
     private color: string,
     private mileage: number,
     private basePriceCents: number,
+    private discountTiers: Array<{ minimumDays: number; discountPercentage: number }>,
     private description: string | null,
     private province: string,
     private city: string,
@@ -151,6 +154,9 @@ export class Vehicle {
   public getBasePriceCents(): number {
     return this.basePriceCents;
   }
+  public getDiscountTiers(): Array<{ minimumDays: number; discountPercentage: number }> {
+    return [...this.discountTiers];
+  }
   public getDescription(): string | null {
     return this.description;
   }
@@ -213,6 +219,9 @@ export class Vehicle {
     }
     if (data.color) this.color = data.color as string;
     if (data.basePriceCents) this.basePriceCents = data.basePriceCents as number;
+    if (data.discountTiers !== undefined) {
+      this.discountTiers = data.discountTiers as Array<{ minimumDays: number; discountPercentage: number }>;
+    }
     if (data.description !== undefined) this.description = data.description as string | null;
     if (data.isAccessible !== undefined) this.isAccessible = data.isAccessible as boolean;
     if (data.enabled !== undefined) this.enabled = data.enabled as boolean;
@@ -249,6 +258,7 @@ export class Vehicle {
       color: this.color,
       mileage: this.mileage,
       basePriceCents: this.basePriceCents,
+      discountTiers: this.discountTiers,
       description: this.description,
       province: this.province,
       city: this.city,

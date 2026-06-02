@@ -30,6 +30,7 @@ function makeVehicle(ownerId: string): Vehicle {
     'Azul',
     50000,
     24000,
+    [],
     null,
     'B',
     'CABA',

@@ -53,6 +53,7 @@ const buildVehicle = (
     validDto.color,
     validDto.mileage,
     validDto.basePriceCents,
+    [],
     validDto.description,
     validDto.province,
     validDto.city,

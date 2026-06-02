@@ -139,6 +139,7 @@ model Vehicle {
   privateRuleSet     ReservationRuleSet? @relation("PrivateRuleSet")
   photos       Photo[]
   characteristics VehicleCharacteristic[]
+  discountTiers VehicleDiscountTier[]
   reservations    Reservation[]
   promotion       PromotionActive?
   vehicleDocument VehicleDocumentVerification?
@@ -148,6 +149,21 @@ model Vehicle {
 
   @@index([latitude, longitude])
   @@map("vehicles")
+}
+
+model VehicleDiscountTier {
+  id                String   @id @default(uuid())
+  vehicleId         String   @map("vehicle_id")
+  minimumDays       Int      @map("minimum_days")
+  discountPercentage Int     @map("discount_percentage")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  vehicle           Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@unique([vehicleId, minimumDays])
+  @@index([vehicleId, minimumDays])
+  @@map("vehicle_discount_tiers")
 }
 
 model BankAccount {
@@ -293,6 +309,7 @@ model Reservation {
   // mantiene los valores con que se firmó el contrato.
   depositPercentageSnapshot     Int?    @map("deposit_percentage_snapshot")
   basePriceCentsSnapshot        Int     @default(0) @map("base_price_cents_snapshot")
+  pricingSnapshot              Json?   @map("pricing_snapshot")
   cancellationPolicySnapshot    String  @default("FLEXIBLE") @map("cancellation_policy_snapshot")
   maxKilometrageTypeSnapshot    String  @default("UNLIMITED") @map("max_kilometrage_type_snapshot")
   maxKilometrageValueSnapshot   Int?    @map("max_kilometrage_value_snapshot")
