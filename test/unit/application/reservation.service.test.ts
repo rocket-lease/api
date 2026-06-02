@@ -1920,7 +1920,7 @@ describe('ReservationService', () => {
       expect(ext?.getStatus()).toBe('cancelled');
     });
 
-    it('cancelar un eslabón hijo NO cancela al padre comprometido', async () => {
+    it('cancelar un eslabón hijo lanza RESERVATION_CANCEL_EXTENSION_NOT_ALLOWED', async () => {
       const manualVehicle = makeVehicle({ autoAccept: false });
       vehicleRepo = makeVehicleRepo([manualVehicle]);
       service = new ReservationService(
@@ -1940,10 +1940,10 @@ describe('ReservationService', () => {
       const extension = await service.extendReservation(conductorA, parentId, {
         newEndAt: '2026-06-05T10:00:00.000Z',
       });
-      await service.cancelReservation(conductorA, extension.id);
+      await expect(
+        service.cancelReservation(conductorA, extension.id),
+      ).rejects.toThrow('extensions cannot be cancelled directly');
       const parent = await repo.findById(parentId);
-      const ext = await repo.findById(extension.id);
-      expect(ext?.getStatus()).toBe('cancelled');
       expect(parent?.getStatus()).toBe('in_progress');
     });
   });
