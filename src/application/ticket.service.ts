@@ -71,12 +71,14 @@ export class TicketService {
       ? reservation.getRentadorId()
       : reservation.getConductorId();
 
-    void this.notificationProvider.notify(
-      counterpartId,
-      'Nuevo reporte de problema',
-      'Se reportó un problema en tu reserva.',
-      { url: `/reservas/${dto.reservationId}` },
-    );
+    if (counterpartId !== callerId) {
+      void this.notificationProvider.notify(
+        counterpartId,
+        'Nuevo reporte de problema',
+        'Se reportó un problema en tu reserva.',
+        { url: `/reservas/${dto.reservationId}` },
+      );
+    }
 
     return this.toResponse(saved);
   }
