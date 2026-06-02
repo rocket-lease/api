@@ -957,6 +957,20 @@ export class Reservation {
     this.updatedAt = now;
   }
 
+  /**
+   * Completes a chain extension when the root reservation is returned. An
+   * extension can be in `confirmed` (paid but not yet handed off, since the
+   * car never left) or `in_progress`. Both are valid targets.
+   */
+  public completeFromChain(now: Date): void {
+    if (!this.isInProgress() && !this.isConfirmed()) {
+      throw new InvalidReservationTransitionException(this.status, RESERVATION_STATUS.completed);
+    }
+    this.status = RESERVATION_STATUS.completed;
+    this.completedAt = now;
+    this.updatedAt = now;
+  }
+
   private validate(): void {
     const result = reservationSchema.safeParse({
       id: this.id,

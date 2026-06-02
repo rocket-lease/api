@@ -1518,7 +1518,7 @@ describe('ReservationService', () => {
         totalCents: 48000,
         paymentMethod: 'credit_card',
         paidAt: clock.now(),
-        voucherToken: paymentRes.voucherToken,
+        voucherToken: paymentRes.voucherToken!,
         createdAt: clock.now(),
         updatedAt: clock.now(),
       });
@@ -1652,11 +1652,9 @@ describe('ReservationService', () => {
       });
       const childId = extResult.id;
 
-      // B confirmed → in_progress via confirmPickup
-      const childConfirmed = await repo.findById(childId);
-      await service.confirmPickup(vehicle.getOwnerId(), childConfirmed!.getVoucherToken()!);
+      // B queda en confirmed (auto-charged); el cascade de confirmReturn lo completa sin confirmPickup
 
-      // Confirmar devolución sobre A
+      // Confirmar devolución sobre A — debe cascadear a B (confirmed → completed)
       const parentSaved = await repo.findById(parentId);
       await service.confirmReturn(conductorA, parentSaved!.getReturnQrToken()!);
 

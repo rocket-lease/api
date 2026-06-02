@@ -1635,15 +1635,15 @@ export class ReservationService {
     await this.reservationRepository.update(reservation);
     await this.walletService.recordReservationPayout(reservation);
 
-    // Cascade completion to every other in_progress member of the chain
-    // (e.g. extensions that were active while the car was in use).
+    // Cascade completion to every other chain member that has been confirmed or
+    // is already in_progress (extensions that were paid for or actively running).
     const chain = await this.reservationRepository.findChain(reservation.getId());
     const cascadeTargets = chain.filter(
-      r => r.getId() !== reservation.getId() && r.isInProgress(),
+      r => r.getId() !== reservation.getId() && (r.isInProgress() || r.isConfirmed()),
     );
     if (cascadeTargets.length > 0) {
       for (const r of cascadeTargets) {
-        r.confirmReturn(r.getReturnQrToken()!, now);
+        r.completeFromChain(now);
       }
       await this.reservationRepository.updateMany(cascadeTargets);
       for (const r of cascadeTargets) {
