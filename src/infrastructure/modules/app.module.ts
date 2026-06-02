@@ -16,6 +16,7 @@ import { PromotionModule } from './promotion.module';
 import { IdentityModule } from './identity.module';
 import { WalletModule } from './wallet.module';
 import { PushSubscriptionModule } from './push-subscription.module';
+import { PricingModule } from './pricing.module';
 import { ReviewModule } from './review.module';
 
 @Module({
@@ -34,6 +35,7 @@ import { ReviewModule } from './review.module';
     MessagingModule,
     BankAccountModule,
     PromotionModule,
+    PricingModule,
     ReviewModule,
     VehicleDocumentModule,
     WalletModule,
