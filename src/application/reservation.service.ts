@@ -1630,8 +1630,27 @@ export class ReservationService {
     if (!reservation.isOwnedByConductor(conductorId)) {
       throw new ReservationForbiddenException();
     }
-    reservation.confirmReturn(returnQrToken, this.clock.now());
+    const now = this.clock.now();
+    reservation.confirmReturn(returnQrToken, now);
+    await this.reservationRepository.update(reservation);
     await this.walletService.recordReservationPayout(reservation);
+
+    // Cascade completion to every other in_progress member of the chain
+    // (e.g. extensions that were active while the car was in use).
+    const chain = await this.reservationRepository.findChain(reservation.getId());
+    const cascadeTargets = chain.filter(
+      r => r.getId() !== reservation.getId() && r.isInProgress(),
+    );
+    if (cascadeTargets.length > 0) {
+      for (const r of cascadeTargets) {
+        r.confirmReturn(r.getReturnQrToken()!, now);
+      }
+      await this.reservationRepository.updateMany(cascadeTargets);
+      for (const r of cascadeTargets) {
+        await this.walletService.recordReservationPayout(r);
+      }
+    }
+
     return ConfirmReturnResponseSchema.parse({
       reservationId: reservation.getId(),
       status: RESERVATION_STATUS.completed,

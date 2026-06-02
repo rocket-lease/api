@@ -1641,6 +1641,30 @@ describe('ReservationService', () => {
         service.confirmReturn(randomUUID(), saved!.getReturnQrToken()!),
       ).rejects.toThrow(ReservationForbiddenException);
     });
+
+    it('completa en cascada todas las piezas del chain al confirmar devolución', async () => {
+      // A (parent): in_progress
+      const parentId = await makeInProgressReservation();
+
+      // B (extension): extendReservation + auto-charge lo deja en confirmed
+      const extResult = await service.extendReservation(conductorA, parentId, {
+        newEndAt: '2026-06-05T10:00:00.000Z',
+      });
+      const childId = extResult.id;
+
+      // B confirmed → in_progress via confirmPickup
+      const childConfirmed = await repo.findById(childId);
+      await service.confirmPickup(vehicle.getOwnerId(), childConfirmed!.getVoucherToken()!);
+
+      // Confirmar devolución sobre A
+      const parentSaved = await repo.findById(parentId);
+      await service.confirmReturn(conductorA, parentSaved!.getReturnQrToken()!);
+
+      const parentFinal = await repo.findById(parentId);
+      const childFinal = await repo.findById(childId);
+      expect(parentFinal!.getStatus()).toBe('completed');
+      expect(childFinal!.getStatus()).toBe('completed');
+    });
   });
 
   describe('extendReservation', () => {
