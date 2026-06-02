@@ -133,3 +133,9 @@ export class HomeReturnAddressRequiredException extends DomainException {
     super('return address is required when home return is requested');
   }
 }
+
+export class CancelExtensionNotAllowedException extends DomainException {
+  constructor() {
+    super('extensions cannot be cancelled directly; cancel the root reservation instead');
+  }
+}

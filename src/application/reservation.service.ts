@@ -91,6 +91,7 @@ import {
   InvalidQrTokenException,
   VoucherNotFoundException,
   VoucherReservationCancelledException,
+  CancelExtensionNotAllowedException,
   DepositNotAvailableException,
   BalanceNotDueException,
   VehicleHomeDeliveryNotEnabledException,
@@ -1102,6 +1103,9 @@ export class ReservationService {
     if (!reservation.isOwnedByConductor(conductorId)) {
       throw new ReservationForbiddenException();
     }
+    if (reservation.getParentReservationId()) {
+      throw new CancelExtensionNotAllowedException();
+    }
 
     const now = this.clock.now();
     const chain = await this.reservationRepository.findChain(reservationId);
@@ -1171,6 +1175,9 @@ export class ReservationService {
     if (!reservation) throw new ReservationNotFoundException(reservationId);
     if (!reservation.isOwnedByRentador(rentadorId)) {
       throw new ReservationForbiddenException();
+    }
+    if (reservation.getParentReservationId()) {
+      throw new CancelExtensionNotAllowedException();
     }
 
     const now = this.clock.now();

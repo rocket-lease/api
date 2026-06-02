@@ -41,6 +41,7 @@ import {
   VoucherNotFoundException,
   VoucherReservationCancelledException,
   InvalidQrTokenException,
+  CancelExtensionNotAllowedException,
   DepositNotAvailableException,
   BalanceNotDueException,
   BalanceOverdueException,
@@ -201,6 +202,9 @@ export class DomainExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof ExtensionNotPendingException) {
       status = HttpStatus.CONFLICT;
       code = ErrorCodes.RESERVATION_EXTENSION_NOT_PENDING;
+    } else if (exception instanceof CancelExtensionNotAllowedException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.RESERVATION_CANCEL_EXTENSION_NOT_ALLOWED;
     } else if (exception instanceof DepositPercentageOutOfRangeException) {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.DEPOSIT_PERCENTAGE_OUT_OF_RANGE;
