@@ -233,9 +233,6 @@ describe('selectAppliedDiscountTier', () => {
 });
 
 describe('computePricingQuote', () => {
-  const HOUR_MS = 60 * 60 * 1000;
-  const DAY_MS = 24 * HOUR_MS;
-
   it('computes a quote without discount', () => {
     const startAt = new Date('2026-06-01T10:00:00Z');
     const endAt = new Date('2026-06-04T10:00:00Z');

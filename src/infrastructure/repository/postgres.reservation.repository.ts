@@ -48,7 +48,7 @@ type Row = {
   balanceReminderSentAt: Date | null;
   depositPercentageSnapshot: number | null;
   basePriceCentsSnapshot: number;
-  pricingSnapshot: any | null;
+  pricingSnapshot: any;
   cancellationPolicySnapshot: string;
   maxKilometrageTypeSnapshot: string;
   maxKilometrageValueSnapshot: number | null;
