@@ -75,9 +75,23 @@ Característica: Gestión de reservas del conductor
     Cuando cancelo la reserva del conductor "A"
     Entonces el conductor "B" recibe el código de error "RESERVATION_FORBIDDEN"
 
-  # AC3: Detalle de reserva completada
-  # DADO que toco una reserva completada CUANDO se abre el detalle
-  # ENTONCES puedo ver el resumen y, si aplica, dejar o ver la reseña.
+  # AC3: Ciclo de vida confirmed → in_progress → completed
+
+  Escenario: El rentador confirma el retiro y la reserva pasa a in_progress
+    Dado que el conductor "A" reservó el vehículo "AE987CC" desde "2026-07-01T10:00:00Z" hasta "2026-07-03T10:00:00Z" firmando el contrato
+    Y el conductor "A" confirma el pago con "credit_card"
+    Cuando el rentador confirma el retiro del vehículo del conductor "A"
+    Entonces la reserva del conductor "A" queda en estado "in_progress"
+
+  Escenario: El conductor confirma la devolución y la reserva queda completada
+    Dado que el conductor "A" reservó el vehículo "AE987CC" desde "2026-07-01T10:00:00Z" hasta "2026-07-03T10:00:00Z" firmando el contrato
+    Y el conductor "A" confirma el pago con "credit_card"
+    Y el rentador confirma el retiro del vehículo del conductor "A"
+    Cuando el conductor "A" confirma la devolución
+    Entonces la reserva del conductor "A" queda en estado "completed"
+
+  # @BLOCKED: requiere módulo de reviews (modelo, entity, service, controller, contracts)
+  # El ciclo de vida (confirmed → in_progress → completed) ya está implementado arriba.
   #
   # @BLOCKED: requiere implementar el ciclo de vida (confirmed → in_progress → completed)
   # más el módulo de reviews (modelo, entity, service, controller, contracts).

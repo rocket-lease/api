@@ -91,3 +91,51 @@ export class ExtensionNotPendingException extends DomainException {
     super(`extension ${reservationId} is not pending and cannot be modified`);
   }
 }
+
+export class DepositNotAvailableException extends DomainException {
+  constructor(reservationId: string) {
+    super(`reservation ${reservationId} does not allow paying a deposit`);
+  }
+}
+
+export class BalanceNotDueException extends DomainException {
+  constructor(reservationId: string) {
+    super(`reservation ${reservationId} has no balance pending payment`);
+  }
+}
+
+export class BalanceOverdueException extends DomainException {
+  constructor(reservationId: string) {
+    super(`balance payment deadline has passed for reservation ${reservationId}`);
+  }
+}
+
+export class VehicleHomeDeliveryNotEnabledException extends DomainException {
+  constructor(vehicleId: string) {
+    super(`vehicle ${vehicleId} does not have home delivery enabled`);
+  }
+}
+
+export class VehicleHomeReturnNotEnabledException extends DomainException {
+  constructor(vehicleId: string) {
+    super(`vehicle ${vehicleId} does not have home return enabled`);
+  }
+}
+
+export class HomeDeliveryAddressRequiredException extends DomainException {
+  constructor() {
+    super('delivery address is required when home delivery is requested');
+  }
+}
+
+export class HomeReturnAddressRequiredException extends DomainException {
+  constructor() {
+    super('return address is required when home return is requested');
+  }
+}
+
+export class CancelExtensionNotAllowedException extends DomainException {
+  constructor() {
+    super('extensions cannot be cancelled directly; cancel the root reservation instead');
+  }
+}

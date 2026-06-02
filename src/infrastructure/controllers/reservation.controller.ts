@@ -15,12 +15,14 @@ import {
 import type { Request } from 'express';
 import { AuthService } from '@/application/auth.service';
 import { ReservationService } from '@/application/reservation.service';
+import { ReviewService } from '@/application/review.service';
 import * as Contracts from '@rocket-lease/contracts';
 
 @Controller('reservations')
 export class ReservationController {
   constructor(
     @Inject(ReservationService) private readonly reservationService: ReservationService,
+    @Inject(ReviewService) private readonly reviewService: ReviewService,
     @Inject(AuthService) private readonly authService: AuthService,
   ) {}
 
@@ -60,10 +62,16 @@ export class ReservationController {
   @Post(':id/transfer')
   async initiateTransfer(
     @Param('id') id: string,
+    @Body() dto: Contracts.InitiateTransferRequest,
     @Req() req: Request,
   ): Promise<Contracts.InitiateTransferResponse> {
     const conductorId = await this.requireUserId(req);
-    return await this.reservationService.initiateBankTransfer(conductorId, id);
+    const parsed = Contracts.InitiateTransferRequestSchema.parse(dto ?? {});
+    return await this.reservationService.initiateBankTransfer(
+      conductorId,
+      id,
+      parsed,
+    );
   }
 
   @Post(':id/transfer/confirm')
@@ -76,6 +84,37 @@ export class ReservationController {
       conductorId,
       id,
     );
+  }
+
+  // US-30: pago del saldo de una reserva señada.
+  @Post(':id/balance')
+  @HttpCode(HttpStatus.OK)
+  async payBalance(
+    @Param('id') id: string,
+    @Body() dto: Contracts.ConfirmReservationBalanceRequest,
+    @Req() req: Request,
+  ): Promise<Contracts.ConfirmReservationBalanceResponse> {
+    const conductorId = await this.requireUserId(req);
+    const parsed = Contracts.ConfirmReservationBalanceRequestSchema.parse(dto);
+    return await this.reservationService.payBalance(conductorId, id, parsed);
+  }
+
+  @Post(':id/balance/transfer')
+  async initiateBalanceTransfer(
+    @Param('id') id: string,
+    @Req() req: Request,
+  ): Promise<Contracts.InitiateBalanceTransferResponse> {
+    const conductorId = await this.requireUserId(req);
+    return await this.reservationService.initiateBalanceTransfer(conductorId, id);
+  }
+
+  @Post(':id/balance/transfer/confirm')
+  async confirmBalanceTransfer(
+    @Param('id') id: string,
+    @Req() req: Request,
+  ): Promise<Contracts.ConfirmBalanceTransferResponse> {
+    const conductorId = await this.requireUserId(req);
+    return await this.reservationService.confirmBalanceTransfer(conductorId, id);
   }
 
   @Post(':id/extend')
@@ -235,13 +274,27 @@ export class ReservationController {
     return await this.reservationService.getVoucher(id, conductorId);
   }
 
+  @Post(':id/review')
+  @HttpCode(HttpStatus.CREATED)
+  async createReview(
+    @Param('id') id: string,
+    @Body() dto: Contracts.CreateReviewRequest,
+    @Req() req: Request,
+  ): Promise<Contracts.CreateReviewResponse> {
+    const conductorId = await this.requireUserId(req);
+    const parsed = Contracts.CreateReviewRequestSchema.parse(dto);
+    return await this.reviewService.createReview(conductorId, id, parsed);
+  }
+
   @Get(':id')
   async getById(
     @Param('id') id: string,
     @Req() req: Request,
   ): Promise<Contracts.GetReservationResponse> {
-    const conductorId = await this.requireUserId(req);
-    return await this.reservationService.getById(conductorId, id);
+    const userId = await this.requireUserId(req);
+    const reservation = await this.reservationService.getById(userId, id);
+    const review = await this.reviewService.getReservationReview(id);
+    return { ...reservation, review };
   }
 
   private async requireUserId(req: Request): Promise<string> {

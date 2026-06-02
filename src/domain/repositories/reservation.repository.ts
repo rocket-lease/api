@@ -104,6 +104,27 @@ export interface ReservationRepository {
   findExpiredTransfers(now: Date): Promise<Reservation[]>;
 
   /**
+   * Devuelve las reservas señadas (`pending_balance`) cuyo `balanceDueAt <= now`.
+   * Las recoge el job para cancelarlas automáticamente y aplicar la política de
+   * cancelación sobre la seña (US-26).
+   *
+   * @param now - Instante actual del clock inyectado.
+   * @returns Lista de reservas señadas con saldo vencido.
+   */
+  findOverdueBalances(now: Date): Promise<Reservation[]>;
+
+  /**
+   * Devuelve las reservas señadas cuya fecha límite de saldo cae en la ventana
+   * `[now + 23h, now + 25h]` y todavía no recibieron recordatorio
+   * (`balanceReminderSentAt IS NULL`). El job de recordatorios las notifica una
+   * sola vez (US-30).
+   *
+   * @param now - Instante actual del clock inyectado.
+   * @returns Lista de reservas a recordar.
+   */
+  findBalanceReminderCandidates(now: Date): Promise<Reservation[]>;
+
+  /**
    * Busca otras solicitudes `pending_approval` del mismo vehículo cuyas fechas
    * se solapan con el rango dado. Se usa para el auto-rechazo en cascada al
    * aprobar una solicitud (excluye la solicitud que se está aprobando).

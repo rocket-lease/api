@@ -41,6 +41,14 @@ import {
   VoucherNotFoundException,
   VoucherReservationCancelledException,
   InvalidQrTokenException,
+  CancelExtensionNotAllowedException,
+  DepositNotAvailableException,
+  BalanceNotDueException,
+  BalanceOverdueException,
+  VehicleHomeDeliveryNotEnabledException,
+  VehicleHomeReturnNotEnabledException,
+  HomeDeliveryAddressRequiredException,
+  HomeReturnAddressRequiredException,
 } from '@/domain/exceptions/reservation.exception';
 import {
   InvalidMapBoundsException,
@@ -163,6 +171,15 @@ export class DomainExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof TransferExpiredException) {
       status = HttpStatus.CONFLICT;
       code = ErrorCodes.RESERVATION_TRANSFER_EXPIRED;
+    } else if (exception instanceof DepositNotAvailableException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.RESERVATION_DEPOSIT_NOT_AVAILABLE;
+    } else if (exception instanceof BalanceNotDueException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.RESERVATION_BALANCE_NOT_DUE;
+    } else if (exception instanceof BalanceOverdueException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.RESERVATION_BALANCE_OVERDUE;
     } else if (exception instanceof VoucherNotFoundException) {
       status = HttpStatus.NOT_FOUND;
       code = ErrorCodes.VOUCHER_NOT_FOUND;
@@ -185,6 +202,9 @@ export class DomainExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof ExtensionNotPendingException) {
       status = HttpStatus.CONFLICT;
       code = ErrorCodes.RESERVATION_EXTENSION_NOT_PENDING;
+    } else if (exception instanceof CancelExtensionNotAllowedException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.RESERVATION_CANCEL_EXTENSION_NOT_ALLOWED;
     } else if (exception instanceof DepositPercentageOutOfRangeException) {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.DEPOSIT_PERCENTAGE_OUT_OF_RANGE;
@@ -212,6 +232,22 @@ export class DomainExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof BulkPriceResultInvalidException) {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.BULK_PRICE_RESULT_INVALID;
+      title = 'Bad Request';
+    } else if (exception instanceof VehicleHomeDeliveryNotEnabledException) {
+      status = HttpStatus.UNPROCESSABLE_ENTITY;
+      code = ErrorCodes.VEHICLE_HOME_DELIVERY_NOT_ENABLED;
+      title = 'Unprocessable Entity';
+    } else if (exception instanceof VehicleHomeReturnNotEnabledException) {
+      status = HttpStatus.UNPROCESSABLE_ENTITY;
+      code = ErrorCodes.VEHICLE_HOME_RETURN_NOT_ENABLED;
+      title = 'Unprocessable Entity';
+    } else if (exception instanceof HomeDeliveryAddressRequiredException) {
+      status = HttpStatus.BAD_REQUEST;
+      code = ErrorCodes.HOME_DELIVERY_ADDRESS_REQUIRED;
+      title = 'Bad Request';
+    } else if (exception instanceof HomeReturnAddressRequiredException) {
+      status = HttpStatus.BAD_REQUEST;
+      code = ErrorCodes.HOME_RETURN_ADDRESS_REQUIRED;
       title = 'Bad Request';
     } else if (exception instanceof EmailNotVerifiedException) {
       status = HttpStatus.FORBIDDEN;

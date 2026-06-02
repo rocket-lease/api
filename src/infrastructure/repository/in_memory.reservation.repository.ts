@@ -18,6 +18,7 @@ export class InMemoryReservationRepository implements ReservationRepository {
   async save(reservation: Reservation): Promise<Reservation> {
     if (
       reservation.getStatus() === 'pending_payment' ||
+      reservation.getStatus() === 'pending_balance' ||
       reservation.getStatus() === 'confirmed' ||
       reservation.getStatus() === 'in_progress'
     ) {
@@ -25,7 +26,7 @@ export class InMemoryReservationRepository implements ReservationRepository {
         reservation.getVehicleId(),
         reservation.getStartAt(),
         reservation.getEndAt(),
-        ['pending_payment', 'confirmed', 'in_progress'],
+        ['pending_payment', 'pending_balance', 'confirmed', 'in_progress'],
       );
       const conflicting = overlapping.find(
         (r) => r.getId() !== reservation.getId(),
@@ -139,6 +140,28 @@ export class InMemoryReservationRepository implements ReservationRepository {
     );
   }
 
+  async findOverdueBalances(now: Date): Promise<Reservation[]> {
+    return Array.from(this.store.values()).filter(
+      (r) =>
+        r.getStatus() === 'pending_balance' &&
+        r.getBalanceDueAt() !== null &&
+        r.getBalanceDueAt()!.getTime() <= now.getTime(),
+    );
+  }
+
+  async findBalanceReminderCandidates(now: Date): Promise<Reservation[]> {
+    const from = now.getTime() + 23 * 60 * 60 * 1000;
+    const to = now.getTime() + 25 * 60 * 60 * 1000;
+    return Array.from(this.store.values()).filter(
+      (r) =>
+        r.getStatus() === 'pending_balance' &&
+        r.getBalanceReminderSentAt() === null &&
+        r.getBalanceDueAt() !== null &&
+        r.getBalanceDueAt()!.getTime() >= from &&
+        r.getBalanceDueAt()!.getTime() <= to,
+    );
+  }
+
   async findActiveByVehicleId(
     vehicleId: string,
     statuses: ReservationStatus[],
@@ -183,7 +206,7 @@ export class InMemoryReservationRepository implements ReservationRepository {
     return Array.from(this.store.values()).some(
       (r) =>
         (r.getConductorId() === userId || r.getRentadorId() === userId) &&
-        ([RESERVATION_STATUS.confirmed, RESERVATION_STATUS.in_progress, RESERVATION_STATUS.pending_payment] as ReservationStatus[]).includes(r.getStatus()),
+        ([RESERVATION_STATUS.confirmed, RESERVATION_STATUS.in_progress, RESERVATION_STATUS.pending_payment, RESERVATION_STATUS.pending_balance] as ReservationStatus[]).includes(r.getStatus()),
     )
   }
 
@@ -235,7 +258,6 @@ export class InMemoryReservationRepository implements ReservationRepository {
     }
   }
 
-  // test helper
   clear() {
     this.store.clear();
   }

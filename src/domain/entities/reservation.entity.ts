@@ -9,10 +9,14 @@ import {
   type CancellationPolicy,
   type MaxKilometrage,
   type RentalTimeConstraints,
+  type ReservationAddress,
 } from '@rocket-lease/contracts';
 import { InvalidEntityDataException } from '../exceptions/domain.exception';
 import {
+  BalanceNotDueException,
+  BalanceOverdueException,
   ContractNotAcceptedException,
+  DepositNotAvailableException,
   InvalidQrTokenException,
   InvalidReservationTransitionException,
   TransferExpiredException,
@@ -28,6 +32,12 @@ const PaymentMethodEnum = z.enum([
 ]);
 
 export const WalletProviderEnum = z.enum(['mercadopago', 'uala']);
+
+const ReservationAddressSchemaInternal = z.object({
+  address: z.string().min(1),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+}).nullable();
 
 const reservationSchema = z.object({
   id: z.string().uuid(),
@@ -52,11 +62,22 @@ const reservationSchema = z.object({
   transferExpiresAt: z.date().nullable(),
   transferCode: z.string().nullable(),
   transferAlias: z.string().nullable(),
+  transferPaymentMode: z.enum(['full', 'deposit', 'balance']).nullable(),
+  depositPaidCents: z.number().int().nonnegative().nullable(),
+  depositPaidAt: z.date().nullable(),
+  balanceDueAt: z.date().nullable(),
+  balanceReminderSentAt: z.date().nullable(),
   depositPercentageSnapshot: DepositPercentageSchema,
   basePriceCentsSnapshot: z.number().int().nonnegative(),
   cancellationPolicySnapshot: CancellationPolicySchema,
   maxKilometrageSnapshot: MaxKilometrageSchema,
   rentalTimeConstraintsSnapshot: RentalTimeConstraintsSchema,
+  withHomeDelivery: z.boolean(),
+  homeDeliveryFeeCentsSnapshot: z.number().int().nonnegative().nullable(),
+  deliveryAddress: ReservationAddressSchemaInternal,
+  withHomeReturn: z.boolean(),
+  homeReturnFeeCentsSnapshot: z.number().int().nonnegative().nullable(),
+  returnAddress: ReservationAddressSchemaInternal,
   parentReservationId: z.string().uuid().nullable(),
   createdAt: z.date(),
   updatedAt: z.date(),
@@ -77,8 +98,11 @@ export type ReservationStatus = z.infer<typeof ReservationStatusSchema>;
 export type PaymentMethod = z.infer<typeof PaymentMethodEnum>;
 export type WalletProvider = z.infer<typeof WalletProviderEnum>;
 
+export type TransferPaymentMode = 'full' | 'deposit' | 'balance';
+
 export const BLOCKING_STATUSES: ReservationStatus[] = [
   RESERVATION_STATUS.pending_payment,
+  RESERVATION_STATUS.pending_balance,
   RESERVATION_STATUS.confirmed,
   RESERVATION_STATUS.in_progress,
 ];
@@ -89,6 +113,31 @@ export const APPROVAL_TTL_MS = 24 * 60 * 60 * 1000;
 export const CASCADE_REJECTION_REASON =
   'El vehículo fue reservado por otro conductor para fechas que se solapan.';
 export const TRANSFER_TTL_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * Razón canónica con la que se cancela una reserva señada cuyo saldo venció.
+ * El job de expiración la persiste en `rejectionReason` y la web la mapea a
+ * un string de usuario.
+ */
+export const BALANCE_OVERDUE_REASON = 'BALANCE_OVERDUE';
+
+// Ventana para pagar el saldo de una reserva señada (US-26/US-30):
+// vence 24h antes del retiro o 7 días tras pagar la seña, lo que ocurra
+// primero, con un piso de 1h para no dejar deadlines en el pasado.
+export const BALANCE_BUFFER_BEFORE_START_MS = 24 * 60 * 60 * 1000;
+export const BALANCE_MAX_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+export const BALANCE_MIN_WINDOW_MS = 60 * 60 * 1000;
+
+/**
+ * Calcula la fecha límite para pagar el saldo de una reserva señada:
+ * `max(now + 1h, min(startAt - 24h, depositPaidAt + 7d))`.
+ */
+export function computeBalanceDueAt(now: Date, startAt: Date): Date {
+  const beforeStart = startAt.getTime() - BALANCE_BUFFER_BEFORE_START_MS;
+  const maxWindow = now.getTime() + BALANCE_MAX_WINDOW_MS;
+  const minWindow = now.getTime() + BALANCE_MIN_WINDOW_MS;
+  return new Date(Math.max(minWindow, Math.min(beforeStart, maxWindow)));
+}
 
 export interface ReservationProps {
   id?: string;
@@ -113,11 +162,22 @@ export interface ReservationProps {
   transferExpiresAt?: Date | null;
   transferCode?: string | null;
   transferAlias?: string | null;
+  transferPaymentMode?: TransferPaymentMode | null;
+  depositPaidCents?: number | null;
+  depositPaidAt?: Date | null;
+  balanceDueAt?: Date | null;
+  balanceReminderSentAt?: Date | null;
   depositPercentageSnapshot?: number | null;
   basePriceCentsSnapshot?: number;
   cancellationPolicySnapshot?: CancellationPolicy;
   maxKilometrageSnapshot?: MaxKilometrage;
   rentalTimeConstraintsSnapshot?: RentalTimeConstraints;
+  withHomeDelivery?: boolean;
+  homeDeliveryFeeCentsSnapshot?: number | null;
+  deliveryAddress?: ReservationAddress | null;
+  withHomeReturn?: boolean;
+  homeReturnFeeCentsSnapshot?: number | null;
+  returnAddress?: ReservationAddress | null;
   parentReservationId?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
@@ -146,11 +206,22 @@ export class Reservation {
   private transferExpiresAt: Date | null;
   private transferCode: string | null;
   private transferAlias: string | null;
+  private transferPaymentMode: TransferPaymentMode | null;
+  private depositPaidCents: number | null;
+  private depositPaidAt: Date | null;
+  private balanceDueAt: Date | null;
+  private balanceReminderSentAt: Date | null;
   private depositPercentageSnapshot: number | null;
   private basePriceCentsSnapshot: number;
   private cancellationPolicySnapshot: CancellationPolicy;
   private maxKilometrageSnapshot: MaxKilometrage;
   private rentalTimeConstraintsSnapshot: RentalTimeConstraints;
+  private readonly withHomeDelivery: boolean;
+  private readonly homeDeliveryFeeCentsSnapshot: number | null;
+  private readonly deliveryAddress: ReservationAddress | null;
+  private readonly withHomeReturn: boolean;
+  private readonly homeReturnFeeCentsSnapshot: number | null;
+  private readonly returnAddress: ReservationAddress | null;
   private readonly parentReservationId: string | null;
   private readonly createdAt: Date;
   private updatedAt: Date;
@@ -227,6 +298,11 @@ export class Reservation {
     this.transferExpiresAt = props.transferExpiresAt ?? null;
     this.transferCode = props.transferCode ?? null;
     this.transferAlias = props.transferAlias ?? null;
+    this.transferPaymentMode = props.transferPaymentMode ?? null;
+    this.depositPaidCents = props.depositPaidCents ?? null;
+    this.depositPaidAt = props.depositPaidAt ?? null;
+    this.balanceDueAt = props.balanceDueAt ?? null;
+    this.balanceReminderSentAt = props.balanceReminderSentAt ?? null;
     this.depositPercentageSnapshot =
       props.depositPercentageSnapshot ?? RESERVATION_RULES_DEFAULTS.depositPercentage;
     this.basePriceCentsSnapshot = props.basePriceCentsSnapshot ?? 0;
@@ -236,6 +312,12 @@ export class Reservation {
       props.maxKilometrageSnapshot ?? RESERVATION_RULES_DEFAULTS.maxKilometrage;
     this.rentalTimeConstraintsSnapshot =
       props.rentalTimeConstraintsSnapshot ?? RESERVATION_RULES_DEFAULTS.rentalTimeConstraints;
+    this.withHomeDelivery = props.withHomeDelivery ?? false;
+    this.homeDeliveryFeeCentsSnapshot = props.homeDeliveryFeeCentsSnapshot ?? null;
+    this.deliveryAddress = props.deliveryAddress ?? null;
+    this.withHomeReturn = props.withHomeReturn ?? false;
+    this.homeReturnFeeCentsSnapshot = props.homeReturnFeeCentsSnapshot ?? null;
+    this.returnAddress = props.returnAddress ?? null;
     this.parentReservationId = props.parentReservationId ?? null;
     this.createdAt = props.createdAt ?? new Date();
     this.updatedAt = props.updatedAt ?? this.createdAt;
@@ -311,6 +393,28 @@ export class Reservation {
   public getTransferAlias() {
     return this.transferAlias;
   }
+  public getTransferPaymentMode(): TransferPaymentMode | null {
+    return this.transferPaymentMode;
+  }
+  public getDepositPaidCents(): number | null {
+    return this.depositPaidCents;
+  }
+  public getDepositPaidAt(): Date | null {
+    return this.depositPaidAt;
+  }
+  public getBalanceDueAt(): Date | null {
+    return this.balanceDueAt;
+  }
+  public getBalanceReminderSentAt(): Date | null {
+    return this.balanceReminderSentAt;
+  }
+  /**
+   * Saldo pendiente de cobro. Para reservas señadas es `total - seña`; para
+   * el resto (sin seña pagada) coincide con el total.
+   */
+  public getBalanceCents(): number {
+    return this.totalCents - (this.depositPaidCents ?? 0);
+  }
   public getDepositPercentageSnapshot(): number | null {
     return this.depositPercentageSnapshot;
   }
@@ -328,6 +432,24 @@ export class Reservation {
   }
   public getParentReservationId(): string | null {
     return this.parentReservationId;
+  }
+  public getWithHomeDelivery(): boolean {
+    return this.withHomeDelivery;
+  }
+  public getHomeDeliveryFeeCentsSnapshot(): number | null {
+    return this.homeDeliveryFeeCentsSnapshot;
+  }
+  public getDeliveryAddress(): ReservationAddress | null {
+    return this.deliveryAddress;
+  }
+  public getWithHomeReturn(): boolean {
+    return this.withHomeReturn;
+  }
+  public getHomeReturnFeeCentsSnapshot(): number | null {
+    return this.homeReturnFeeCentsSnapshot;
+  }
+  public getReturnAddress(): ReservationAddress | null {
+    return this.returnAddress;
   }
   public getCreatedAt() {
     return this.createdAt;
@@ -432,6 +554,7 @@ export class Reservation {
 
   public isPendingApproval(): boolean { return this.status === RESERVATION_STATUS.pending_approval; }
   public isPendingPayment(): boolean { return this.status === RESERVATION_STATUS.pending_payment; }
+  public isPendingBalance(): boolean { return this.status === RESERVATION_STATUS.pending_balance; }
   public isConfirmed(): boolean { return this.status === RESERVATION_STATUS.confirmed; }
   public isInProgress(): boolean { return this.status === RESERVATION_STATUS.in_progress; }
   public isCancelled(): boolean { return this.status === RESERVATION_STATUS.cancelled; }
@@ -475,6 +598,7 @@ export class Reservation {
     now: Date,
     transferCode: string,
     transferAlias: string,
+    mode: TransferPaymentMode = 'full',
   ): void {
     if (!this.isPendingPayment() && !this.isPendingApproval()) {
       throw new InvalidReservationTransitionException(
@@ -485,11 +609,15 @@ export class Reservation {
     if (!this.contractAcceptedAt) {
       throw new ContractNotAcceptedException();
     }
+    if (mode === 'deposit' && this.depositPercentageSnapshot === null) {
+      throw new DepositNotAvailableException(this.id);
+    }
     this.status = RESERVATION_STATUS.pending_approval;
     this.paymentMethod = 'bank_transfer';
     this.transferCode = transferCode;
     this.transferAlias = transferAlias;
     this.transferExpiresAt = new Date(now.getTime() + TRANSFER_TTL_MS);
+    this.transferPaymentMode = mode;
     this.holdExpiresAt = null;
     this.updatedAt = now;
   }
@@ -512,6 +640,185 @@ export class Reservation {
     this.paidAt = now;
     this.voucherToken = randomUUID();
     this.transferExpiresAt = null;
+    this.updatedAt = now;
+  }
+
+  /**
+   * Estado interno compartido al acreditar una seña (vía tarjeta/billetera o
+   * vía transferencia). Transita la reserva a `pending_balance`, registra el
+   * monto de la seña y fija la fecha límite para pagar el saldo.
+   */
+  private applyDepositPaid(
+    method: PaymentMethod,
+    depositCents: number,
+    now: Date,
+    walletProvider?: WalletProvider,
+  ): void {
+    if (this.depositPercentageSnapshot === null) {
+      throw new DepositNotAvailableException(this.id);
+    }
+    this.status = RESERVATION_STATUS.pending_balance;
+    this.paymentMethod = method;
+    this.walletProvider = walletProvider ?? null;
+    this.depositPaidCents = depositCents;
+    this.depositPaidAt = now;
+    this.balanceDueAt = computeBalanceDueAt(now, this.startAt);
+    this.holdExpiresAt = null;
+    this.transferExpiresAt = null;
+    this.transferPaymentMode = null;
+    this.updatedAt = now;
+    this.validate();
+  }
+
+  /**
+   * Confirma el pago de una seña por medio inmediato (tarjeta/billetera).
+   * Transita de pending_payment → pending_balance (US-26).
+   */
+  public payDeposit(
+    method: PaymentMethod,
+    depositCents: number,
+    now: Date,
+    walletProvider?: WalletProvider,
+  ): void {
+    if (!this.isPendingPayment() && !this.isPendingApproval()) {
+      throw new InvalidReservationTransitionException(
+        this.status,
+        RESERVATION_STATUS.pending_balance,
+      );
+    }
+    if (!this.contractAcceptedAt) {
+      throw new ContractNotAcceptedException();
+    }
+    if (method === 'digital_wallet' && !walletProvider) {
+      throw new InvalidEntityDataException(
+        'walletProvider is required for digital_wallet',
+      );
+    }
+    this.applyDepositPaid(method, depositCents, now, walletProvider);
+  }
+
+  /**
+   * Acredita una seña pagada por transferencia bancaria.
+   * Transita de pending_approval → pending_balance (US-26).
+   */
+  public confirmTransferAsDeposit(depositCents: number, now: Date): void {
+    if (!this.isPendingApproval()) {
+      throw new InvalidReservationTransitionException(
+        this.status,
+        RESERVATION_STATUS.pending_balance,
+      );
+    }
+    if (this.isTransferExpired(now)) {
+      throw new TransferExpiredException(this.id);
+    }
+    this.applyDepositPaid('bank_transfer', depositCents, now);
+  }
+
+  /**
+   * Paga el saldo restante de una reserva señada por medio inmediato.
+   * Transita de pending_balance → confirmed (US-30) y genera el voucher.
+   */
+  public payBalance(
+    method: PaymentMethod,
+    now: Date,
+    walletProvider?: WalletProvider,
+  ): void {
+    if (!this.isPendingBalance()) {
+      throw new BalanceNotDueException(this.id);
+    }
+    if (this.isBalanceOverdue(now)) {
+      throw new BalanceOverdueException(this.id);
+    }
+    if (method === 'digital_wallet' && !walletProvider) {
+      throw new InvalidEntityDataException(
+        'walletProvider is required for digital_wallet',
+      );
+    }
+    this.status = RESERVATION_STATUS.confirmed;
+    this.paymentMethod = method;
+    this.walletProvider = walletProvider ?? this.walletProvider;
+    this.paidAt = now;
+    this.voucherToken = randomUUID();
+    this.updatedAt = now;
+  }
+
+  /**
+   * Inicia el pago del saldo por transferencia bancaria sobre una reserva
+   * señada. No cambia el estado (sigue `pending_balance`); marca el modo de
+   * transferencia como `balance` para que la acreditación cierre la reserva.
+   */
+  public initiateBalanceTransfer(
+    now: Date,
+    transferCode: string,
+    transferAlias: string,
+  ): void {
+    if (!this.isPendingBalance()) {
+      throw new BalanceNotDueException(this.id);
+    }
+    if (this.isBalanceOverdue(now)) {
+      throw new BalanceOverdueException(this.id);
+    }
+    this.paymentMethod = 'bank_transfer';
+    this.transferCode = transferCode;
+    this.transferAlias = transferAlias;
+    this.transferExpiresAt = new Date(now.getTime() + TRANSFER_TTL_MS);
+    this.transferPaymentMode = 'balance';
+    this.updatedAt = now;
+  }
+
+  /**
+   * Acredita el saldo pagado por transferencia.
+   * Transita de pending_balance → confirmed (US-30).
+   */
+  public confirmBalanceTransfer(now: Date): void {
+    if (!this.isPendingBalance()) {
+      throw new BalanceNotDueException(this.id);
+    }
+    if (!this.transferCode) {
+      throw new InvalidReservationTransitionException(
+        this.status,
+        RESERVATION_STATUS.confirmed,
+      );
+    }
+    if (this.transferExpiresAt && this.transferExpiresAt.getTime() <= now.getTime()) {
+      throw new TransferExpiredException(this.id);
+    }
+    this.status = RESERVATION_STATUS.confirmed;
+    this.paidAt = now;
+    this.voucherToken = randomUUID();
+    this.transferExpiresAt = null;
+    this.transferPaymentMode = null;
+    this.updatedAt = now;
+  }
+
+  public isBalanceOverdue(now: Date): boolean {
+    if (!this.isPendingBalance()) return false;
+    if (!this.balanceDueAt) return false;
+    return this.balanceDueAt.getTime() <= now.getTime();
+  }
+
+  /**
+   * Cancela automáticamente una reserva señada cuyo saldo no se pagó a tiempo.
+   * Transita de pending_balance → cancelled (US-26). El reembolso de la seña
+   * según la política de cancelación lo resuelve el service.
+   */
+  public expireOverdueBalance(now: Date): void {
+    if (!this.isPendingBalance()) {
+      throw new InvalidReservationTransitionException(
+        this.status,
+        RESERVATION_STATUS.cancelled,
+      );
+    }
+    this.status = RESERVATION_STATUS.cancelled;
+    this.rejectionReason = BALANCE_OVERDUE_REASON;
+    this.holdExpiresAt = null;
+    this.transferExpiresAt = null;
+    this.updatedAt = now;
+  }
+
+  /** Marca que ya se envió el recordatorio de saldo (idempotencia del job). */
+  public markBalanceReminderSent(now: Date): void {
+    this.balanceReminderSentAt = now;
     this.updatedAt = now;
   }
 
@@ -599,6 +906,7 @@ export class Reservation {
     if (
       !this.isPendingPayment() &&
       !this.isPendingApproval() &&
+      !this.isPendingBalance() &&
       !this.isConfirmed() &&
       !this.isInProgress()
     ) {
@@ -613,6 +921,7 @@ export class Reservation {
     if (
       !this.isPendingPayment() &&
       !this.isPendingApproval() &&
+      !this.isPendingBalance() &&
       !this.isConfirmed() &&
       !this.isInProgress()
     ) {
@@ -648,6 +957,20 @@ export class Reservation {
     this.updatedAt = now;
   }
 
+  /**
+   * Completes a chain extension when the root reservation is returned. An
+   * extension can be in `confirmed` (paid but not yet handed off, since the
+   * car never left) or `in_progress`. Both are valid targets.
+   */
+  public completeFromChain(now: Date): void {
+    if (!this.isInProgress() && !this.isConfirmed()) {
+      throw new InvalidReservationTransitionException(this.status, RESERVATION_STATUS.completed);
+    }
+    this.status = RESERVATION_STATUS.completed;
+    this.completedAt = now;
+    this.updatedAt = now;
+  }
+
   private validate(): void {
     const result = reservationSchema.safeParse({
       id: this.id,
@@ -672,11 +995,22 @@ export class Reservation {
       transferExpiresAt: this.transferExpiresAt,
       transferCode: this.transferCode,
       transferAlias: this.transferAlias,
+      transferPaymentMode: this.transferPaymentMode,
+      depositPaidCents: this.depositPaidCents,
+      depositPaidAt: this.depositPaidAt,
+      balanceDueAt: this.balanceDueAt,
+      balanceReminderSentAt: this.balanceReminderSentAt,
       depositPercentageSnapshot: this.depositPercentageSnapshot,
       basePriceCentsSnapshot: this.basePriceCentsSnapshot,
       cancellationPolicySnapshot: this.cancellationPolicySnapshot,
       maxKilometrageSnapshot: this.maxKilometrageSnapshot,
       rentalTimeConstraintsSnapshot: this.rentalTimeConstraintsSnapshot,
+      withHomeDelivery: this.withHomeDelivery,
+      homeDeliveryFeeCentsSnapshot: this.homeDeliveryFeeCentsSnapshot,
+      deliveryAddress: this.deliveryAddress,
+      withHomeReturn: this.withHomeReturn,
+      homeReturnFeeCentsSnapshot: this.homeReturnFeeCentsSnapshot,
+      returnAddress: this.returnAddress,
       parentReservationId: this.parentReservationId,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,

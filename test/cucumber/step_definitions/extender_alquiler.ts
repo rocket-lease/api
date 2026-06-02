@@ -228,6 +228,23 @@ When(
 );
 
 When(
+  'el conductor {string} confirma la devolución',
+  async function (this: MyWorld, alias: string) {
+    useAlias(this, alias);
+    const id = this.world.reservations_by_alias?.[alias];
+    if (!id) throw new Error(`no hay reserva para ${alias}`);
+    const detail = await api(this).get(`/reservations/${id}`);
+    expect(detail.status).toBe(200);
+    const returnQrToken = detail.body.returnQrToken as string;
+    expect(typeof returnQrToken).toBe('string');
+    this.world.reservation_response = await api(this).post('/reservations/return', {
+      returnQrToken,
+    });
+    expect(this.world.reservation_response.status).toBe(200);
+  },
+);
+
+When(
   'el conductor {string} cancela su alquiler',
   async function (this: MyWorld, alias: string) {
     useAlias(this, alias);

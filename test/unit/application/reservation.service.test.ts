@@ -3,6 +3,7 @@ import { InMemoryReservationRepository } from '@/infrastructure/repository/in_me
 import { InMemoryReservationRuleSetRepository } from '@/infrastructure/repository/in_memory.reservation-rule-set.repository';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { Reservation } from '@/domain/entities/reservation.entity';
+import { ReservationRuleSet } from '@/domain/entities/reservation-rule-set.entity';
 import type { VehicleRepository } from '@/domain/repositories/vehicle.repository';
 import type { ReservationRuleSetRepository } from '@/domain/repositories/reservation-rule-set.repository';
 import type {
@@ -387,6 +388,94 @@ describe('ReservationService', () => {
     });
 
     expect(second.status).toBe('pending_payment');
+  });
+
+  // US-26 / US-30: seña + saldo
+  describe('seña y saldo', () => {
+    async function seedDepositVehicle(percentage: number) {
+      const depositVehicle = makeVehicle();
+      vehicleRepo.findById.mockImplementation(async (id: string) =>
+        id === depositVehicle.getId() ? depositVehicle : null,
+      );
+      await ruleSetRepo.save(
+        new ReservationRuleSet(
+          depositVehicle.getOwnerId(),
+          depositVehicle.getId(), // private rule set para este vehículo
+          'Reglas seña',
+          null,
+          'FLEXIBLE',
+          percentage,
+          { type: 'UNLIMITED' },
+          {},
+        ),
+      );
+      return depositVehicle;
+    }
+
+    it('US-26: pagar seña deja la reserva en pending_balance con deadline', async () => {
+      const depositVehicle = await seedDepositVehicle(30);
+      const created = await service.createReservation(conductorA, {
+        vehicleId: depositVehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      const res = await service.confirmPayment(conductorA, created.id, {
+        paymentMethod: 'credit_card',
+        paymentMode: 'deposit',
+      });
+      expect(res.status).toBe('pending_balance');
+      expect(res.paidCents).toBe(Math.floor((2 * 24000 * 30) / 100));
+      expect(res.balanceCents).toBe(2 * 24000 - res.paidCents);
+      expect(res.balanceDueAt).not.toBeNull();
+      expect(res.voucherToken).toBeNull();
+    });
+
+    it('US-30: pagar el saldo confirma la reserva y emite voucher', async () => {
+      const depositVehicle = await seedDepositVehicle(30);
+      const created = await service.createReservation(conductorA, {
+        vehicleId: depositVehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      await service.confirmPayment(conductorA, created.id, {
+        paymentMethod: 'credit_card',
+        paymentMode: 'deposit',
+      });
+      const res = await service.payBalance(conductorA, created.id, {
+        paymentMethod: 'credit_card',
+      });
+      expect(res.status).toBe('confirmed');
+      expect(res.voucherToken).toBeTruthy();
+      expect(res.balancePaidCents).toBe(2 * 24000 - Math.floor((2 * 24000 * 30) / 100));
+    });
+
+    it('US-26: el job cancela la reserva señada vencida y reembolsa la seña (FLEXIBLE)', async () => {
+      const depositVehicle = await seedDepositVehicle(30);
+      // Inicio lejano: el deadline del saldo lo fija seña+7d (≈ 2026-06-08),
+      // todavía a >24h del inicio, así que FLEXIBLE reembolsa el 100% de la seña.
+      const farStart = '2026-12-01T10:00:00.000Z';
+      const farEnd = '2026-12-03T10:00:00.000Z';
+      const created = await service.createReservation(conductorA, {
+        vehicleId: depositVehicle.getId(),
+        startAt: farStart,
+        endAt: farEnd,
+        contractAccepted: true,
+      });
+      await service.confirmPayment(conductorA, created.id, {
+        paymentMethod: 'credit_card',
+        paymentMode: 'deposit',
+      });
+      // Avanzar el clock más allá del deadline del saldo (seña + 7d).
+      clock.set(new Date('2026-06-09T10:00:00Z'));
+      const processed = await service.expireOverdueBalances();
+      expect(processed).toBe(1);
+      const after = await repo.findById(created.id);
+      expect(after?.getStatus()).toBe('cancelled');
+      const deposit = Math.floor((2 * 24000 * 30) / 100);
+      expect(userRepo.creditBalance).toHaveBeenCalledWith(conductorA, deposit);
+    });
   });
 
   describe('confirmPayment', () => {
@@ -1398,7 +1487,7 @@ describe('ReservationService', () => {
         paymentMethod: 'credit_card',
       });
 
-      const verification = await service.verifyVoucher(paymentRes.voucherToken);
+      const verification = await service.verifyVoucher(paymentRes.voucherToken!);
       expect(verification.reservationId).toBe(created.id);
       expect(verification.status).toBe('confirmed');
       expect(verification.isValid).toBe(true);
@@ -1429,13 +1518,13 @@ describe('ReservationService', () => {
         totalCents: 48000,
         paymentMethod: 'credit_card',
         paidAt: clock.now(),
-        voucherToken: paymentRes.voucherToken,
+        voucherToken: paymentRes.voucherToken!,
         createdAt: clock.now(),
         updatedAt: clock.now(),
       });
       await repo.update(resEntity);
 
-      const verification = await service.verifyVoucher(paymentRes.voucherToken);
+      const verification = await service.verifyVoucher(paymentRes.voucherToken!);
       expect(verification.isValid).toBe(false);
       expect(verification.status).toBe('cancelled');
     });
@@ -1551,6 +1640,28 @@ describe('ReservationService', () => {
       await expect(
         service.confirmReturn(randomUUID(), saved!.getReturnQrToken()!),
       ).rejects.toThrow(ReservationForbiddenException);
+    });
+
+    it('completa en cascada todas las piezas del chain al confirmar devolución', async () => {
+      // A (parent): in_progress
+      const parentId = await makeInProgressReservation();
+
+      // B (extension): extendReservation + auto-charge lo deja en confirmed
+      const extResult = await service.extendReservation(conductorA, parentId, {
+        newEndAt: '2026-06-05T10:00:00.000Z',
+      });
+      const childId = extResult.id;
+
+      // B queda en confirmed (auto-charged); el cascade de confirmReturn lo completa sin confirmPickup
+
+      // Confirmar devolución sobre A — debe cascadear a B (confirmed → completed)
+      const parentSaved = await repo.findById(parentId);
+      await service.confirmReturn(conductorA, parentSaved!.getReturnQrToken()!);
+
+      const parentFinal = await repo.findById(parentId);
+      const childFinal = await repo.findById(childId);
+      expect(parentFinal!.getStatus()).toBe('completed');
+      expect(childFinal!.getStatus()).toBe('completed');
     });
   });
 
@@ -1809,7 +1920,7 @@ describe('ReservationService', () => {
       expect(ext?.getStatus()).toBe('cancelled');
     });
 
-    it('cancelar un eslabón hijo NO cancela al padre comprometido', async () => {
+    it('cancelar un eslabón hijo lanza RESERVATION_CANCEL_EXTENSION_NOT_ALLOWED', async () => {
       const manualVehicle = makeVehicle({ autoAccept: false });
       vehicleRepo = makeVehicleRepo([manualVehicle]);
       service = new ReservationService(
@@ -1829,10 +1940,10 @@ describe('ReservationService', () => {
       const extension = await service.extendReservation(conductorA, parentId, {
         newEndAt: '2026-06-05T10:00:00.000Z',
       });
-      await service.cancelReservation(conductorA, extension.id);
+      await expect(
+        service.cancelReservation(conductorA, extension.id),
+      ).rejects.toThrow('extensions cannot be cancelled directly');
       const parent = await repo.findById(parentId);
-      const ext = await repo.findById(extension.id);
-      expect(ext?.getStatus()).toBe('cancelled');
       expect(parent?.getStatus()).toBe('in_progress');
     });
   });
@@ -1871,7 +1982,6 @@ describe('ReservationService', () => {
       });
       await service.confirmPayment(conductorA, r.id, { paymentMethod: 'credit_card' });
 
-      // Limpiar mocks
       (notificationProvider.notify as jest.Mock).mockClear();
       (userRepo.creditBalance as jest.Mock).mockClear();
       (userRepo.applyReputationPenalty as jest.Mock).mockClear();
