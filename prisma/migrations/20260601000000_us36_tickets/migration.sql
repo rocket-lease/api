@@ -2,8 +2,8 @@ CREATE TYPE "TicketStatus" AS ENUM ('open', 'under_review', 'resolved', 'rejecte
 CREATE TYPE "TicketReportedBy" AS ENUM ('conductor', 'rentador');
 
 CREATE TABLE "tickets" (
-  "id"             UUID               NOT NULL DEFAULT gen_random_uuid(),
-  "reservation_id" UUID               NOT NULL,
+  "id"             TEXT               NOT NULL,
+  "reservation_id" TEXT               NOT NULL,
   "reported_by"    "TicketReportedBy" NOT NULL,
   "reporter_id"    TEXT               NOT NULL,
   "status"         "TicketStatus"     NOT NULL DEFAULT 'open',
