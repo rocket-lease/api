@@ -109,3 +109,33 @@ export class BalanceOverdueException extends DomainException {
     super(`balance payment deadline has passed for reservation ${reservationId}`);
   }
 }
+
+export class VehicleHomeDeliveryNotEnabledException extends DomainException {
+  constructor(vehicleId: string) {
+    super(`vehicle ${vehicleId} does not have home delivery enabled`);
+  }
+}
+
+export class VehicleHomeReturnNotEnabledException extends DomainException {
+  constructor(vehicleId: string) {
+    super(`vehicle ${vehicleId} does not have home return enabled`);
+  }
+}
+
+export class HomeDeliveryAddressRequiredException extends DomainException {
+  constructor() {
+    super('delivery address is required when home delivery is requested');
+  }
+}
+
+export class HomeReturnAddressRequiredException extends DomainException {
+  constructor() {
+    super('return address is required when home return is requested');
+  }
+}
+
+export class CancelExtensionNotAllowedException extends DomainException {
+  constructor() {
+    super('extensions cannot be cancelled directly; cancel the root reservation instead');
+  }
+}

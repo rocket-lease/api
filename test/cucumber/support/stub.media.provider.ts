@@ -22,7 +22,5 @@ export class StubMediaProvider implements MediaProvider {
     };
   }
 
-  public async deleteAsset(_publicId: string): Promise<void> {
-    // no-op in tests
-  }
+  public async deleteAsset(_publicId: string): Promise<void> {}
 }

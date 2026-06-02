@@ -1522,7 +1522,7 @@ describe('ReservationService', () => {
         basePriceCentsSnapshot: 24000,
         paymentMethod: 'credit_card',
         paidAt: clock.now(),
-        voucherToken: paymentRes.voucherToken,
+        voucherToken: paymentRes.voucherToken!,
         createdAt: clock.now(),
         updatedAt: clock.now(),
       });
@@ -1672,14 +1672,16 @@ describe('ReservationService', () => {
       clock.set(new Date('2026-06-08T10:00:00Z'));
       await localService.confirmReturn(conductorA, savedExtension!.getReturnQrToken()!);
 
-      expect(walletService.recordReservationPayout).toHaveBeenCalledTimes(1);
-      const payoutReservation = (walletService.recordReservationPayout as jest.Mock).mock.calls[0][0];
-      expect(payoutReservation.getId()).toBe(extension.id);
-      expect(payoutReservation.getTotalCents()).toBe(64800);
-      expect(payoutReservation.getPricingSnapshot()?.appliedDiscountTier).toEqual({
+      expect(walletService.recordReservationPayout).toHaveBeenCalledTimes(2);
+      const payoutExtension = (walletService.recordReservationPayout as jest.Mock).mock.calls[0][0];
+      expect(payoutExtension.getId()).toBe(extension.id);
+      expect(payoutExtension.getTotalCents()).toBe(64800);
+      expect(payoutExtension.getPricingSnapshot()?.appliedDiscountTier).toEqual({
         minimumDays: 3,
         discountPercentage: 10,
       });
+      const payoutParent = (walletService.recordReservationPayout as jest.Mock).mock.calls[1][0];
+      expect(payoutParent.getId()).toBe(parent.id);
     });
 
     it('throws InvalidQrTokenException for unknown returnQrToken', async () => {
@@ -1694,6 +1696,28 @@ describe('ReservationService', () => {
       await expect(
         service.confirmReturn(randomUUID(), saved!.getReturnQrToken()!),
       ).rejects.toThrow(ReservationForbiddenException);
+    });
+
+    it('completa en cascada todas las piezas del chain al confirmar devolución', async () => {
+      // A (parent): in_progress
+      const parentId = await makeInProgressReservation();
+
+      // B (extension): extendReservation + auto-charge lo deja en confirmed
+      const extResult = await service.extendReservation(conductorA, parentId, {
+        newEndAt: '2026-06-05T10:00:00.000Z',
+      });
+      const childId = extResult.id;
+
+      // B queda en confirmed (auto-charged); el cascade de confirmReturn lo completa sin confirmPickup
+
+      // Confirmar devolución sobre A — debe cascadear a B (confirmed → completed)
+      const parentSaved = await repo.findById(parentId);
+      await service.confirmReturn(conductorA, parentSaved!.getReturnQrToken()!);
+
+      const parentFinal = await repo.findById(parentId);
+      const childFinal = await repo.findById(childId);
+      expect(parentFinal!.getStatus()).toBe('completed');
+      expect(childFinal!.getStatus()).toBe('completed');
     });
   });
 
@@ -1990,7 +2014,7 @@ describe('ReservationService', () => {
       expect(ext?.getStatus()).toBe('cancelled');
     });
 
-    it('cancelar un eslabón hijo NO cancela al padre comprometido', async () => {
+    it('cancelar un eslabón hijo lanza RESERVATION_CANCEL_EXTENSION_NOT_ALLOWED', async () => {
       const manualVehicle = makeVehicle({ autoAccept: false });
       vehicleRepo = makeVehicleRepo([manualVehicle]);
       service = new ReservationService(
@@ -2010,10 +2034,10 @@ describe('ReservationService', () => {
       const extension = await service.extendReservation(conductorA, parentId, {
         newEndAt: '2026-06-05T10:00:00.000Z',
       });
-      await service.cancelReservation(conductorA, extension.id);
+      await expect(
+        service.cancelReservation(conductorA, extension.id),
+      ).rejects.toThrow('extensions cannot be cancelled directly');
       const parent = await repo.findById(parentId);
-      const ext = await repo.findById(extension.id);
-      expect(ext?.getStatus()).toBe('cancelled');
       expect(parent?.getStatus()).toBe('in_progress');
     });
 
@@ -2090,7 +2114,6 @@ describe('ReservationService', () => {
       });
       await service.confirmPayment(conductorA, r.id, { paymentMethod: 'credit_card' });
 
-      // Limpiar mocks
       (notificationProvider.notify as jest.Mock).mockClear();
       (userRepo.creditBalance as jest.Mock).mockClear();
       (userRepo.applyReputationPenalty as jest.Mock).mockClear();

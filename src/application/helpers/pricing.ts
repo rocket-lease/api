@@ -11,16 +11,22 @@ export function computeReservationTotalCents(
   basePriceDailyCents: number,
   startAt: Date,
   endAt: Date,
+  homeDeliveryFeeCents: number | null = null,
+  homeReturnFeeCents: number | null = null,
 ): number {
   const ms = endAt.getTime() - startAt.getTime();
-  if (ms <= 0) return 0;
-  if (ms >= DAY_MS) {
-    const days = Math.ceil(ms / DAY_MS);
-    return Math.round(days * basePriceDailyCents);
+  let base = 0;
+  if (ms > 0) {
+    if (ms >= DAY_MS) {
+      const days = Math.ceil(ms / DAY_MS);
+      base = Math.round(days * basePriceDailyCents);
+    } else {
+      const hours = Math.ceil(ms / HOUR_MS);
+      const hourlyRate = Math.round(basePriceDailyCents / 24);
+      base = hours * hourlyRate;
+    }
   }
-  const hours = Math.ceil(ms / HOUR_MS);
-  const hourlyRate = Math.round(basePriceDailyCents / 24);
-  return hours * hourlyRate;
+  return base + (homeDeliveryFeeCents ?? 0) + (homeReturnFeeCents ?? 0);
 }
 
 export function selectAppliedDiscountTier(

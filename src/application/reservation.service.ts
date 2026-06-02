@@ -91,8 +91,13 @@ import {
   InvalidQrTokenException,
   VoucherNotFoundException,
   VoucherReservationCancelledException,
+  CancelExtensionNotAllowedException,
   DepositNotAvailableException,
   BalanceNotDueException,
+  VehicleHomeDeliveryNotEnabledException,
+  VehicleHomeReturnNotEnabledException,
+  HomeDeliveryAddressRequiredException,
+  HomeReturnAddressRequiredException,
 } from '@/domain/exceptions/reservation.exception';
 import {
   VOUCHER_PROVIDER,
@@ -188,6 +193,29 @@ export class ReservationService {
     const endAt = new Date(dto.endAt);
     const now = this.clock.now();
 
+    const withHomeDelivery = dto.withHomeDelivery ?? false;
+    const withHomeReturn = dto.withHomeReturn ?? false;
+
+    if (withHomeDelivery && !vehicle.getHomeDeliveryEnabled()) {
+      throw new VehicleHomeDeliveryNotEnabledException(vehicle.getId());
+    }
+    if (withHomeDelivery && !dto.deliveryAddress) {
+      throw new HomeDeliveryAddressRequiredException();
+    }
+    if (withHomeReturn && !vehicle.getHomeReturnEnabled()) {
+      throw new VehicleHomeReturnNotEnabledException(vehicle.getId());
+    }
+    if (withHomeReturn && !dto.returnAddress) {
+      throw new HomeReturnAddressRequiredException();
+    }
+
+    const homeDeliveryFeeCentsSnapshot = withHomeDelivery
+      ? (vehicle.getHomeDeliveryFeeCents() ?? null)
+      : null;
+    const homeReturnFeeCentsSnapshot = withHomeReturn
+      ? (vehicle.getHomeReturnFeeCents() ?? null)
+      : null;
+
     const overlapping = await this.reservationRepository.findOverlapping(
       vehicle.getId(),
       startAt,
@@ -211,7 +239,9 @@ export class ReservationService {
       startAt,
       endAt,
     });
-    const totalCents = pricingSnapshot.totalCents;
+    const totalCents = pricingSnapshot.totalCents
+      + (homeDeliveryFeeCentsSnapshot ?? 0)
+      + (homeReturnFeeCentsSnapshot ?? 0);
 
     const status = effectiveAutoAccept ? RESERVATION_STATUS.pending_payment : RESERVATION_STATUS.pending_approval;
     const ttlMs = effectiveAutoAccept ? HOLD_TTL_MS : APPROVAL_TTL_MS;
@@ -231,6 +261,12 @@ export class ReservationService {
       paidAt: null,
       basePriceCentsSnapshot: pricingSnapshot.basePriceCents,
       pricingSnapshot,
+      withHomeDelivery,
+      homeDeliveryFeeCentsSnapshot,
+      deliveryAddress: dto.deliveryAddress ?? null,
+      withHomeReturn,
+      homeReturnFeeCentsSnapshot,
+      returnAddress: dto.returnAddress ?? null,
       createdAt: now,
       updatedAt: now,
     });
@@ -282,7 +318,6 @@ export class ReservationService {
       throw new HoldExpiredException(reservationId);
     }
 
-    // Validate digital_wallet requires walletProvider
     if (
       dto.paymentMethod === 'digital_wallet' &&
       !dto.walletProvider
@@ -1076,6 +1111,9 @@ export class ReservationService {
     if (!reservation.isOwnedByConductor(conductorId)) {
       throw new ReservationForbiddenException();
     }
+    if (reservation.getParentReservationId()) {
+      throw new CancelExtensionNotAllowedException();
+    }
 
     const now = this.clock.now();
     const chain = await this.reservationRepository.findChain(reservationId);
@@ -1145,6 +1183,9 @@ export class ReservationService {
     if (!reservation) throw new ReservationNotFoundException(reservationId);
     if (!reservation.isOwnedByRentador(rentadorId)) {
       throw new ReservationForbiddenException();
+    }
+    if (reservation.getParentReservationId()) {
+      throw new CancelExtensionNotAllowedException();
     }
 
     const now = this.clock.now();
@@ -1618,8 +1659,27 @@ export class ReservationService {
     if (!reservation.isOwnedByConductor(conductorId)) {
       throw new ReservationForbiddenException();
     }
-    reservation.confirmReturn(returnQrToken, this.clock.now());
+    const now = this.clock.now();
+    reservation.confirmReturn(returnQrToken, now);
+    await this.reservationRepository.update(reservation);
     await this.walletService.recordReservationPayout(reservation);
+
+    // Cascade completion to every other chain member that has been confirmed or
+    // is already in_progress (extensions that were paid for or actively running).
+    const chain = await this.reservationRepository.findChain(reservation.getId());
+    const cascadeTargets = chain.filter(
+      r => r.getId() !== reservation.getId() && (r.isInProgress() || r.isConfirmed()),
+    );
+    if (cascadeTargets.length > 0) {
+      for (const r of cascadeTargets) {
+        r.completeFromChain(now);
+      }
+      await this.reservationRepository.updateMany(cascadeTargets);
+      for (const r of cascadeTargets) {
+        await this.walletService.recordReservationPayout(r);
+      }
+    }
+
     return ConfirmReturnResponseSchema.parse({
       reservationId: reservation.getId(),
       status: RESERVATION_STATUS.completed,
@@ -1767,6 +1827,12 @@ export class ReservationService {
       cancellationPolicySnapshot: r.getCancellationPolicySnapshot(),
       maxKilometrageSnapshot: r.getMaxKilometrageSnapshot(),
       rentalTimeConstraintsSnapshot: r.getRentalTimeConstraintsSnapshot(),
+      withHomeDelivery: r.getWithHomeDelivery(),
+      homeDeliveryFeeCentsSnapshot: r.getHomeDeliveryFeeCentsSnapshot(),
+      deliveryAddress: r.getDeliveryAddress(),
+      withHomeReturn: r.getWithHomeReturn(),
+      homeReturnFeeCentsSnapshot: r.getHomeReturnFeeCentsSnapshot(),
+      returnAddress: r.getReturnAddress(),
       parentReservationId: r.getParentReservationId(),
       chain: chainPayload,
       createdAt: r.getCreatedAt().toISOString(),
@@ -1880,6 +1946,7 @@ export class ReservationService {
         model: '—',
         year: 0,
         photo: null,
+        plate: '—',
         reservationRuleSet,
       };
     }
@@ -1890,6 +1957,7 @@ export class ReservationService {
       model: vehicle.getModel(),
       year: vehicle.getYear(),
       photo: photos.length > 0 ? photos[0] : null,
+      plate: vehicle.getPlate(),
       reservationRuleSet,
     };
   }

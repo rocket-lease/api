@@ -50,6 +50,10 @@ export class PostgresVehicleRepository implements VehicleRepository {
           locationApproximate: vehicle.isLocationApproximate(),
           availableFrom: vehicle.getAvailableFrom(),
           autoAccept: vehicle.getAutoAccept(),
+          homeDeliveryEnabled: vehicle.getHomeDeliveryEnabled(),
+          homeDeliveryFeeCents: vehicle.getHomeDeliveryFeeCents(),
+          homeReturnEnabled: vehicle.getHomeReturnEnabled(),
+          homeReturnFeeCents: vehicle.getHomeReturnFeeCents(),
           photos: {
             deleteMany: {},
             create: vehicle.getPhotos().map((url) => ({ url })),
@@ -80,6 +84,10 @@ export class PostgresVehicleRepository implements VehicleRepository {
           locationApproximate: vehicle.isLocationApproximate(),
           availableFrom: vehicle.getAvailableFrom(),
           autoAccept: vehicle.getAutoAccept(),
+          homeDeliveryEnabled: vehicle.getHomeDeliveryEnabled(),
+          homeDeliveryFeeCents: vehicle.getHomeDeliveryFeeCents(),
+          homeReturnEnabled: vehicle.getHomeReturnEnabled(),
+          homeReturnFeeCents: vehicle.getHomeReturnFeeCents(),
           photos: {
             create: vehicle.getPhotos().map((url) => ({ url })),
           },
@@ -310,6 +318,10 @@ export class PostgresVehicleRepository implements VehicleRepository {
       raw.latitude,
       raw.longitude,
       raw.locationApproximate,
+      raw.homeDeliveryEnabled,
+      raw.homeDeliveryFeeCents,
+      raw.homeReturnEnabled,
+      raw.homeReturnFeeCents,
     );
   }
 }

@@ -48,6 +48,8 @@ model User {
   identityVerification  IdentityVerification?
   driverLicenseVerification DriverLicenseVerification?
   pushSubscriptions     PushSubscription[]
+  reviewsWritten        Review[]                  @relation("Reviewer")
+  reviewsReceived       Review[]                  @relation("Reviewed")
 
   @@map("users")
 }
@@ -129,6 +131,10 @@ model Vehicle {
   locationApproximate Boolean @default(false) @map("location_approximate")
   availableFrom String      @map("available_from")
   autoAccept   Boolean?     @map("auto_accept")
+  homeDeliveryEnabled   Boolean  @default(false) @map("home_delivery_enabled")
+  homeDeliveryFeeCents  Int?     @map("home_delivery_fee_cents")
+  homeReturnEnabled     Boolean  @default(false) @map("home_return_enabled")
+  homeReturnFeeCents    Int?     @map("home_return_fee_cents")
 
   ownerId      String
   owner        User         @relation(fields: [ownerId], references: [id])
@@ -315,10 +321,22 @@ model Reservation {
   maxKilometrageValueSnapshot   Int?    @map("max_kilometrage_value_snapshot")
   minRentalDaysSnapshot         Int     @default(1) @map("min_rental_days_snapshot")
   maxRentalDaysSnapshot         Int?    @map("max_rental_days_snapshot")
+  // US-53: entrega y retiro a domicilio.
+  withHomeDelivery              Boolean @default(false) @map("with_home_delivery")
+  homeDeliveryFeeCentsSnapshot  Int?    @map("home_delivery_fee_cents_snapshot")
+  deliveryAddress               String? @map("delivery_address")
+  deliveryLatitude              Float?  @map("delivery_latitude")
+  deliveryLongitude             Float?  @map("delivery_longitude")
+  withHomeReturn                Boolean @default(false) @map("with_home_return")
+  homeReturnFeeCentsSnapshot    Int?    @map("home_return_fee_cents_snapshot")
+  returnAddress                 String? @map("return_address")
+  returnLatitude                Float?  @map("return_latitude")
+  returnLongitude               Float?  @map("return_longitude")
   createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
   messages            Message[]
   walletMovement      WalletMovement?
+  review              Review?
 
   @@index([vehicleId, status])
   @@index([conductorId])
@@ -480,6 +498,23 @@ model PushSubscription {
 
   @@index([userId])
   @@map("push_subscriptions")
+}
+
+model Review {
+  id            String      @id @default(uuid())
+  reservationId String      @unique @map("reservation_id")
+  reviewerId    String      @map("reviewer_id")
+  reviewedId    String      @map("reviewed_id")
+  targetType    String      @map("target_type")
+  rating        Int
+  comment       String
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  reviewer      User        @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewed      User        @relation("Reviewed", fields: [reviewedId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
 }
 
 enum Characteristic {
