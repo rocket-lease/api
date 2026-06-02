@@ -10,12 +10,7 @@ import type { VehicleRepository } from '@/domain/repositories/vehicle.repository
 import type { Clock } from '@/domain/providers/clock.provider';
 import type { VehicleDocumentVerificationProvider } from '@/domain/providers/vehicle-document-verification.provider';
 import type { NotificationProvider } from '@/domain/providers/notification.provider';
-import type {
-  SubmitVehicleDocumentsRequest,
-  SubmitVehicleDocumentsResponse,
-  GetVehicleDocumentStatusResponse,
-  ProcessDocumentsResponse,
-} from '@rocket-lease/contracts';
+import type { SubmitVehicleDocumentsRequest } from '@rocket-lease/contracts';
 import { randomUUID } from 'crypto';
 
 class FakeClock implements Clock {
@@ -141,7 +136,7 @@ describe('VehicleDocumentService', () => {
       expect(verificationProviderMock.submitDocuments).toHaveBeenCalled();
       expect(vehicleDocumentRepoMock.save).toHaveBeenCalled();
       expect(vehicleRepoMock.save).toHaveBeenCalled();
-      const savedVehicle = (vehicleRepoMock.save.mock.calls[0][0] as Vehicle);
+      const savedVehicle = (vehicleRepoMock.save.mock.calls[0][0]);
       expect(savedVehicle.isEnabled()).toBe(false);
     });
 

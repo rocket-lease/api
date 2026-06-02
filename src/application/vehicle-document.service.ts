@@ -2,11 +2,11 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   SubmitVehicleDocumentsRequest,
   SubmitVehicleDocumentsRequestSchema,
-  SubmitVehicleDocumentsResponse,
+  type SubmitVehicleDocumentsResponse,
   SubmitVehicleDocumentsResponseSchema,
-  GetVehicleDocumentStatusResponse,
+  type GetVehicleDocumentStatusResponse,
   GetVehicleDocumentStatusResponseSchema,
-  ProcessDocumentsResponse,
+  type ProcessDocumentsResponse,
   ProcessDocumentsResponseSchema,
 } from '@rocket-lease/contracts';
 import { CLOCK, type Clock } from '@/domain/providers/clock.provider';
