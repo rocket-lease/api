@@ -134,6 +134,29 @@ describe('DriverLicenseService', () => {
   });
 
   describe('submitMyVerification', () => {
+    it('acepta archivos grandes (simulando fotos de licencia de alta resolución)', async () => {
+      driverLicenseRepoMock.findByUserId.mockResolvedValue(null);
+      driverLicenseRepoMock.save.mockImplementation(async (value) => value);
+      const largeBase64 = 'X'.repeat(25 * 1024 * 1024);
+
+      const result = await service.submitMyVerification(userId, {
+        frontLicense: {
+          fileName: 'large-license.heic',
+          mimeType: 'image/heic',
+          dataUrl: `data:image/heic;base64,${largeBase64}`,
+        },
+        selfie: {
+          fileName: 'large-selfie.heic',
+          mimeType: 'image/heic',
+          dataUrl: `data:image/heic;base64,${largeBase64}`,
+        },
+      });
+
+      expect(providerMock.submitVerification).toHaveBeenCalledTimes(1);
+      expect(driverLicenseRepoMock.save).toHaveBeenCalledTimes(1);
+      expect(result.status).toBe('pending');
+    });
+
     it('crea una verificación pendiente cuando el usuario no tiene ninguna', async () => {
       driverLicenseRepoMock.findByUserId.mockResolvedValue(null);
       driverLicenseRepoMock.save.mockImplementation(async (value) => value);
