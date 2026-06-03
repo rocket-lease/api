@@ -78,13 +78,31 @@ export class PostgresTicketRepository implements TicketRepository {
   }
 
   async findAgainstUser(userId: string): Promise<Ticket[]> {
+    const reservations = await this.prisma.reservation.findMany({
+      where: { OR: [{ conductorId: userId }, { rentadorId: userId }] },
+      select: { id: true, conductorId: true, rentadorId: true },
+    });
+
+    if (reservations.length === 0) return [];
+
+    const conditions: Array<{
+      reservationId: string;
+      reportedBy: 'conductor' | 'rentador';
+    }> = [];
+
+    for (const r of reservations) {
+      if (r.conductorId === userId) {
+        conditions.push({ reservationId: r.id, reportedBy: 'rentador' });
+      }
+      if (r.rentadorId === userId) {
+        conditions.push({ reservationId: r.id, reportedBy: 'conductor' });
+      }
+    }
+
+    if (conditions.length === 0) return [];
+
     const rows = await this.prisma.ticket.findMany({
-      where: {
-        OR: [
-          { reportedBy: 'rentador', reservation: { conductorId: userId } },
-          { reportedBy: 'conductor', reservation: { rentadorId: userId } },
-        ],
-      },
+      where: { OR: conditions },
       orderBy: { createdAt: 'desc' },
     });
     return rows.map((r) => this.toDomain(r));
