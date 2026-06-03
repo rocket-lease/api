@@ -18,6 +18,7 @@ import { WalletModule } from './wallet.module';
 import { PushSubscriptionModule } from './push-subscription.module';
 import { PricingModule } from './pricing.module';
 import { ReviewModule } from './review.module';
+import { TicketModule } from './ticket.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { ReviewModule } from './review.module';
     VehicleDocumentModule,
     WalletModule,
     PushSubscriptionModule,
+    TicketModule,
   ],
 })
 export class AppModule {}
