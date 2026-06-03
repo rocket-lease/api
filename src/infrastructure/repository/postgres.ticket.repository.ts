@@ -61,9 +61,30 @@ export class PostgresTicketRepository implements TicketRepository {
     return row ? this.toDomain(row) : null;
   }
 
+  async findByReservationId(reservationId: string): Promise<Ticket[]> {
+    const rows = await this.prisma.ticket.findMany({
+      where: { reservationId },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((r) => this.toDomain(r));
+  }
+
   async findByReporterId(reporterId: string): Promise<Ticket[]> {
     const rows = await this.prisma.ticket.findMany({
       where: { reporterId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((r) => this.toDomain(r));
+  }
+
+  async findAgainstUser(userId: string): Promise<Ticket[]> {
+    const rows = await this.prisma.ticket.findMany({
+      where: {
+        OR: [
+          { reportedBy: 'rentador', reservation: { conductorId: userId } },
+          { reportedBy: 'conductor', reservation: { rentadorId: userId } },
+        ],
+      },
       orderBy: { createdAt: 'desc' },
     });
     return rows.map((r) => this.toDomain(r));

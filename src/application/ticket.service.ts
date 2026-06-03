@@ -3,6 +3,8 @@ import { randomUUID } from 'crypto';
 import {
   type CreateTicketRequest,
   type GetMyTicketsResponse,
+  type GetReservationTicketsResponse,
+  type GetTicketsAgainstMeResponse,
   type TicketResponse,
   TicketResponseSchema,
 } from '@rocket-lease/contracts';
@@ -85,6 +87,24 @@ export class TicketService {
 
   async getMyTickets(userId: string): Promise<GetMyTicketsResponse> {
     const tickets = await this.ticketRepo.findByReporterId(userId);
+    return tickets.map((t) => this.toResponse(t));
+  }
+
+  async getByReservationId(
+    callerId: string,
+    reservationId: string,
+  ): Promise<GetReservationTicketsResponse> {
+    const reservation = await this.reservationRepo.findById(reservationId);
+    if (!reservation) throw new ReservationNotFoundException(reservationId);
+    const isConductor = reservation.getConductorId() === callerId;
+    const isRentador = reservation.getRentadorId() === callerId;
+    if (!isConductor && !isRentador) throw new ReservationForbiddenException();
+    const tickets = await this.ticketRepo.findByReservationId(reservationId);
+    return tickets.map((t) => this.toResponse(t));
+  }
+
+  async getAgainstMe(userId: string): Promise<GetTicketsAgainstMeResponse> {
+    const tickets = await this.ticketRepo.findAgainstUser(userId);
     return tickets.map((t) => this.toResponse(t));
   }
 

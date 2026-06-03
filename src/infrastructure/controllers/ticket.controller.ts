@@ -5,11 +5,14 @@ import {
   Headers,
   HttpCode,
   Inject,
+  Param,
   Post,
   UnauthorizedException,
 } from '@nestjs/common';
 import {
   type GetMyTicketsResponse,
+  type GetReservationTicketsResponse,
+  type GetTicketsAgainstMeResponse,
   type TicketResponse,
   CreateTicketRequestSchema,
 } from '@rocket-lease/contracts';
@@ -51,5 +54,22 @@ export class TicketsController {
   ): Promise<GetMyTicketsResponse> {
     const userId = await this.resolveUserId(authorization);
     return this.ticketService.getMyTickets(userId);
+  }
+
+  @Get('against-me')
+  async getAgainstMe(
+    @Headers('authorization') authorization: string | undefined,
+  ): Promise<GetTicketsAgainstMeResponse> {
+    const userId = await this.resolveUserId(authorization);
+    return this.ticketService.getAgainstMe(userId);
+  }
+
+  @Get('reservation/:reservationId')
+  async getByReservation(
+    @Headers('authorization') authorization: string | undefined,
+    @Param('reservationId') reservationId: string,
+  ): Promise<GetReservationTicketsResponse> {
+    const userId = await this.resolveUserId(authorization);
+    return this.ticketService.getByReservationId(userId, reservationId);
   }
 }
