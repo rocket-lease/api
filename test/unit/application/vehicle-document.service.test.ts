@@ -37,6 +37,7 @@ function makeVehicle(ownerId: string): Vehicle {
     'blue',
     50000,
     50000,
+    [],
     'A reliable vehicle',
     'Buenos Aires',
     'CABA',
@@ -187,6 +188,48 @@ describe('VehicleDocumentService', () => {
       await expect(
         service.submitDocuments(rentadorId, vehicleId, dto),
       ).rejects.toThrow(VehicleDocumentsAlreadyPendingException);
+    });
+
+    it('acepta documentos con datos grandes (simulando archivos pesados)', async () => {
+      const rentadorId = randomUUID();
+      const vehicleId = randomUUID();
+      const vehicle = makeVehicle(rentadorId);
+      const largeBase64 = 'A'.repeat(30 * 1024 * 1024);
+      const dto: SubmitVehicleDocumentsRequest = {
+        title: {
+          filename: 'large-title.pdf',
+          mimeType: 'application/pdf',
+          data: `data:application/pdf;base64,${largeBase64}`,
+        },
+        greenCard: {
+          filename: 'large-green-card.pdf',
+          mimeType: 'application/pdf',
+          data: `data:application/pdf;base64,${largeBase64}`,
+        },
+      };
+
+      vehicleRepoMock.findById.mockResolvedValue(vehicle);
+      vehicleDocumentRepoMock.findByVehicleId.mockResolvedValue(null);
+      verificationProviderMock.submitDocuments.mockResolvedValue({
+        providerName: 'test-provider',
+        requestId: vehicleId,
+      });
+
+      const mockSaved = VehicleDocumentVerification.pending({
+        vehicleId,
+        rentadorId,
+        documents: dto,
+        submittedAt: clock.now(),
+      });
+      vehicleDocumentRepoMock.save.mockResolvedValue(mockSaved);
+      vehicleRepoMock.save.mockResolvedValue(vehicle);
+
+      await expect(
+        service.submitDocuments(rentadorId, vehicleId, dto),
+      ).resolves.not.toThrow();
+
+      expect(verificationProviderMock.submitDocuments).toHaveBeenCalled();
+      expect(vehicleDocumentRepoMock.save).toHaveBeenCalled();
     });
 
     it('retorna la verificación existente si ya está verified', async () => {

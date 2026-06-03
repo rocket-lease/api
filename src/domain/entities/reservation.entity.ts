@@ -9,6 +9,8 @@ import {
   type CancellationPolicy,
   type MaxKilometrage,
   type RentalTimeConstraints,
+  type PricingQuote,
+  PricingQuoteSchema,
   type ReservationAddress,
 } from '@rocket-lease/contracts';
 import { InvalidEntityDataException } from '../exceptions/domain.exception';
@@ -69,6 +71,7 @@ const reservationSchema = z.object({
   balanceReminderSentAt: z.date().nullable(),
   depositPercentageSnapshot: DepositPercentageSchema,
   basePriceCentsSnapshot: z.number().int().nonnegative(),
+  pricingSnapshot: PricingQuoteSchema.nullable(),
   cancellationPolicySnapshot: CancellationPolicySchema,
   maxKilometrageSnapshot: MaxKilometrageSchema,
   rentalTimeConstraintsSnapshot: RentalTimeConstraintsSchema,
@@ -169,6 +172,7 @@ export interface ReservationProps {
   balanceReminderSentAt?: Date | null;
   depositPercentageSnapshot?: number | null;
   basePriceCentsSnapshot?: number;
+  pricingSnapshot?: PricingQuote | null;
   cancellationPolicySnapshot?: CancellationPolicy;
   maxKilometrageSnapshot?: MaxKilometrage;
   rentalTimeConstraintsSnapshot?: RentalTimeConstraints;
@@ -213,6 +217,7 @@ export class Reservation {
   private balanceReminderSentAt: Date | null;
   private depositPercentageSnapshot: number | null;
   private basePriceCentsSnapshot: number;
+  private pricingSnapshot: PricingQuote | null;
   private cancellationPolicySnapshot: CancellationPolicy;
   private maxKilometrageSnapshot: MaxKilometrage;
   private rentalTimeConstraintsSnapshot: RentalTimeConstraints;
@@ -244,6 +249,7 @@ export class Reservation {
     snapshot: {
       depositPercentage: number | null;
       basePriceCents: number;
+      pricingSnapshot: PricingQuote;
       cancellationPolicy: CancellationPolicy;
       maxKilometrage: MaxKilometrage;
       rentalTimeConstraints: RentalTimeConstraints;
@@ -266,6 +272,7 @@ export class Reservation {
       paidAt: null,
       depositPercentageSnapshot: params.snapshot.depositPercentage,
       basePriceCentsSnapshot: params.snapshot.basePriceCents,
+      pricingSnapshot: params.snapshot.pricingSnapshot,
       cancellationPolicySnapshot: params.snapshot.cancellationPolicy,
       maxKilometrageSnapshot: params.snapshot.maxKilometrage,
       rentalTimeConstraintsSnapshot: params.snapshot.rentalTimeConstraints,
@@ -306,6 +313,7 @@ export class Reservation {
     this.depositPercentageSnapshot =
       props.depositPercentageSnapshot ?? RESERVATION_RULES_DEFAULTS.depositPercentage;
     this.basePriceCentsSnapshot = props.basePriceCentsSnapshot ?? 0;
+    this.pricingSnapshot = props.pricingSnapshot ?? null;
     this.cancellationPolicySnapshot =
       props.cancellationPolicySnapshot ?? RESERVATION_RULES_DEFAULTS.cancellationPolicy;
     this.maxKilometrageSnapshot =
@@ -421,6 +429,9 @@ export class Reservation {
   public getBasePriceCentsSnapshot(): number {
     return this.basePriceCentsSnapshot;
   }
+  public getPricingSnapshot(): PricingQuote | null {
+    return this.pricingSnapshot;
+  }
   public getCancellationPolicySnapshot(): CancellationPolicy {
     return this.cancellationPolicySnapshot;
   }
@@ -480,7 +491,9 @@ export class Reservation {
       );
     }
     this.depositPercentageSnapshot = snapshot.depositPercentage;
-    this.basePriceCentsSnapshot = snapshot.basePriceCents;
+    if (this.basePriceCentsSnapshot <= 0) {
+      this.basePriceCentsSnapshot = snapshot.basePriceCents;
+    }
     this.cancellationPolicySnapshot = snapshot.cancellationPolicy;
     this.maxKilometrageSnapshot = snapshot.maxKilometrage;
     this.rentalTimeConstraintsSnapshot = snapshot.rentalTimeConstraints;
@@ -502,6 +515,7 @@ export class Reservation {
     snapshot: {
       depositPercentage: number | null;
       basePriceCents: number;
+      pricingSnapshot: PricingQuote;
       cancellationPolicy: CancellationPolicy;
       maxKilometrage: MaxKilometrage;
       rentalTimeConstraints: RentalTimeConstraints;
@@ -525,6 +539,7 @@ export class Reservation {
     this.holdExpiresAt = params.holdExpiresAt;
     this.depositPercentageSnapshot = params.snapshot.depositPercentage;
     this.basePriceCentsSnapshot = params.snapshot.basePriceCents;
+    this.pricingSnapshot = params.snapshot.pricingSnapshot;
     this.cancellationPolicySnapshot = params.snapshot.cancellationPolicy;
     this.maxKilometrageSnapshot = params.snapshot.maxKilometrage;
     this.rentalTimeConstraintsSnapshot = params.snapshot.rentalTimeConstraints;
@@ -1002,6 +1017,7 @@ export class Reservation {
       balanceReminderSentAt: this.balanceReminderSentAt,
       depositPercentageSnapshot: this.depositPercentageSnapshot,
       basePriceCentsSnapshot: this.basePriceCentsSnapshot,
+      pricingSnapshot: this.pricingSnapshot,
       cancellationPolicySnapshot: this.cancellationPolicySnapshot,
       maxKilometrageSnapshot: this.maxKilometrageSnapshot,
       rentalTimeConstraintsSnapshot: this.rentalTimeConstraintsSnapshot,

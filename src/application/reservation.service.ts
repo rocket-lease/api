@@ -112,7 +112,7 @@ import {
   type PaymentGatewayProvider,
 } from '@/domain/providers/payment-gateway.provider';
 import { CLOCK, type Clock } from '@/domain/providers/clock.provider';
-import { computeReservationTotalCents, computeDepositCents } from './helpers/pricing';
+import { computeDepositCents, computePricingQuote } from './helpers/pricing';
 import { calculateCancellationRefund } from './helpers/cancellation-refund';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { EMAIL_PROVIDER, type EmailProvider } from '@/domain/providers/email.provider';
@@ -232,13 +232,16 @@ export class ReservationService {
     const effectiveAutoAccept =
       vehicle.getAutoAccept() ?? ownerProfile?.autoAccept ?? false;
 
-    const totalCents = computeReservationTotalCents(
-      vehicle.getBasePriceCents(),
+    const pricingSnapshot = computePricingQuote({
+      vehicleId: vehicle.getId(),
+      basePriceDailyCents: vehicle.getBasePriceCents(),
+      discountTiers: vehicle.getDiscountTiers(),
       startAt,
       endAt,
-      homeDeliveryFeeCentsSnapshot,
-      homeReturnFeeCentsSnapshot,
-    );
+    });
+    const totalCents = pricingSnapshot.totalCents
+      + (homeDeliveryFeeCentsSnapshot ?? 0)
+      + (homeReturnFeeCentsSnapshot ?? 0);
 
     const status = effectiveAutoAccept ? RESERVATION_STATUS.pending_payment : RESERVATION_STATUS.pending_approval;
     const ttlMs = effectiveAutoAccept ? HOLD_TTL_MS : APPROVAL_TTL_MS;
@@ -256,6 +259,8 @@ export class ReservationService {
       paymentMethod: null,
       contractAcceptedAt: now,
       paidAt: null,
+      basePriceCentsSnapshot: pricingSnapshot.basePriceCents,
+      pricingSnapshot,
       withHomeDelivery,
       homeDeliveryFeeCentsSnapshot,
       deliveryAddress: dto.deliveryAddress ?? null,
@@ -282,6 +287,7 @@ export class ReservationService {
       holdExpiresAt: saved.getHoldExpiresAt()!.toISOString(),
       totalCents: saved.getTotalCents(),
       currency: 'ARS',
+      pricingSnapshot: saved.getPricingSnapshot() ?? pricingSnapshot,
     });
   }
 
@@ -870,6 +876,7 @@ export class ReservationService {
       currency: reservation.getCurrency(),
       paymentMethod: reservation.getPaymentMethod()!,
       paidAt: reservation.getPaidAt()!.toISOString(),
+      pricingSnapshot: this.resolvePricingSnapshot(reservation),
     });
   }
 
@@ -904,6 +911,7 @@ export class ReservationService {
       paymentMethod: reservation.getPaymentMethod()!,
       paidAt: reservation.getPaidAt()!.toISOString(),
       isValid,
+      pricingSnapshot: this.resolvePricingSnapshot(reservation),
     });
   }
 
@@ -1366,11 +1374,14 @@ export class ReservationService {
     const requiresApproval = !effectiveAutoAccept;
 
     const now = this.clock.now();
-    const totalCents = computeReservationTotalCents(
-      rules.basePriceCents,
-      tip.getEndAt(),
-      newEndAt,
-    );
+    const pricingSnapshot = computePricingQuote({
+      vehicleId: vehicle.getId(),
+      basePriceDailyCents: rules.basePriceCents,
+      discountTiers: vehicle.getDiscountTiers(),
+      startAt: tip.getEndAt(),
+      endAt: newEndAt,
+    });
+    const totalCents = pricingSnapshot.totalCents;
     const status = requiresApproval
       ? RESERVATION_STATUS.pending_approval
       : RESERVATION_STATUS.pending_payment;
@@ -1393,7 +1404,10 @@ export class ReservationService {
       totalCents,
       status,
       holdExpiresAt: new Date(now.getTime() + ttlMs),
-      snapshot: rules,
+      snapshot: {
+        ...rules,
+        pricingSnapshot,
+      },
       now,
     });
 
@@ -1430,6 +1444,7 @@ export class ReservationService {
       totalCents: saved.getTotalCents(),
       currency: 'ARS',
       requiresApproval,
+      pricingSnapshot: saved.getPricingSnapshot() ?? pricingSnapshot,
     });
   }
 
@@ -1513,11 +1528,14 @@ export class ReservationService {
     const requiresApproval = !effectiveAutoAccept;
 
     const now = this.clock.now();
-    const totalCents = computeReservationTotalCents(
-      rules.basePriceCents,
-      parent.getEndAt(),
-      newEndAt,
-    );
+    const pricingSnapshot = computePricingQuote({
+      vehicleId: vehicle.getId(),
+      basePriceDailyCents: rules.basePriceCents,
+      discountTiers: vehicle.getDiscountTiers(),
+      startAt: parent.getEndAt(),
+      endAt: newEndAt,
+    });
+    const totalCents = pricingSnapshot.totalCents;
     const status = requiresApproval
       ? RESERVATION_STATUS.pending_approval
       : RESERVATION_STATUS.pending_payment;
@@ -1541,7 +1559,10 @@ export class ReservationService {
       totalCents,
       status,
       holdExpiresAt: new Date(now.getTime() + ttlMs),
-      snapshot: rules,
+      snapshot: {
+        ...rules,
+        pricingSnapshot,
+      },
       now,
     });
 
@@ -1569,6 +1590,7 @@ export class ReservationService {
       totalCents: saved.getTotalCents(),
       currency: 'ARS',
       requiresApproval,
+      pricingSnapshot: saved.getPricingSnapshot() ?? pricingSnapshot,
     });
   }
 
@@ -1757,6 +1779,7 @@ export class ReservationService {
             endAt: item.getEndAt().toISOString(),
             totalCents: item.getTotalCents(),
             parentReservationId: item.getParentReservationId(),
+            pricingSnapshot: this.resolvePricingSnapshot(item),
           }))
         : undefined;
 
@@ -1800,6 +1823,7 @@ export class ReservationService {
       transferPaymentMode: r.getTransferPaymentMode(),
       depositPercentageSnapshot: r.getDepositPercentageSnapshot(),
       basePriceCentsSnapshot: r.getBasePriceCentsSnapshot(),
+      pricingSnapshot: this.resolvePricingSnapshot(r),
       cancellationPolicySnapshot: r.getCancellationPolicySnapshot(),
       maxKilometrageSnapshot: r.getMaxKilometrageSnapshot(),
       rentalTimeConstraintsSnapshot: r.getRentalTimeConstraintsSnapshot(),
@@ -1820,6 +1844,31 @@ export class ReservationService {
         avatarUrl: rentadorProfile?.avatarUrl ?? null,
       },
     });
+  }
+
+  private resolvePricingSnapshot(reservation: Reservation) {
+    const snapshot = reservation.getPricingSnapshot();
+    if (snapshot) return snapshot;
+
+    const durationDays = Math.max(
+      1,
+      Math.ceil(
+        (reservation.getEndAt().getTime() - reservation.getStartAt().getTime()) /
+          DAY_MS,
+      ),
+    );
+
+    return {
+      vehicleId: reservation.getVehicleId(),
+      currency: 'ARS' as const,
+      basePriceCents: reservation.getBasePriceCentsSnapshot(),
+      durationDays,
+      subtotalCents: reservation.getTotalCents(),
+      appliedDiscountTier: null,
+      appliedDiscountPercentage: 0,
+      discountCents: 0,
+      totalCents: reservation.getTotalCents(),
+    };
   }
 
   private async getVehicleReservationRuleSet(
