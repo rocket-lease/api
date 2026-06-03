@@ -13,23 +13,6 @@ enum WalletMovementType {
   withdrawal_debit
 }
 
-enum TicketStatus {
-  open
-  under_review
-  resolved
-  rejected
-}
-
-enum TicketReportedBy {
-  conductor
-  rentador
-}
-
-enum TicketType {
-  vehicle_issue
-  counterpart_report
-}
-
 enum WithdrawalStatus {
   processing
   processed
@@ -354,7 +337,6 @@ model Reservation {
   messages            Message[]
   walletMovement      WalletMovement?
   review              Review?
-  tickets             Ticket[]
 
   @@index([vehicleId, status])
   @@index([conductorId])
@@ -555,23 +537,4 @@ enum CancellationPolicy {
 enum MaxKilometrageType {
   UNLIMITED
   LIMITED
-}
-
-model Ticket {
-  id            String           @id @default(uuid())
-  reservationId String           @map("reservation_id")
-  type          TicketType       @default(vehicle_issue)
-  reportedBy    TicketReportedBy @map("reported_by")
-  reporterId    String           @map("reporter_id")
-  status        TicketStatus     @default(open)
-  description   String           @db.Text
-  photoUrls     String[]         @default([]) @map("photo_urls")
-  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  reservation   Reservation      @relation(fields: [reservationId], references: [id], onDelete: Cascade)
-
-  @@unique([reservationId, reportedBy])
-  @@index([reporterId])
-  @@map("tickets")
 }

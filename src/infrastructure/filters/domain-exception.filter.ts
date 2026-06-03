@@ -56,11 +56,6 @@ import {
 } from '@/domain/exceptions/geo.exception';
 import { ChatNotAllowedException } from '@/domain/exceptions/messaging.exception';
 import {
-  TicketAlreadyExistsException,
-  TicketNotFoundException,
-  TicketReservationInvalidStatusException,
-} from '@/domain/exceptions/ticket.exception';
-import {
   ExceptionFilter,
   Catch,
   ArgumentsHost,
@@ -269,18 +264,6 @@ export class DomainExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof ChatNotAllowedException) {
       status = HttpStatus.UNPROCESSABLE_ENTITY;
       code = ErrorCodes.CHAT_NOT_ALLOWED;
-      title = 'Unprocessable Entity';
-    } else if (exception instanceof TicketNotFoundException) {
-      status = HttpStatus.NOT_FOUND;
-      code = ErrorCodes.TICKET_NOT_FOUND;
-      title = 'Not Found';
-    } else if (exception instanceof TicketAlreadyExistsException) {
-      status = HttpStatus.CONFLICT;
-      code = ErrorCodes.TICKET_ALREADY_EXISTS;
-      title = 'Conflict';
-    } else if (exception instanceof TicketReservationInvalidStatusException) {
-      status = HttpStatus.UNPROCESSABLE_ENTITY;
-      code = ErrorCodes.TICKET_RESERVATION_INVALID_STATUS;
       title = 'Unprocessable Entity';
     } else if (exception instanceof InvalidEntityDataException) {
       status = HttpStatus.BAD_REQUEST;
