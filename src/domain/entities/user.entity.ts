@@ -8,6 +8,8 @@ const userSchema = z.object({
   phone: z.string().trim().min(1, 'Phone is required').max(20),
 });
 
+export type UserRole = 'admin' | null;
+
 export class User {
   constructor(
     private readonly id: string,
@@ -16,6 +18,7 @@ export class User {
     private readonly dni: string,
     private readonly phone: string,
     private readonly autoAccept: boolean = false,
+    private readonly role: UserRole = null,
   ) {
     this.validate();
   }
@@ -50,5 +53,11 @@ export class User {
   }
   public getAutoAccept(): boolean {
     return this.autoAccept;
+  }
+  public getRole(): UserRole {
+    return this.role;
+  }
+  public isAdmin(): boolean {
+    return this.role === 'admin';
   }
 }

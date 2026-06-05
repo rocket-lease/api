@@ -54,6 +54,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
           homeDeliveryFeeCents: vehicle.getHomeDeliveryFeeCents(),
           homeReturnEnabled: vehicle.getHomeReturnEnabled(),
           homeReturnFeeCents: vehicle.getHomeReturnFeeCents(),
+          dynamicPricingEnabled: vehicle.getDynamicPricingEnabled(),
           photos: {
             deleteMany: {},
             create: vehicle.getPhotos().map((url) => ({ url })),
@@ -88,6 +89,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
           homeDeliveryFeeCents: vehicle.getHomeDeliveryFeeCents(),
           homeReturnEnabled: vehicle.getHomeReturnEnabled(),
           homeReturnFeeCents: vehicle.getHomeReturnFeeCents(),
+          dynamicPricingEnabled: vehicle.getDynamicPricingEnabled(),
           photos: {
             create: vehicle.getPhotos().map((url) => ({ url })),
           },
@@ -322,6 +324,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
       raw.homeDeliveryFeeCents,
       raw.homeReturnEnabled,
       raw.homeReturnFeeCents,
+      raw.dynamicPricingEnabled,
     );
   }
 }

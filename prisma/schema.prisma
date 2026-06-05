@@ -51,9 +51,12 @@ model User {
   preferredAccessibility String[]  @default([]) @map("preferred_accessibility")
   preferredMaxPriceDaily Int?      @map("preferred_max_price_daily")
   autoAccept            Boolean    @default(false) @map("auto_accept")
+  role                  String?
   createdAt             DateTime   @default(now()) @map("created_at")
   phoneVerifiedAt       DateTime?  @map("phone_verified_at")
   favorites             Favorite[]
+  priceQuotes           PriceQuote[]
+  searchLogs            SearchLog[]
   vehicles              Vehicle[]
   reservationRuleSets   ReservationRuleSet[]
   reservations          Reservation[] @relation("conductor_reservations")
@@ -152,6 +155,7 @@ model Vehicle {
   homeDeliveryFeeCents  Int?     @map("home_delivery_fee_cents")
   homeReturnEnabled     Boolean  @default(false) @map("home_return_enabled")
   homeReturnFeeCents    Int?     @map("home_return_fee_cents")
+  dynamicPricingEnabled Boolean  @default(false) @map("dynamic_pricing_enabled")
 
   ownerId      String
   owner        User         @relation(fields: [ownerId], references: [id])
@@ -166,6 +170,7 @@ model Vehicle {
   reservations    Reservation[]
   promotion       PromotionActive?
   vehicleDocument VehicleDocumentVerification?
+  priceQuotes     PriceQuote[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -555,6 +560,44 @@ enum CancellationPolicy {
 enum MaxKilometrageType {
   UNLIMITED
   LIMITED
+}
+
+model PriceQuote {
+  id                 String   @id @default(uuid()) @db.Uuid
+  vehicleId          String   @map("vehicle_id")
+  conductorId        String?  @map("conductor_id")
+  startAt            DateTime @map("start_at")            @db.Timestamptz(6)
+  endAt              DateTime @map("end_at")              @db.Timestamptz(6)
+  basePriceCents     Int      @map("base_price_cents")
+  multiplier         Decimal  @db.Decimal(4, 3)
+  discountPercentage Int      @default(0) @map("discount_percentage")
+  deliveryFeeCents   Int      @default(0) @map("delivery_fee_cents")
+  totalCents         Int      @map("total_cents")
+  currency           String
+  h3Cell             String   @map("h3_cell")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt          DateTime @map("expires_at")         @db.Timestamptz(6)
+
+  vehicle            Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  conductor          User?    @relation(fields: [conductorId], references: [id], onDelete: SetNull)
+
+  @@index([vehicleId, expiresAt], map: "price_quotes_lookup_idx")
+  @@map("price_quotes")
+}
+
+model SearchLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionId    String   @map("session_id")
+  conductorId  String?  @map("conductor_id")
+  h3Cell       String   @map("h3_cell")
+  filters      Json
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  conductor    User?    @relation(fields: [conductorId], references: [id], onDelete: SetNull)
+
+  @@index([h3Cell, createdAt(sort: Desc)], map: "search_logs_zone_time_idx")
+  @@index([sessionId, createdAt(sort: Desc)], map: "search_logs_session_time_idx")
+  @@map("search_logs")
 }
 
 model Ticket {

@@ -1,0 +1,53 @@
+import { Injectable } from '@nestjs/common';
+import { Vehicle } from '@/domain/entities/vehicle.entity';
+import { UtilizationFactor } from './factors/utilization.factor';
+import { DemandZoneFactor } from './factors/demand-zone.factor';
+import { LeadTimeFactor } from './factors/lead-time.factor';
+import { WeekendFactor } from './factors/weekend.factor';
+import {
+  DYNAMIC_PRICING_NEUTRAL,
+  clampMultiplier,
+} from './config/dynamic-pricing.config';
+
+export interface DynamicPricingInput {
+  vehicle: Vehicle;
+  startAt: Date;
+  endAt: Date;
+  now?: Date;
+}
+
+/**
+ * Combina los cuatro factores del motor de pricing dinámico en un único
+ * multiplier final, clampeado al rango global. Si el vehículo tiene el
+ * toggle apagado, devuelve `1.0` sin consultar nada.
+ */
+@Injectable()
+export class DynamicPricingService {
+  constructor(
+    private readonly utilizationFactor: UtilizationFactor,
+    private readonly demandZoneFactor: DemandZoneFactor,
+    private readonly leadTimeFactor: LeadTimeFactor,
+    private readonly weekendFactor: WeekendFactor,
+  ) {}
+
+  /**
+   * Computa el multiplier para un vehículo y una ventana de pickup. Devuelve
+   * `1.0` si el vehículo tiene el pricing dinámico desactivado.
+   */
+  public async computeMultiplier(input: DynamicPricingInput): Promise<number> {
+    if (!input.vehicle.getDynamicPricingEnabled()) {
+      return DYNAMIC_PRICING_NEUTRAL;
+    }
+    const now = input.now ?? new Date();
+    const [utilization, demand] = await Promise.all([
+      this.utilizationFactor.compute(input.vehicle),
+      this.demandZoneFactor.compute(
+        input.vehicle.getLatitude(),
+        input.vehicle.getLongitude(),
+      ),
+    ]);
+    const leadTime = this.leadTimeFactor.compute(input.startAt, now);
+    const weekend = this.weekendFactor.compute(input.startAt, input.endAt);
+    return clampMultiplier(utilization * demand * leadTime * weekend);
+  }
+}

@@ -45,6 +45,7 @@ const vehicleSchema = z.object({
   homeDeliveryFeeCents: z.number().int().nonnegative().nullable(),
   homeReturnEnabled: z.boolean(),
   homeReturnFeeCents: z.number().int().nonnegative().nullable(),
+  dynamicPricingEnabled: z.boolean(),
   characteristics: z.array(
     z.enum([
       'GPS',
@@ -101,6 +102,7 @@ export class Vehicle {
     private homeDeliveryFeeCents: number | null = null,
     private homeReturnEnabled: boolean = false,
     private homeReturnFeeCents: number | null = null,
+    private dynamicPricingEnabled: boolean = false,
   ) {
     this.validate();
   }
@@ -204,6 +206,9 @@ export class Vehicle {
   public getHomeReturnFeeCents(): number | null {
     return this.homeReturnFeeCents;
   }
+  public getDynamicPricingEnabled(): boolean {
+    return this.dynamicPricingEnabled;
+  }
 
   public isEnabled(): boolean {
     return this.enabled;
@@ -261,6 +266,7 @@ export class Vehicle {
     if (data.homeDeliveryFeeCents !== undefined) this.homeDeliveryFeeCents = data.homeDeliveryFeeCents as number | null;
     if (data.homeReturnEnabled !== undefined) this.homeReturnEnabled = data.homeReturnEnabled as boolean;
     if (data.homeReturnFeeCents !== undefined) this.homeReturnFeeCents = data.homeReturnFeeCents as number | null;
+    if (data.dynamicPricingEnabled !== undefined) this.dynamicPricingEnabled = data.dynamicPricingEnabled as boolean;
     this.validate();
   }
 
@@ -296,6 +302,7 @@ export class Vehicle {
       homeDeliveryFeeCents: this.homeDeliveryFeeCents,
       homeReturnEnabled: this.homeReturnEnabled,
       homeReturnFeeCents: this.homeReturnFeeCents,
+      dynamicPricingEnabled: this.dynamicPricingEnabled,
       characteristics: this.characteristics,
     });
 

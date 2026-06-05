@@ -30,9 +30,10 @@ import { IdentityModule } from './identity.module';
 import { DriverLicenseModule } from './driver-license.module';
 import { WalletModule } from './wallet.module';
 import { ReviewModule } from './review.module';
+import { PricingModule } from './pricing.module';
 
 @Module({
-  imports: [AuthModule, IdentityModule, DriverLicenseModule, WalletModule, ReviewModule, PushSubscriptionModule],
+  imports: [AuthModule, IdentityModule, DriverLicenseModule, WalletModule, ReviewModule, PushSubscriptionModule, PricingModule],
   controllers: [ReservationController],
   providers: [
     ReservationService,

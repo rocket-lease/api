@@ -17,6 +17,8 @@ import { IdentityModule } from './identity.module';
 import { WalletModule } from './wallet.module';
 import { PushSubscriptionModule } from './push-subscription.module';
 import { PricingModule } from './pricing.module';
+import { SearchLogModule } from './search-log.module';
+import { AdminModule } from './admin.module';
 import { ReviewModule } from './review.module';
 import { TicketModule } from './ticket.module';
 
@@ -37,6 +39,8 @@ import { TicketModule } from './ticket.module';
     BankAccountModule,
     PromotionModule,
     PricingModule,
+    SearchLogModule,
+    AdminModule,
     ReviewModule,
     VehicleDocumentModule,
     WalletModule,

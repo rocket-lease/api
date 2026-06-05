@@ -2,11 +2,13 @@ import {
   BadRequestException,
   Controller,
   Get,
+  Headers,
   Inject,
   Query,
 } from '@nestjs/common';
 import * as Contracts from '@rocket-lease/contracts';
 import { GeoService } from '@/application/geo.service';
+import { SearchLogService } from '@/application/search-log.service';
 
 function parseNumber(name: string, raw?: string): number | undefined {
   if (raw === undefined || raw === '') return undefined;
@@ -17,9 +19,37 @@ function parseNumber(name: string, raw?: string): number | undefined {
   return n;
 }
 
+/**
+ * Resuelve la coordenada representativa de la búsqueda para el log:
+ * prefiere el centro explícito ("Cerca de mí"); si vino un viewport,
+ * usa su centroide.
+ */
+function resolveLogCoordinates(request: Contracts.MapSearchRequest): {
+  latitude: number | null;
+  longitude: number | null;
+} {
+  if (request.center) {
+    return {
+      latitude: request.center.latitude,
+      longitude: request.center.longitude,
+    };
+  }
+  if (request.bounds) {
+    return {
+      latitude: (request.bounds.north + request.bounds.south) / 2,
+      longitude: (request.bounds.east + request.bounds.west) / 2,
+    };
+  }
+  return { latitude: null, longitude: null };
+}
+
 @Controller('geo')
 export class GeoController {
-  constructor(@Inject(GeoService) private readonly geoService: GeoService) {}
+  constructor(
+    @Inject(GeoService) private readonly geoService: GeoService,
+    @Inject(SearchLogService)
+    private readonly searchLogService: SearchLogService,
+  ) {}
 
   /**
    * Marcadores de rentadoras para el mapa. Acepta viewport
@@ -41,6 +71,7 @@ export class GeoController {
     @Query('isAccessible') isAccessible?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Headers('x-session-id') sessionId?: string,
   ): Promise<Contracts.MapSearchResponse> {
     const n = parseNumber('north', north);
     const s = parseNumber('south', south);
@@ -77,7 +108,23 @@ export class GeoController {
     };
 
     const request = Contracts.MapSearchRequestSchema.parse(candidate);
-    return this.geoService.searchRentadoras(request);
+    const result = await this.geoService.searchRentadoras(request);
+    const logCoords = resolveLogCoordinates(request);
+    this.searchLogService.maybeLogAsync({
+      sessionId,
+      conductorId: null,
+      latitude: logCoords.latitude,
+      longitude: logCoords.longitude,
+      filters: {
+        transmission: request.transmission,
+        maxPriceDaily: request.maxPriceDaily,
+        characteristics: request.characteristics,
+        isAccessible: request.isAccessible,
+        from: request.from,
+        to: request.to,
+      },
+    });
+    return result;
   }
 
   private parseCharacteristics(
