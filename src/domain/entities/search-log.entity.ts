@@ -1,11 +1,20 @@
 import { randomUUID } from 'node:crypto';
 
+export interface SearchLogFilters {
+  transmission?: string;
+  maxPriceDaily?: number;
+  characteristics?: string[];
+  isAccessible?: boolean;
+  from?: string;
+  to?: string;
+}
+
 export interface SearchLogProps {
   id?: string;
   sessionId: string;
   conductorId: string | null;
   h3Cell: string;
-  filters: Record<string, unknown>;
+  filters: SearchLogFilters;
   createdAt: Date;
 }
 
@@ -19,7 +28,7 @@ export class SearchLog {
   private readonly sessionId: string;
   private readonly conductorId: string | null;
   private readonly h3Cell: string;
-  private readonly filters: Record<string, unknown>;
+  private readonly filters: SearchLogFilters;
   private readonly createdAt: Date;
 
   constructor(props: SearchLogProps) {
@@ -43,7 +52,7 @@ export class SearchLog {
   public getH3Cell(): string {
     return this.h3Cell;
   }
-  public getFilters(): Record<string, unknown> {
+  public getFilters(): SearchLogFilters {
     return { ...this.filters };
   }
   public getCreatedAt(): Date {

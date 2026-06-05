@@ -119,6 +119,17 @@ export class PriceQuoteVehicleMismatchException extends DomainException {
 }
 
 /**
+ * El `quoteToken` ya fue asociado a otro conductor al ser generado y no
+ * puede ser reutilizado por el conductor actual. Mapea a 403
+ * `PRICE_QUOTE_CONDUCTOR_MISMATCH`.
+ */
+export class PriceQuoteConductorMismatchException extends DomainException {
+  constructor(token: string) {
+    super(`price quote ${token} cannot be used by this conductor`);
+  }
+}
+
+/**
  * El % de seña configurado en un set de reglas está fuera del rango
  * aceptado (10-50) o tiene formato inválido. Mapea a 400
  * `DEPOSIT_PERCENTAGE_OUT_OF_RANGE`.

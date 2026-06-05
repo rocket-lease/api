@@ -4,7 +4,10 @@ import {
   type SearchLogRepository,
 } from '@/domain/repositories/search-log.repository';
 import { CLOCK, type Clock } from '@/domain/providers/clock.provider';
-import { SearchLog } from '@/domain/entities/search-log.entity';
+import {
+  SearchLog,
+  type SearchLogFilters,
+} from '@/domain/entities/search-log.entity';
 import { latLonToH3 } from '@/application/helpers/h3';
 
 const DEBOUNCE_SECONDS = 30;
@@ -14,7 +17,7 @@ export interface MaybeLogSearchInput {
   conductorId: string | null;
   latitude: number | null;
   longitude: number | null;
-  filters: Record<string, unknown>;
+  filters: SearchLogFilters;
 }
 
 /**

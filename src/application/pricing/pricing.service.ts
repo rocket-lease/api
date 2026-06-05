@@ -52,9 +52,13 @@ export class PricingService {
   /**
    * Cotiza un alquiler aplicando pricing dinámico (si el vehículo lo tiene
    * activo) y descuento por duración. Persiste un PriceQuote y devuelve el
-   * payload con `quoteToken` y `expiresAt`.
+   * payload con `quoteToken` y `expiresAt`. Si se provee `conductorId`, el
+   * quote queda asociado a ese conductor y no puede ser reusado por otro.
    */
-  public async quote(request: PricingQuoteRequest): Promise<PricingQuote> {
+  public async quote(
+    request: PricingQuoteRequest,
+    conductorId: string | null = null,
+  ): Promise<PricingQuote> {
     const vehicle = await this.vehicleRepository.findById(request.vehicleId);
     if (!vehicle) {
       throw new EntityNotFoundException('vehicle', request.vehicleId);
@@ -67,7 +71,7 @@ export class PricingService {
       endAt,
       withHomeDelivery: request.withHomeDelivery ?? false,
       withHomeReturn: request.withHomeReturn ?? false,
-      conductorId: null,
+      conductorId,
     });
     return result.response;
   }

@@ -1,4 +1,5 @@
 import {
+  AdminForbiddenException,
   DepositPercentageOutOfRangeException,
   EmailNotVerifiedException,
   EmailUnverifiedPendingException,
@@ -10,6 +11,10 @@ import {
   InvalidEntityDataException,
   IdentityVerificationRequiredException,
   DriverLicenseVerificationRequiredException,
+  PriceQuoteConductorMismatchException,
+  PriceQuoteExpiredException,
+  PriceQuoteNotFoundException,
+  PriceQuoteVehicleMismatchException,
   RuleSetNotFoundForOwnerException,
   RuleSetPrivateCannotBeSharedException,
   RuleSetVehicleIdImmutableException,
@@ -282,6 +287,26 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.UNPROCESSABLE_ENTITY;
       code = ErrorCodes.TICKET_RESERVATION_INVALID_STATUS;
       title = 'Unprocessable Entity';
+    } else if (exception instanceof PriceQuoteNotFoundException) {
+      status = HttpStatus.NOT_FOUND;
+      code = ErrorCodes.PRICE_QUOTE_NOT_FOUND;
+      title = 'Not Found';
+    } else if (exception instanceof PriceQuoteExpiredException) {
+      status = HttpStatus.GONE;
+      code = ErrorCodes.PRICE_QUOTE_EXPIRED;
+      title = 'Gone';
+    } else if (exception instanceof PriceQuoteVehicleMismatchException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.PRICE_QUOTE_VEHICLE_MISMATCH;
+      title = 'Conflict';
+    } else if (exception instanceof PriceQuoteConductorMismatchException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.PRICE_QUOTE_CONDUCTOR_MISMATCH;
+      title = 'Forbidden';
+    } else if (exception instanceof AdminForbiddenException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.ADMIN_FORBIDDEN;
+      title = 'Forbidden';
     } else if (exception instanceof InvalidEntityDataException) {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.INVALID_ENTITY_DATA;

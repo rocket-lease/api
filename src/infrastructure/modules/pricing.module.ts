@@ -15,9 +15,10 @@ import { PostgresPricingStatsRepository } from '@/infrastructure/repository/post
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 import { CLOCK, SystemClock } from '@/domain/providers/clock.provider';
 import { VehicleModule } from './vehicle.module';
+import { AuthModule } from './auth.module';
 
 @Module({
-  imports: [VehicleModule],
+  imports: [VehicleModule, AuthModule],
   controllers: [PricingController],
   providers: [
     PrismaService,

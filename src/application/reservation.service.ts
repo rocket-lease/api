@@ -100,6 +100,7 @@ import {
   HomeReturnAddressRequiredException,
 } from '@/domain/exceptions/reservation.exception';
 import {
+  PriceQuoteConductorMismatchException,
   PriceQuoteExpiredException,
   PriceQuoteNotFoundException,
   PriceQuoteVehicleMismatchException,
@@ -1802,6 +1803,9 @@ export class ReservationService {
           input.quoteToken,
           input.vehicle.getId(),
         );
+      }
+      if (!quote.isUsableBy(input.conductorId)) {
+        throw new PriceQuoteConductorMismatchException(input.quoteToken);
       }
       const durationDays = Math.max(
         1,

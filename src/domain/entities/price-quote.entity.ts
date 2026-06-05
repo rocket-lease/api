@@ -105,4 +105,14 @@ export class PriceQuote {
   public matchesVehicle(vehicleId: string): boolean {
     return this.vehicleId === vehicleId;
   }
+
+  /**
+   * Verdadero si el quote es reutilizable por el conductor dado. Quotes
+   * anónimos (sin conductor asociado) pueden ser usados por cualquier
+   * conductor autenticado; quotes ya asociados a un conductor solo pueden
+   * ser usados por ese mismo conductor.
+   */
+  public isUsableBy(conductorId: string): boolean {
+    return this.conductorId === null || this.conductorId === conductorId;
+  }
 }
