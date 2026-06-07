@@ -7,23 +7,46 @@ import { CLOCK, type Clock } from '@/domain/providers/clock.provider';
 import {
   SearchLog,
   type SearchLogFilters,
+  type SearchSignal,
 } from '@/domain/entities/search-log.entity';
 import { latLonToH3 } from '@/application/helpers/h3';
 
-const DEBOUNCE_SECONDS = 30;
+/**
+ * Ventanas de debounce por señal. Las búsquedas viewport son ambient (señal
+ * débil pero frecuente) y se debouncean a 30s para no inflar la tabla. Los
+ * vehicleViews son intent signals y aceptan un debounce mayor (5min) por
+ * (sesión, vehículo) para evitar duplicados al refrescar o navegar atrás
+ * sin perder eventos legítimos.
+ */
+const DEBOUNCE_SECONDS_BY_SIGNAL: Record<SearchSignal, number> = {
+  search: 30,
+  vehicleView: 300,
+  quote: 0,
+  reservation: 0,
+};
 
 export interface MaybeLogSearchInput {
   sessionId: string | null | undefined;
   conductorId: string | null;
   latitude: number | null;
   longitude: number | null;
+  signal?: SearchSignal;
   filters: SearchLogFilters;
 }
 
+export interface LogVehicleViewInput {
+  sessionId: string | null | undefined;
+  conductorId: string | null;
+  vehicleId: string;
+  latitude: number | null;
+  longitude: number | null;
+}
+
 /**
- * Captura señales de demanda persistiendo logs de búsqueda. Respeta un
- * debounce de 30 segundos por sesión para evitar inflar la tabla cuando el
- * usuario hace ajustes finos de filtros.
+ * Captura señales de interés zonal persistiendo logs. Cada llamada graba un
+ * registro de tipo `signal` (search ambient, vehicleView intent, quote o
+ * reservation conversion) y respeta una ventana de debounce por sesión y
+ * señal para evitar inflar la tabla con duplicados.
  */
 @Injectable()
 export class SearchLogService {
@@ -37,27 +60,63 @@ export class SearchLogService {
   ) {}
 
   /**
-   * Loguea la búsqueda si pasaron al menos 30 segundos desde el último log
-   * de la sesión y las coordenadas son válidas. Caso contrario es no-op.
+   * Loguea una búsqueda ambient (`signal='search'`) si pasaron al menos 30s
+   * desde el último search de la sesión y las coordenadas son válidas.
    */
   public async maybeLog(input: MaybeLogSearchInput): Promise<void> {
     if (!input.sessionId) return;
     const h3Cell = latLonToH3(input.latitude, input.longitude);
     if (!h3Cell) return;
+    const signal: SearchSignal = input.signal ?? 'search';
     const now = this.clock.now();
-    const last = await this.searchLogRepository.findLastBySession(
-      input.sessionId,
-    );
-    if (last) {
-      const elapsedSec =
-        (now.getTime() - last.getCreatedAt().getTime()) / 1000;
-      if (elapsedSec < DEBOUNCE_SECONDS) return;
+    const debounceWindowSec = DEBOUNCE_SECONDS_BY_SIGNAL[signal];
+    if (debounceWindowSec > 0) {
+      const last = await this.searchLogRepository.findLastBySessionAndSignal(
+        input.sessionId,
+        signal,
+      );
+      if (last) {
+        const elapsedSec =
+          (now.getTime() - last.getCreatedAt().getTime()) / 1000;
+        if (elapsedSec < debounceWindowSec) return;
+      }
     }
     const log = new SearchLog({
       sessionId: input.sessionId,
       conductorId: input.conductorId,
       h3Cell,
+      signal,
       filters: input.filters,
+      createdAt: now,
+    });
+    await this.searchLogRepository.save(log);
+  }
+
+  /**
+   * Loguea un vehicleView con el hex del vehículo. Debounce por (sesión,
+   * vehículo) para que abrir-cerrar-abrir el mismo auto no cuente dos veces.
+   */
+  public async logVehicleView(input: LogVehicleViewInput): Promise<void> {
+    if (!input.sessionId) return;
+    const h3Cell = latLonToH3(input.latitude, input.longitude);
+    if (!h3Cell) return;
+    const now = this.clock.now();
+    const last = await this.searchLogRepository.findLastBySessionAndSignal(
+      input.sessionId,
+      'vehicleView',
+      h3Cell,
+    );
+    if (last) {
+      const elapsedSec =
+        (now.getTime() - last.getCreatedAt().getTime()) / 1000;
+      if (elapsedSec < DEBOUNCE_SECONDS_BY_SIGNAL.vehicleView) return;
+    }
+    const log = new SearchLog({
+      sessionId: input.sessionId,
+      conductorId: input.conductorId,
+      h3Cell,
+      signal: 'vehicleView',
+      filters: { vehicleId: input.vehicleId },
       createdAt: now,
     });
     await this.searchLogRepository.save(log);
@@ -71,6 +130,17 @@ export class SearchLogService {
     this.maybeLog(input).catch((error) => {
       this.logger.warn(
         `searchLog failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    });
+  }
+
+  /**
+   * Variante fire-and-forget de `logVehicleView`.
+   */
+  public logVehicleViewAsync(input: LogVehicleViewInput): void {
+    this.logVehicleView(input).catch((error) => {
+      this.logger.warn(
+        `vehicleView log failed: ${error instanceof Error ? error.message : String(error)}`,
       );
     });
   }

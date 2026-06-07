@@ -9,6 +9,7 @@ import {
   BulkPriceResultInvalidException,
 } from '@/domain/exceptions/bulk-price.exception';
 import type { Prisma } from '@prisma/client';
+import { latLonToH3 } from '@/application/helpers/h3';
 
 const VEHICLE_INCLUDE = {
   // Photos no tienen columna de orden; ordenamos por URL para que las que
@@ -30,6 +31,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
   async save(vehicle: Vehicle): Promise<Vehicle> {
     const characteristics = vehicle.getCharacteristics();
     const discountTiers = vehicle.getDiscountTiers();
+    const h3Cell = latLonToH3(vehicle.getLatitude(), vehicle.getLongitude());
 
     await this.prisma.$transaction(async (tx) => {
       await tx.vehicle.upsert({
@@ -47,6 +49,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
           address: vehicle.getAddress(),
           latitude: vehicle.getLatitude(),
           longitude: vehicle.getLongitude(),
+          h3Cell,
           locationApproximate: vehicle.isLocationApproximate(),
           availableFrom: vehicle.getAvailableFrom(),
           autoAccept: vehicle.getAutoAccept(),
@@ -82,6 +85,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
           address: vehicle.getAddress(),
           latitude: vehicle.getLatitude(),
           longitude: vehicle.getLongitude(),
+          h3Cell,
           locationApproximate: vehicle.isLocationApproximate(),
           availableFrom: vehicle.getAvailableFrom(),
           autoAccept: vehicle.getAutoAccept(),

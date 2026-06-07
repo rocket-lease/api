@@ -175,6 +175,7 @@ export class ReservationService {
     private readonly priceQuoteRepository: PriceQuoteRepository = {
       save: async () => { throw new Error('PriceQuoteRepository not provided'); },
       findById: async () => null,
+      countByHexSince: async () => 0,
       aggregateMultiplierByH3Since: async () => [],
       deleteExpiredBefore: async () => 0,
     },
@@ -1807,45 +1808,50 @@ export class ReservationService {
       if (!quote.isUsableBy(input.conductorId)) {
         throw new PriceQuoteConductorMismatchException(input.quoteToken);
       }
-      const durationDays = Math.max(
-        1,
-        Math.ceil(
-          (input.endAt.getTime() - input.startAt.getTime()) /
-            (24 * 60 * 60 * 1000),
-        ),
-      );
-      const baseOnly = computeBaseRentalCents(
-        quote.getBasePriceCents(),
-        input.startAt,
-        input.endAt,
-      );
-      const subtotalWithMultiplier = Math.round(
-        baseOnly * quote.getMultiplier(),
-      );
-      const pricingSnapshot: PricingQuote = {
-        vehicleId: input.vehicle.getId(),
-        currency: 'ARS',
-        basePriceCents: quote.getBasePriceCents(),
-        durationDays,
-        subtotalCents: subtotalWithMultiplier,
-        appliedDiscountTier:
-          quote.getDiscountPercentage() > 0
-            ? {
-                minimumDays: durationDays,
-                discountPercentage: quote.getDiscountPercentage(),
-              }
-            : null,
-        appliedDiscountPercentage: quote.getDiscountPercentage(),
-        discountCents: Math.floor(
-          (subtotalWithMultiplier * quote.getDiscountPercentage()) / 100,
-        ),
-        totalCents: quote.getTotalCents(),
-        multiplier: quote.getMultiplier(),
-        deliveryFeeCents: quote.getDeliveryFeeCents(),
-        quoteToken: quote.getId(),
-        expiresAt: quote.getExpiresAt().toISOString(),
-      };
-      return { pricingSnapshot };
+      const datesMatch =
+        quote.getStartAt().getTime() === input.startAt.getTime() &&
+        quote.getEndAt().getTime() === input.endAt.getTime();
+      if (datesMatch) {
+        const durationDays = Math.max(
+          1,
+          Math.ceil(
+            (input.endAt.getTime() - input.startAt.getTime()) /
+              (24 * 60 * 60 * 1000),
+          ),
+        );
+        const baseOnly = computeBaseRentalCents(
+          quote.getBasePriceCents(),
+          input.startAt,
+          input.endAt,
+        );
+        const subtotalWithMultiplier = Math.round(
+          baseOnly * quote.getMultiplier(),
+        );
+        const pricingSnapshot: PricingQuote = {
+          vehicleId: input.vehicle.getId(),
+          currency: 'ARS',
+          basePriceCents: quote.getBasePriceCents(),
+          durationDays,
+          subtotalCents: subtotalWithMultiplier,
+          appliedDiscountTier:
+            quote.getDiscountPercentage() > 0
+              ? {
+                  minimumDays: durationDays,
+                  discountPercentage: quote.getDiscountPercentage(),
+                }
+              : null,
+          appliedDiscountPercentage: quote.getDiscountPercentage(),
+          discountCents: Math.floor(
+            (subtotalWithMultiplier * quote.getDiscountPercentage()) / 100,
+          ),
+          totalCents: quote.getTotalCents(),
+          multiplier: quote.getMultiplier(),
+          deliveryFeeCents: quote.getDeliveryFeeCents(),
+          quoteToken: quote.getId(),
+          expiresAt: quote.getExpiresAt().toISOString(),
+        };
+        return { pricingSnapshot };
+      }
     }
 
     const result = await this.pricingService.quoteForVehicle({

@@ -148,6 +148,7 @@ model Vehicle {
   address      String?
   latitude     Float?
   longitude    Float?
+  h3Cell       String?      @map("h3_cell")
   locationApproximate Boolean @default(false) @map("location_approximate")
   availableFrom String      @map("available_from")
   autoAccept   Boolean?     @map("auto_accept")
@@ -176,6 +177,7 @@ model Vehicle {
   updatedAt DateTime @updatedAt
 
   @@index([latitude, longitude])
+  @@index([h3Cell], map: "vehicles_h3_cell_idx")
   @@map("vehicles")
 }
 
@@ -582,6 +584,8 @@ model PriceQuote {
   conductor          User?    @relation(fields: [conductorId], references: [id], onDelete: SetNull)
 
   @@index([vehicleId, expiresAt], map: "price_quotes_lookup_idx")
+  @@index([h3Cell, createdAt(sort: Desc)], map: "price_quotes_zone_time_idx")
+  @@index([expiresAt], map: "price_quotes_expires_at_idx")
   @@map("price_quotes")
 }
 
@@ -590,6 +594,7 @@ model SearchLog {
   sessionId    String   @map("session_id")
   conductorId  String?  @map("conductor_id")
   h3Cell       String   @map("h3_cell")
+  signal       String   @default("search")
   filters      Json
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
@@ -597,6 +602,7 @@ model SearchLog {
 
   @@index([h3Cell, createdAt(sort: Desc)], map: "search_logs_zone_time_idx")
   @@index([sessionId, createdAt(sort: Desc)], map: "search_logs_session_time_idx")
+  @@index([signal, createdAt(sort: Desc)], map: "search_logs_signal_time_idx")
   @@map("search_logs")
 }
 

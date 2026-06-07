@@ -9,16 +9,17 @@ import { WeekendFactor } from '@/application/pricing/factors/weekend.factor';
 import { PRICE_QUOTE_REPOSITORY } from '@/domain/repositories/price-quote.repository';
 import { SEARCH_LOG_REPOSITORY } from '@/domain/repositories/search-log.repository';
 import { PRICING_STATS_REPOSITORY } from '@/domain/repositories/pricing-stats.repository';
+import { VEHICLE_REPOSITORY } from '@/domain/repositories/vehicle.repository';
 import { PostgresPriceQuoteRepository } from '@/infrastructure/repository/postgres.price-quote.repository';
 import { PostgresSearchLogRepository } from '@/infrastructure/repository/postgres.search-log.repository';
 import { PostgresPricingStatsRepository } from '@/infrastructure/repository/postgres.pricing-stats.repository';
+import { PostgresVehicleRepository } from '@/infrastructure/repository/postgres.vehicle.repository';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 import { CLOCK, SystemClock } from '@/domain/providers/clock.provider';
-import { VehicleModule } from './vehicle.module';
 import { AuthModule } from './auth.module';
 
 @Module({
-  imports: [VehicleModule, AuthModule],
+  imports: [AuthModule],
   controllers: [PricingController],
   providers: [
     PrismaService,
@@ -28,6 +29,10 @@ import { AuthModule } from './auth.module';
     DemandZoneFactor,
     LeadTimeFactor,
     WeekendFactor,
+    {
+      provide: VEHICLE_REPOSITORY,
+      useClass: PostgresVehicleRepository,
+    },
     {
       provide: PRICE_QUOTE_REPOSITORY,
       useClass: PostgresPriceQuoteRepository,

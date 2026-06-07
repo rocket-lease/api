@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
+export type SearchSignal = 'search' | 'vehicleView' | 'quote' | 'reservation';
+
 export interface SearchLogFilters {
   transmission?: string;
   maxPriceDaily?: number;
@@ -7,6 +9,7 @@ export interface SearchLogFilters {
   isAccessible?: boolean;
   from?: string;
   to?: string;
+  vehicleId?: string;
 }
 
 export interface SearchLogProps {
@@ -14,20 +17,23 @@ export interface SearchLogProps {
   sessionId: string;
   conductorId: string | null;
   h3Cell: string;
+  signal?: SearchSignal;
   filters: SearchLogFilters;
   createdAt: Date;
 }
 
 /**
- * Registro de una búsqueda de vehículos. Alimenta la señal de demanda zonal
- * que consume el motor de pricing dinámico y el admin panel. Se persiste con
- * debounce por sesión para capturar intención sin loguear ruido de filtros.
+ * Registro de una señal de interés del conductor en una zona H3. Las cuatro
+ * variantes (`signal`) representan niveles de intención crecientes y se
+ * ponderan al agregar la demanda zonal: ver un mapa es señal débil, mirar
+ * un vehículo es media, cotizarlo es fuerte y reservarlo es conversión.
  */
 export class SearchLog {
   private readonly id: string;
   private readonly sessionId: string;
   private readonly conductorId: string | null;
   private readonly h3Cell: string;
+  private readonly signal: SearchSignal;
   private readonly filters: SearchLogFilters;
   private readonly createdAt: Date;
 
@@ -36,6 +42,7 @@ export class SearchLog {
     this.sessionId = props.sessionId;
     this.conductorId = props.conductorId;
     this.h3Cell = props.h3Cell;
+    this.signal = props.signal ?? 'search';
     this.filters = props.filters;
     this.createdAt = props.createdAt;
   }
@@ -51,6 +58,9 @@ export class SearchLog {
   }
   public getH3Cell(): string {
     return this.h3Cell;
+  }
+  public getSignal(): SearchSignal {
+    return this.signal;
   }
   public getFilters(): SearchLogFilters {
     return { ...this.filters };

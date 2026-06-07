@@ -21,12 +21,19 @@ import {
   DYNAMIC_PRICING_NEUTRAL,
 } from '@/application/pricing/config/dynamic-pricing.config';
 import { h3CellToGeoJsonPolygon } from '@/application/helpers/h3';
+import {
+  computeWeightedDemand,
+  type DemandSignalCounts,
+} from '@/application/pricing/demand-weight';
 
 /**
  * Service que arma el agregado de zonas (hex H3) que consume el admin map.
- * Cada hex incluye oferta (cantidad de vehículos), demanda (search logs +
- * reservas confirmadas ponderadas), ratio, multiplier promedio y un sample
- * de vehículos.
+ * Cada hex incluye oferta (cantidad de vehículos), demanda ponderada (suma
+ * de cuatro señales con pesos crecientes según intención: search ×1,
+ * vehicleView ×5, quote ×20, reservation ×50), ratio, multiplier promedio
+ * y un sample de vehículos. La ponderación usa `computeWeightedDemand`,
+ * la misma fuente de verdad que el factor de pricing en runtime, así el
+ * heatmap y el multiplier cobrado nunca divergen.
  */
 @Injectable()
 export class AdminPricingService {
@@ -51,36 +58,56 @@ export class AdminPricingService {
       now.getTime() -
         DEMAND_ZONE_FACTOR.demandWindowDays * 24 * 60 * 60 * 1000,
     );
-    const [supplyZones, searchAggregates, quoteAggregates] = await Promise.all([
+    const [supplyZones, signalAggregates, quoteAggregates] = await Promise.all([
       this.stats.aggregateAdminZones(since),
-      this.searchLogRepository.aggregateByH3Since(since),
+      this.searchLogRepository.aggregateByH3AndSignalSince(since),
       this.priceQuoteRepository.aggregateMultiplierByH3Since(since),
     ]);
 
     const supplyByCell = new Map(
       supplyZones.map((row) => [row.h3Cell, row]),
     );
-    const searchByCell = new Map(
-      searchAggregates.map((row) => [row.h3Cell, row.searches]),
-    );
     const multiplierByCell = new Map(
       quoteAggregates.map((row) => [row.h3Cell, row]),
     );
 
+    const countsByCell = new Map<string, DemandSignalCounts>();
+    const countsFor = (cell: string): DemandSignalCounts => {
+      let counts = countsByCell.get(cell);
+      if (!counts) {
+        counts = { search: 0, vehicleView: 0, quote: 0, reservation: 0 };
+        countsByCell.set(cell, counts);
+      }
+      return counts;
+    };
+    for (const row of signalAggregates) {
+      countsFor(row.h3Cell)[row.signal] += row.count;
+    }
+    for (const quote of quoteAggregates) {
+      countsFor(quote.h3Cell).quote += quote.sampleSize;
+    }
+    for (const supply of supplyZones) {
+      countsFor(supply.h3Cell).reservation += supply.demandReservationCount;
+    }
+
+    const weightedDemandByCell = new Map<string, number>();
+    for (const [cell, counts] of countsByCell) {
+      weightedDemandByCell.set(cell, computeWeightedDemand(counts));
+    }
+
     const allCells = new Set<string>([
       ...supplyByCell.keys(),
-      ...searchByCell.keys(),
+      ...weightedDemandByCell.keys(),
       ...multiplierByCell.keys(),
     ]);
 
     const zones = Array.from(allCells)
       .map((h3Cell) => {
         const supply = supplyByCell.get(h3Cell);
-        const searches = searchByCell.get(h3Cell) ?? 0;
         const supplyCount = supply?.supplyCount ?? 0;
-        const reservations = supply?.demandReservationCount ?? 0;
-        const demandCount =
-          searches + reservations * DEMAND_ZONE_FACTOR.reservationWeight;
+        const demandCount = Math.round(
+          weightedDemandByCell.get(h3Cell) ?? 0,
+        );
         const ratio = supplyCount === 0 ? 0 : demandCount / supplyCount;
         const avgMultiplier =
           multiplierByCell.get(h3Cell)?.avgMultiplier ?? DYNAMIC_PRICING_NEUTRAL;

@@ -4,7 +4,6 @@ import {
   type AdminPricingZoneAggregate,
   type PricingStatsRepository,
 } from '@/domain/repositories/pricing-stats.repository';
-import { latLonToH3 } from '@/application/helpers/h3';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -57,45 +56,19 @@ export class PostgresPricingStatsRepository implements PricingStatsRepository {
     h3Cell: string,
     since: Date,
   ): Promise<number> {
-    const rows = await this.prisma.reservation.findMany({
+    return this.prisma.reservation.count({
       where: {
         status: { in: [...ACTIVE_STATUSES] },
         createdAt: { gte: since },
-        vehicle: {
-          latitude: { not: null },
-          longitude: { not: null },
-        },
-      },
-      select: {
-        vehicle: { select: { latitude: true, longitude: true } },
+        vehicle: { h3Cell },
       },
     });
-    let count = 0;
-    for (const row of rows) {
-      const cell = latLonToH3(
-        row.vehicle.latitude,
-        row.vehicle.longitude,
-      );
-      if (cell === h3Cell) count += 1;
-    }
-    return count;
   }
 
   public async countAvailableInHex(h3Cell: string): Promise<number> {
-    const vehicles = await this.prisma.vehicle.findMany({
-      where: {
-        enabled: true,
-        latitude: { not: null },
-        longitude: { not: null },
-      },
-      select: { latitude: true, longitude: true },
+    return this.prisma.vehicle.count({
+      where: { enabled: true, h3Cell },
     });
-    let count = 0;
-    for (const v of vehicles) {
-      const cell = latLonToH3(v.latitude, v.longitude);
-      if (cell === h3Cell) count += 1;
-    }
-    return count;
   }
 
   public async aggregateAdminZones(
@@ -103,69 +76,51 @@ export class PostgresPricingStatsRepository implements PricingStatsRepository {
   ): Promise<AdminPricingZoneAggregate[]> {
     const [vehicles, reservations] = await Promise.all([
       this.prisma.vehicle.findMany({
-        where: {
-          enabled: true,
-          latitude: { not: null },
-          longitude: { not: null },
-        },
-        select: { id: true, latitude: true, longitude: true },
+        where: { enabled: true, h3Cell: { not: null } },
+        select: { id: true, h3Cell: true },
       }),
       this.prisma.reservation.findMany({
         where: {
           status: { in: [...ACTIVE_STATUSES] },
           createdAt: { gte: since },
-          vehicle: {
-            latitude: { not: null },
-            longitude: { not: null },
-          },
+          vehicle: { h3Cell: { not: null } },
         },
         select: {
           vehicleId: true,
-          vehicle: { select: { latitude: true, longitude: true } },
+          vehicle: { select: { h3Cell: true } },
         },
       }),
     ]);
 
     const byCell = new Map<string, AdminPricingZoneAggregate>();
-
-    for (const v of vehicles) {
-      const cell = latLonToH3(v.latitude, v.longitude);
-      if (!cell) continue;
-      const current = byCell.get(cell);
-      if (current) {
-        current.supplyCount += 1;
-        if (current.vehicleSampleIds.length < 10) {
-          current.vehicleSampleIds.push(v.id);
-        }
-      } else {
-        byCell.set(cell, {
+    const ensureCell = (cell: string): AdminPricingZoneAggregate => {
+      let current = byCell.get(cell);
+      if (!current) {
+        current = {
           h3Cell: cell,
-          supplyCount: 1,
+          supplyCount: 0,
           demandSearchCount: 0,
           demandReservationCount: 0,
-          vehicleSampleIds: [v.id],
-        });
+          vehicleSampleIds: [],
+        };
+        byCell.set(cell, current);
+      }
+      return current;
+    };
+
+    for (const v of vehicles) {
+      if (!v.h3Cell) continue;
+      const current = ensureCell(v.h3Cell);
+      current.supplyCount += 1;
+      if (current.vehicleSampleIds.length < 10) {
+        current.vehicleSampleIds.push(v.id);
       }
     }
 
     for (const r of reservations) {
-      const cell = latLonToH3(
-        r.vehicle.latitude,
-        r.vehicle.longitude,
-      );
+      const cell = r.vehicle.h3Cell;
       if (!cell) continue;
-      const current = byCell.get(cell);
-      if (current) {
-        current.demandReservationCount += 1;
-      } else {
-        byCell.set(cell, {
-          h3Cell: cell,
-          supplyCount: 0,
-          demandSearchCount: 0,
-          demandReservationCount: 1,
-          vehicleSampleIds: [],
-        });
-      }
+      ensureCell(cell).demandReservationCount += 1;
     }
 
     return Array.from(byCell.values());

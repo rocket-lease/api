@@ -53,6 +53,12 @@ export class PostgresPriceQuoteRepository implements PriceQuoteRepository {
     });
   }
 
+  public async countByHexSince(h3Cell: string, since: Date): Promise<number> {
+    return this.prisma.priceQuote.count({
+      where: { h3Cell, createdAt: { gte: since } },
+    });
+  }
+
   public async aggregateMultiplierByH3Since(
     since: Date,
   ): Promise<PriceQuoteAggregatedZone[]> {

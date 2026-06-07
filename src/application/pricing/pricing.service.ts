@@ -18,7 +18,6 @@ import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { PriceQuote as PriceQuoteEntity } from '@/domain/entities/price-quote.entity';
 import { DynamicPricingService } from './dynamic-pricing.service';
 import {
-  computeBaseRentalCents,
   computePricingTotal,
   selectAppliedDiscountTier,
 } from '@/application/helpers/pricing';
@@ -112,12 +111,6 @@ export class PricingService {
       discountPercentage,
       deliveryFeeCents,
     });
-    const basePlusMultiplierSubtotal = totals.subtotalCents;
-    const baseOnly = computeBaseRentalCents(
-      vehicle.getBasePriceCents(),
-      startAt,
-      endAt,
-    );
     const h3Cell =
       latLonToH3(vehicle.getLatitude(), vehicle.getLongitude()) ?? 'unknown';
     const expiresAt = new Date(now.getTime() + PRICE_QUOTE_TTL_MS);
@@ -144,7 +137,7 @@ export class PricingService {
       currency: 'ARS',
       basePriceCents: vehicle.getBasePriceCents(),
       durationDays: totals.durationDays,
-      subtotalCents: basePlusMultiplierSubtotal > 0 ? basePlusMultiplierSubtotal : baseOnly,
+      subtotalCents: totals.subtotalCents,
       appliedDiscountTier: appliedTier,
       appliedDiscountPercentage: discountPercentage,
       discountCents: totals.discountCents,

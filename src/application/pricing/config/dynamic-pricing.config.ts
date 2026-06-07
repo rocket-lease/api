@@ -35,14 +35,25 @@ export const UTILIZATION_FACTOR = {
 
 /**
  * Configuración del factor de demanda zonal (H3).
- *  - `demandWindowDays`: cuánta historia mirar (search logs + reservas).
- *  - `reservationWeight`: cuánto pesa cada reserva confirmada frente a una
- *    búsqueda al computar la demanda agregada.
+ *
+ * Modelamos demanda como la suma ponderada de cuatro señales que reflejan
+ * intención creciente: una búsqueda viewport es ambient, ver el detalle de
+ * un vehículo es intent, cotizarlo es high intent y reservarlo es la
+ * conversión real. Los pesos relativos los validamos contra benchmarks de
+ * P2P rental marketplaces (ver `docs/adr/0008-weighted-demand-signals.md`).
+ *
+ *  - `demandWindowDays`: cuánta historia mirar (todas las señales).
+ *  - `signalWeights`: ponderación relativa de cada `SearchSignal`.
  *  - `ratioThresholds`: ratios demand/supply que disparan cada multiplier.
  */
 export const DEMAND_ZONE_FACTOR = {
   demandWindowDays: 7,
-  reservationWeight: 3,
+  signalWeights: {
+    search: 1,
+    vehicleView: 5,
+    quote: 20,
+    reservation: 50,
+  },
   ratioThresholds: {
     veryHigh: { ratio: 10, multiplier: 1.25 },
     high: { ratio: 5, multiplier: 1.15 },

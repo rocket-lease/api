@@ -19,6 +19,12 @@ export interface PriceQuoteRepository {
   findById(id: string): Promise<PriceQuote | null>;
 
   /**
+   * Cuenta quotes emitidos en el hex `h3Cell` desde el cutoff `since`. Es la
+   * señal `quote` (high intent) del modelo de demanda zonal.
+   */
+  countByHexSince(h3Cell: string, since: Date): Promise<number>;
+
+  /**
    * Devuelve el multiplier promedio por cada hex H3 con quotes en la ventana
    * `[since, now]`. Se usa para colorear el admin map.
    */

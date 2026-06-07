@@ -1,14 +1,22 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Get,
   Headers,
+  HttpCode,
   Inject,
+  Post,
   Query,
 } from '@nestjs/common';
 import * as Contracts from '@rocket-lease/contracts';
 import { GeoService } from '@/application/geo.service';
 import { SearchLogService } from '@/application/search-log.service';
+import { AuthService } from '@/application/auth.service';
+import {
+  VEHICLE_REPOSITORY,
+  type VehicleRepository,
+} from '@/domain/repositories/vehicle.repository';
 
 function parseNumber(name: string, raw?: string): number | undefined {
   if (raw === undefined || raw === '') return undefined;
@@ -49,7 +57,48 @@ export class GeoController {
     @Inject(GeoService) private readonly geoService: GeoService,
     @Inject(SearchLogService)
     private readonly searchLogService: SearchLogService,
+    @Inject(AuthService)
+    private readonly authService: AuthService,
+    @Inject(VEHICLE_REPOSITORY)
+    private readonly vehicleRepository: VehicleRepository,
   ) {}
+
+  /**
+   * Loguea un vehicleView signal anclado en el hex H3 del vehículo. Auth es
+   * opcional: si viene token válido el log queda asociado al conductor. El
+   * debounce por (sessionId, vehicleId) lo aplica el service.
+   */
+  @Post('vehicle-view')
+  @HttpCode(204)
+  public async logVehicleView(
+    @Body() dto: Contracts.LogVehicleViewRequest,
+    @Headers('authorization') authHeader?: string,
+    @Headers('x-session-id') sessionId?: string,
+  ): Promise<void> {
+    const parsed = Contracts.LogVehicleViewRequestSchema.parse(dto);
+    if (!sessionId) return;
+    const vehicle = await this.vehicleRepository.findById(parsed.vehicleId);
+    if (!vehicle) return;
+    const conductorId = await this.tryGetConductorId(authHeader);
+    this.searchLogService.logVehicleViewAsync({
+      sessionId,
+      conductorId,
+      vehicleId: parsed.vehicleId,
+      latitude: vehicle.getLatitude(),
+      longitude: vehicle.getLongitude(),
+    });
+  }
+
+  private async tryGetConductorId(
+    authHeader: string | undefined,
+  ): Promise<string | null> {
+    if (!authHeader) return null;
+    try {
+      return await this.authService.getUserIdFromToken(authHeader);
+    } catch {
+      return null;
+    }
+  }
 
   /**
    * Marcadores de rentadoras para el mapa. Acepta viewport
