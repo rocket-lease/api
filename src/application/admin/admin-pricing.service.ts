@@ -20,7 +20,10 @@ import {
   DEMAND_ZONE_FACTOR,
   DYNAMIC_PRICING_NEUTRAL,
 } from '@/application/pricing/config/dynamic-pricing.config';
-import { h3CellToGeoJsonPolygon } from '@/application/helpers/h3';
+import {
+  h3CellToGeoJsonPolygon,
+  isH3CellInCaba,
+} from '@/application/helpers/h3';
 import {
   computeWeightedDemand,
   type DemandSignalCounts,
@@ -102,6 +105,7 @@ export class AdminPricingService {
     ]);
 
     const zones = Array.from(allCells)
+      .filter(isH3CellInCaba)
       .map((h3Cell) => {
         const supply = supplyByCell.get(h3Cell);
         const supplyCount = supply?.supplyCount ?? 0;
