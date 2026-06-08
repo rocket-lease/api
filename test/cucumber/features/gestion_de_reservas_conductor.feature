@@ -90,42 +90,29 @@ Característica: Gestión de reservas del conductor
     Cuando el conductor "A" confirma la devolución
     Entonces la reserva del conductor "A" queda en estado "completed"
 
-  # @BLOCKED: requiere módulo de reviews (modelo, entity, service, controller, contracts)
-  # El ciclo de vida (confirmed → in_progress → completed) ya está implementado arriba.
-  #
-  # @BLOCKED: requiere implementar el ciclo de vida (confirmed → in_progress → completed)
-  # más el módulo de reviews (modelo, entity, service, controller, contracts).
-  #
-  # Escenario: Ver resumen de reserva completada
-  #   Dado que soy un conductor "A" autenticado
-  #   Y el conductor "A" tiene una reserva completada del vehículo "AE987CC"
-  #   Cuando accedo al detalle de la reserva del conductor "A"
-  #   Entonces veo el estado "completed"
-  #   Y veo el resumen con fechas, vehículo e importe final
-  #
-  # Escenario: Dejar reseña en reserva completada
-  #   Dado que soy un conductor "A" autenticado
-  #   Y el conductor "A" tiene una reserva completada del vehículo "AE987CC"
-  #   Cuando dejo una reseña de 4 estrellas con comentario "Muy buen vehículo"
-  #   Entonces la reseña fue guardada exitosamente
-  #
-  # Escenario: Ver reseña existente en reserva completada
-  #   Dado que soy un conductor "A" autenticado
-  #   Y el conductor "A" tiene una reserva completada del vehículo "AE987CC"
-  #   Y ya existe una reseña del conductor "A" para esa reserva
-  #   Cuando accedo al detalle de la reserva del conductor "A"
-  #   Entonces veo la reseña con puntuación 4 y comentario "Muy buen vehículo"
-  #
-  # Escenario: No se puede reseñar una reserva no completada
-  #   Dado que soy un conductor "A" autenticado
-  #   Y el conductor "A" reservó el vehículo "AE987CC" desde "2026-07-01T10:00:00Z" hasta "2026-07-03T10:00:00Z" firmando el contrato
-  #   Y el conductor "A" confirma el pago con "credit_card"
-  #   Cuando dejo una reseña de 4 estrellas con comentario "Muy buen vehículo"
-  #   Entonces recibo un error indicando que la reserva no está completada
-  #
-  # Escenario: No se puede reseñar dos veces la misma reserva
-  #   Dado que soy un conductor "A" autenticado
-  #   Y el conductor "A" tiene una reserva completada del vehículo "AE987CC"
-  #   Y ya existe una reseña del conductor "A" para esa reserva
-  #   Cuando dejo una reseña de 3 estrellas con comentario "Regular"
-  #   Entonces recibo un error indicando que la reserva ya fue reseñada
+  # ==========================================================================
+  # AC3: Ciclo de vida confirmed → in_progress → completed + reseñas
+  # ==========================================================================
+
+  Escenario: Dejar reseña en reserva completada
+    Dado que el conductor "A" tiene una reserva completada del vehículo "AE987CC"
+    Cuando dejo una reseña de 4 estrellas con comentario "Muy buen vehículo"
+    Entonces la reseña fue guardada exitosamente
+
+  Escenario: Ver reseña existente en reserva completada
+    Dado que el conductor "A" tiene una reserva completada del vehículo "AE987CC"
+    Y ya existe una reseña del conductor "A" para esa reserva
+    Cuando accedo al detalle de la reserva del conductor "A"
+    Entonces veo la reseña con puntuación 4 y comentario "Muy buen vehículo"
+
+  Escenario: No se puede reseñar una reserva no completada
+    Dado que el conductor "A" reservó el vehículo "AE987CC" desde "2026-07-01T10:00:00Z" hasta "2026-07-03T10:00:00Z" firmando el contrato
+    Y el conductor "A" confirma el pago con "credit_card"
+    Cuando dejo una reseña de 4 estrellas con comentario "Muy buen vehículo"
+    Entonces recibo un error indicando que la reserva no está completada
+
+  Escenario: No se puede reseñar dos veces la misma reserva
+    Dado que el conductor "A" tiene una reserva completada del vehículo "AE987CC"
+    Y ya existe una reseña del conductor "A" para esa reserva
+    Cuando dejo una reseña de 3 estrellas con comentario "Regular"
+    Entonces recibo un error indicando que la reserva ya fue reseñada
