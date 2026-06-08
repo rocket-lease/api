@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { Review } from '@/domain/entities/review.entity';
+import { Review, type ReviewTargetType } from '@/domain/entities/review.entity';
 import type { ReviewRepository } from '@/domain/repositories/review.repository';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 
@@ -22,7 +22,7 @@ export class PostgresReviewRepository implements ReviewRepository {
       reservationId: row.reservationId,
       reviewerId: row.reviewerId,
       reviewedId: row.reviewedId,
-      targetType: row.targetType as 'vehicle' | 'rentador',
+      targetType: row.targetType as ReviewTargetType,
       rating: row.rating,
       comment: row.comment,
       createdAt: row.createdAt,
@@ -46,8 +46,9 @@ export class PostgresReviewRepository implements ReviewRepository {
   }
 
   async findByReservationId(reservationId: string): Promise<Review | null> {
-    const row = await this.prisma.review.findUnique({
+    const row = await this.prisma.review.findFirst({
       where: { reservationId },
+      orderBy: { createdAt: 'desc' },
     });
     return row ? this.reconstitute(row) : null;
   }
@@ -55,6 +56,67 @@ export class PostgresReviewRepository implements ReviewRepository {
   async findByReviewedId(reviewedId: string): Promise<Review[]> {
     const rows = await this.prisma.review.findMany({
       where: { reviewedId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((r) => this.reconstitute(r));
+  }
+
+  async findByReviewerId(reviewerId: string): Promise<Review[]> {
+    const rows = await this.prisma.review.findMany({
+      where: { reviewerId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((r) => this.reconstitute(r));
+  }
+
+  async findByReservationAndReviewer(
+    reservationId: string,
+    reviewerId: string,
+  ): Promise<Review | null> {
+    const row = await this.prisma.review.findFirst({
+      where: { reservationId, reviewerId },
+    });
+    return row ? this.reconstitute(row) : null;
+  }
+
+  async findByReservationAndReviewerAndTargetType(
+    reservationId: string,
+    reviewerId: string,
+    targetType: ReviewTargetType,
+  ): Promise<Review | null> {
+    const row = await this.prisma.review.findFirst({
+      where: { reservationId, reviewerId, targetType },
+    });
+    return row ? this.reconstitute(row) : null;
+  }
+
+  async findByReservationAndReviewerAll(
+    reservationId: string,
+    reviewerId: string,
+  ): Promise<Review[]> {
+    const rows = await this.prisma.review.findMany({
+      where: { reservationId, reviewerId },
+    });
+    return rows.map((r) => this.reconstitute(r));
+  }
+
+  async findByTarget(
+    targetType: ReviewTargetType,
+    targetId: string,
+  ): Promise<Review[]> {
+    const rows = await this.prisma.review.findMany({
+      where: { targetType, reviewedId: targetId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((r) => this.reconstitute(r));
+  }
+
+  async findVehicleReviewsByRentadorId(rentadorId: string): Promise<Review[]> {
+    const rows = await this.prisma.review.findMany({
+      where: {
+        targetType: 'vehicle',
+        reservation: { rentadorId },
+      },
       orderBy: { createdAt: 'desc' },
     });
     return rows.map((r) => this.reconstitute(r));
