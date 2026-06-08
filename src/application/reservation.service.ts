@@ -1837,6 +1837,7 @@ export class ReservationService {
       chain: chainPayload,
       createdAt: r.getCreatedAt().toISOString(),
       updatedAt: r.getUpdatedAt().toISOString(),
+      reviews: [],
       vehicle: this.vehicleSummary(vehicle, r.getVehicleId(), reservationRuleSet),
       rentador: {
         id: r.getRentadorId(),
