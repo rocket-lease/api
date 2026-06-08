@@ -300,6 +300,7 @@ export class Vehicle {
     });
 
     if (!result.success) {
+      console.log('VEHICLE_VALIDATION_ERROR:', JSON.stringify(result.error.issues));
       throw new InvalidEntityDataException(result.error.issues[0].message);
     }
   }

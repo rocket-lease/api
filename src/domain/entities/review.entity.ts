@@ -7,13 +7,13 @@ const reviewSchema = z.object({
   reservationId: z.string().uuid(),
   reviewerId: z.string().uuid(),
   reviewedId: z.string().uuid(),
-  targetType: z.enum(['vehicle', 'rentador']),
+  targetType: z.enum(['vehicle', 'rentador', 'conductor']),
   rating: z.number().int().min(1).max(5),
   comment: z.string().max(500, 'Comment must be at most 500 characters'),
   createdAt: z.date(),
 });
 
-export type ReviewTargetType = 'vehicle' | 'rentador';
+export type ReviewTargetType = 'vehicle' | 'rentador' | 'conductor';
 
 export interface ReviewProps {
   id?: string;

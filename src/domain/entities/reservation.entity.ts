@@ -574,6 +574,7 @@ export class Reservation {
   public isInProgress(): boolean { return this.status === RESERVATION_STATUS.in_progress; }
   public isCancelled(): boolean { return this.status === RESERVATION_STATUS.cancelled; }
   public isExpired(): boolean { return this.status === RESERVATION_STATUS.expired; }
+  public isCompleted(): boolean { return this.status === RESERVATION_STATUS.completed; }
 
   /**
    * Confirma el pago inmediato (tarjeta crédito, débito, billetera virtual).
