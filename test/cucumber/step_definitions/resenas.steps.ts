@@ -2,7 +2,7 @@ import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from 'expect';
 import { api } from '../support/http-client';
 import { MyWorld } from '../support/world';
-import { registerAndLogin, registerAndLoginVerified, useAlias } from './auth';
+import { registerAndLoginVerified, useAlias } from './auth';
 
 /**
  * Cambia el token activo al del dueño del vehículo (__owner__).
@@ -488,7 +488,7 @@ Then(
     expect(res).toBeDefined();
     expect(res.status).toBeGreaterThanOrEqual(400);
     expect(res.status).toBeLessThan(500);
-    const body = res.body as any;
+    const body = res.body;
     const detail = body?.detail ?? body?.message ?? '';
     expect(
       detail.toLowerCase().includes('complet') ||
@@ -506,7 +506,7 @@ Then(
     expect(res).toBeDefined();
     expect(res.status).toBeGreaterThanOrEqual(400);
     expect(res.status).toBeLessThan(500);
-    const body = res.body as any;
+    const body = res.body;
     const detail = body?.detail ?? body?.message ?? '';
     expect(
       detail.toLowerCase().includes('ya') ||
