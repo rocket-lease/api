@@ -18,6 +18,7 @@ export interface ReviewRepository {
     reservationId: string,
     reviewerId: string,
   ): Promise<Review[]>;
+  findAllByReservationId(reservationId: string): Promise<Review[]>;
   findByTarget(
     targetType: ReviewTargetType,
     targetId: string,

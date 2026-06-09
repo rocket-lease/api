@@ -130,29 +130,32 @@ export class ReviewService {
   }
 
   /**
-   * Retorna las reseñas recibidas por un rentador
-   * (targetType='rentador').
+   * Retorna las reseñas recibidas por un rentador:
+   * - reseñas sobre el rentador (targetType='rentador')
+   * - reseñas sobre vehículos del rentador (targetType='vehicle').
    */
   async getRentadorReviews(
-    reviewedId: string,
+    rentadorId: string,
   ): Promise<RentadorReviewsResponse> {
-    const reviews = await this.reviewRepository.findByTarget(
-      'rentador',
-      reviewedId,
-    );
+    const [directReviews, vehicleReviews] = await Promise.all([
+      this.reviewRepository.findByTarget('rentador', rentadorId),
+      this.reviewRepository.findVehicleReviewsByRentadorId(rentadorId),
+    ]);
 
-    if (reviews.length === 0) {
+    const allReviews = [...directReviews, ...vehicleReviews];
+
+    if (allReviews.length === 0) {
       return RentadorReviewsResponseSchema.parse([]);
     }
 
-    const reviewerIds = [...new Set(reviews.map((r) => r.getReviewerId()))];
+    const reviewerIds = [...new Set(allReviews.map((r) => r.getReviewerId()))];
     const profiles = await this.userRepository.findProfilesByIds(reviewerIds);
     const nameByReviewerId = new Map(
       profiles.map((p) => [p.id, p.name]),
     );
 
     return RentadorReviewsResponseSchema.parse(
-      reviews.map((review) => ({
+      allReviews.map((review) => ({
         id: review.getId(),
         reservationId: review.getReservationId(),
         reviewerName: nameByReviewerId.get(review.getReviewerId()) ?? '',
@@ -265,23 +268,26 @@ export class ReviewService {
   }
 
   /**
-   * Retorna todas las reseñas del usuario actual para una reserva.
+   * Retorna todas las reseñas de una reserva (sin filtrar por usuario).
    */
   async getReservationReviewsByUser(
     reservationId: string,
-    userId: string,
+    _userId: string,
   ): Promise<ReviewItem[]> {
     const reviews =
-      await this.reviewRepository.findByReservationAndReviewerAll(reservationId, userId);
+      await this.reviewRepository.findAllByReservationId(reservationId);
     if (reviews.length === 0) return [];
 
-    const reviewerProfile =
-      await this.userRepository.getProfileById(userId);
+    const reviewerIds = [...new Set(reviews.map((r) => r.getReviewerId()))];
+    const profiles = await this.userRepository.findProfilesByIds(reviewerIds);
+    const nameByReviewerId = new Map(
+      profiles.map((p) => [p.id, p.name]),
+    );
 
     return reviews.map((review) => ({
       id: review.getId(),
       reservationId: review.getReservationId(),
-      reviewerName: reviewerProfile?.name ?? '',
+      reviewerName: nameByReviewerId.get(review.getReviewerId()) ?? '',
       targetType: review.getTargetType(),
       rating: review.getRating(),
       comment: review.getComment(),

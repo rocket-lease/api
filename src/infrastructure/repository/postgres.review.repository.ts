@@ -111,6 +111,14 @@ export class PostgresReviewRepository implements ReviewRepository {
     return rows.map((r) => this.reconstitute(r));
   }
 
+  async findAllByReservationId(reservationId: string): Promise<Review[]> {
+    const rows = await this.prisma.review.findMany({
+      where: { reservationId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((r) => this.reconstitute(r));
+  }
+
   async findVehicleReviewsByRentadorId(rentadorId: string): Promise<Review[]> {
     const rows = await this.prisma.review.findMany({
       where: {

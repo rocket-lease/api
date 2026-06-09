@@ -207,7 +207,7 @@ Given(
     const reservationId = getReservationId(this, alias);
     // Primero verificar si ya existe
     const detail = await api(this).get(`/reservations/${reservationId}`);
-    if (detail.body.review) return; // ya existe
+    if (Array.isArray(detail.body.reviews) && detail.body.reviews.length > 0) return;
     // Crear una reseña por defecto
     const res = await api(this).post(`/reservations/${reservationId}/review`, {
       targetType: 'vehicle',
@@ -356,8 +356,9 @@ Then(
     const reservationId = getReservationId(this, alias);
     const detail = await api(this).get(`/reservations/${reservationId}`);
     expect(detail.status).toBe(200);
-    expect(detail.body.review).toBeDefined();
-    expect(detail.body.review.targetType).toBe('vehicle');
+    expect(Array.isArray(detail.body.reviews)).toBe(true);
+    const review = detail.body.reviews.find((r: any) => r.targetType === 'vehicle');
+    expect(review).toBeDefined();
   },
 );
 
@@ -444,9 +445,11 @@ Then(
   function (this: MyWorld, rating: number, comment: string) {
     const body = this.world.lastResponse?.body;
     expect(body).toBeDefined();
-    expect(body.review).toBeDefined();
-    expect(body.review.rating).toBe(rating);
-    expect(body.review.comment).toBe(comment);
+    expect(Array.isArray(body.reviews)).toBe(true);
+    const review = body.reviews.find(
+      (r: any) => r.rating === rating && r.comment === comment,
+    );
+    expect(review).toBeDefined();
   },
 );
 
@@ -455,9 +458,11 @@ Then(
   function (this: MyWorld, rating: number, comment: string) {
     const body = this.world.lastResponse?.body;
     expect(body).toBeDefined();
-    expect(body.review).toBeDefined();
-    expect(body.review.rating).toBe(rating);
-    expect(body.review.comment).toBe(comment);
+    expect(Array.isArray(body.reviews)).toBe(true);
+    const review = body.reviews.find(
+      (r: any) => r.rating === rating && r.comment === comment,
+    );
+    expect(review).toBeDefined();
   },
 );
 
@@ -465,7 +470,14 @@ Then(
   'la reseña fue generada para el vehículo',
   function (this: MyWorld) {
     const body = this.world.lastResponse?.body;
-    expect(body?.review?.targetType).toBe('vehicle');
+    expect(body).toBeDefined();
+    if (Array.isArray(body.reviews)) {
+      const review = body.reviews.find((r: any) => r.targetType === 'vehicle');
+      expect(review).toBeDefined();
+    } else {
+      // fallback: response directa de createReview (objeto plano sin wrapper)
+      expect(body.targetType).toBe('vehicle');
+    }
   },
 );
 
@@ -473,7 +485,14 @@ Then(
   'la reseña fue generada para el conductor',
   function (this: MyWorld) {
     const body = this.world.lastResponse?.body;
-    expect(body?.review?.targetType).toBe('conductor');
+    expect(body).toBeDefined();
+    if (Array.isArray(body.reviews)) {
+      const review = body.reviews.find((r: any) => r.targetType === 'conductor');
+      expect(review).toBeDefined();
+    } else {
+      // fallback: response directa de createReview (objeto plano sin wrapper)
+      expect(body.targetType).toBe('conductor');
+    }
   },
 );
 
