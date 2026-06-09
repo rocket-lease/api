@@ -101,7 +101,7 @@ export class ReviewService {
         break;
       default:
         throw new InvalidEntityDataException(
-          `Tipo de reseña inválido: ${dto.targetType}`,
+          `Tipo de reseña inválido: ${String(dto.targetType)}`,
         );
     }
 
