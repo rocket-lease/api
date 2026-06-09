@@ -46,10 +46,8 @@ Característica: Historial de reservas y reseñas del rentador
   # ==========================================================================
 
   Escenario: Ver reseñas recibidas de vehículo y personales
-    Dado que el conductor "A" reservó el vehículo "AB123CD" desde "2026-08-01T10:00:00Z" hasta "2026-08-03T10:00:00Z" firmando el contrato
-    Y el conductor "A" confirma el pago con "credit_card"
-    Y que el conductor "B" reservó el vehículo "AB123CD" desde "2026-09-01T10:00:00Z" hasta "2026-09-03T10:00:00Z" firmando el contrato
-    Y el conductor "B" confirma el pago con "credit_card"
+    Dado que el conductor "A" completó un alquiler del vehículo "AB123CD"
+    Y que el conductor "B" completó un alquiler del vehículo "AB123CD"
     Y que el conductor "A" deja una reseña de 5 estrellas sobre el vehículo con comentario "Excelente vehículo"
     Y que el conductor "B" deja una reseña de 4 estrellas sobre el rentador con comentario "Muy buen trato"
     Cuando el rentador consulta las reseñas que recibió
@@ -68,16 +66,14 @@ Característica: Historial de reservas y reseñas del rentador
   # ==========================================================================
 
   Escenario: Ver detalle de reserva con reseña asociada
-    Dado que el conductor "A" reservó el vehículo "AB123CD" desde "2026-08-01T10:00:00Z" hasta "2026-08-03T10:00:00Z" firmando el contrato
-    Y el conductor "A" confirma el pago con "credit_card"
+    Dado que el conductor "A" completó un alquiler del vehículo "AB123CD"
     Y que el conductor "A" deja una reseña de 5 estrellas sobre el vehículo con comentario "Excelente vehículo"
     Cuando el rentador selecciona la reserva del conductor "A"
     Entonces veo el detalle completo del alquiler con fechas, vehículo, rentador, importe y contrato
     Y veo la reseña que dejó el conductor con calificación 5 y comentario "Excelente vehículo"
 
   Escenario: Ver detalle de reserva sin reseña
-    Dado que el conductor "A" reservó el vehículo "AB123CD" desde "2026-08-01T10:00:00Z" hasta "2026-08-03T10:00:00Z" firmando el contrato
-    Y el conductor "A" confirma el pago con "credit_card"
+    Dado que el conductor "A" completó un alquiler del vehículo "AB123CD"
     Cuando el rentador selecciona la reserva del conductor "A"
     Entonces veo el detalle completo del alquiler con fechas, vehículo, rentador, importe y contrato
     Y la reserva no tiene ninguna reseña asociada

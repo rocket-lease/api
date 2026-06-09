@@ -66,7 +66,6 @@ model User {
   driverLicenseVerification DriverLicenseVerification?
   pushSubscriptions     PushSubscription[]
   reviewsWritten        Review[]                  @relation("Reviewer")
-  reviewsReceived       Review[]                  @relation("Reviewed")
 
   @@map("users")
 }
@@ -353,7 +352,7 @@ model Reservation {
   updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
   messages            Message[]
   walletMovement      WalletMovement?
-  review              Review?
+  reviews             Review[]
   tickets             Ticket[]
 
   @@index([vehicleId, status])
@@ -520,7 +519,7 @@ model PushSubscription {
 
 model Review {
   id            String      @id @default(uuid())
-  reservationId String      @unique @map("reservation_id")
+  reservationId String      @map("reservation_id")
   reviewerId    String      @map("reviewer_id")
   reviewedId    String      @map("reviewed_id")
   targetType    String      @map("target_type")
@@ -530,8 +529,9 @@ model Review {
 
   reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
   reviewer      User        @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
-  reviewed      User        @relation("Reviewed", fields: [reviewedId], references: [id], onDelete: Cascade)
 
+  @@unique([reservationId, reviewerId, targetType])
+  @@index([targetType, reviewedId])
   @@map("reviews")
 }
 
