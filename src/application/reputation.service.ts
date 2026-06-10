@@ -27,10 +27,6 @@ export class ReputationService {
       role,
     );
     
-    // Obtener la data actual para ver si hay deducciones (penalties)
-    const repData = await this.reputationRepository.getReputationData(userId);
-
-    
     // En este diseño simple, el score es solo el promedio (por ahora no consideramos deducción de score por penalties,
     // o si lo consideramos, deberíamos restarlo del promedio, pero la US-3 dice "actualiza el score con el promedio ponderado"
     // y la penalty deduce score). Así que, base_score = promedio. 

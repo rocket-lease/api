@@ -1211,7 +1211,7 @@ export class ReservationService {
         reputationPenalty: 0,
         balanceInCents: profile?.balanceInCents ?? 0,
         currency: 'ARS',
-      } as CancelReservationResponse;
+      };
     }
 
     let totalRefundCents = 0;
@@ -1273,7 +1273,7 @@ export class ReservationService {
       reputationPenalty: -REPUTATION_PENALTY,
       balanceInCents: updatedProfile.balanceInCents,
       currency: 'ARS',
-    } as CancelReservationResponse;
+    };
   }
 
   /**
