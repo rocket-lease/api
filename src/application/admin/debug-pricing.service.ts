@@ -31,7 +31,7 @@ interface ResolvedTarget {
 @Injectable()
 export class DebugPricingService {
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
