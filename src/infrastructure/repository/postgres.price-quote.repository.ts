@@ -54,24 +54,35 @@ export class PostgresPriceQuoteRepository implements PriceQuoteRepository {
   }
 
   public async countByHexSince(h3Cell: string, since: Date): Promise<number> {
-    return this.prisma.priceQuote.count({
-      where: { h3Cell, createdAt: { gte: since } },
+    const conductors = await this.prisma.priceQuote.groupBy({
+      by: ['conductorId'],
+      where: {
+        h3Cell,
+        createdAt: { gte: since },
+        conductorId: { not: null },
+      },
     });
+    return conductors.length;
   }
 
   public async aggregateMultiplierByH3Since(
     since: Date,
   ): Promise<PriceQuoteAggregatedZone[]> {
-    const rows = await this.prisma.priceQuote.groupBy({
-      by: ['h3Cell'],
-      where: { createdAt: { gte: since } },
-      _avg: { multiplier: true },
-      _count: { _all: true },
-    });
+    const rows = await this.prisma.$queryRaw<
+      Array<{ h3Cell: string; avgMultiplier: unknown; sampleSize: unknown }>
+    >`
+      SELECT
+        h3_cell AS "h3Cell",
+        AVG(multiplier) AS "avgMultiplier",
+        COUNT(DISTINCT conductor_id) AS "sampleSize"
+      FROM price_quotes
+      WHERE created_at >= ${since}
+      GROUP BY h3_cell
+    `;
     return rows.map((row) => ({
       h3Cell: row.h3Cell,
-      avgMultiplier: row._avg.multiplier ? Number(row._avg.multiplier) : 1.0,
-      sampleSize: row._count._all,
+      avgMultiplier: row.avgMultiplier ? Number(row.avgMultiplier) : 1.0,
+      sampleSize: Number(row.sampleSize ?? 0),
     }));
   }
 

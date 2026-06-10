@@ -21,9 +21,9 @@ describe('AdminPricingService', () => {
     const quotes = {
       aggregateMultiplierByH3Since: jest.fn().mockResolvedValue([]),
     } as unknown as PriceQuoteRepository;
-    const clock = {
+    const clock: Clock = {
       now: () => new Date('2026-06-07T12:00:00.000Z'),
-    } as Clock;
+    };
 
     const result = await new AdminPricingService(
       stats,
