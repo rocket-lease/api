@@ -20,6 +20,7 @@ import { PricingModule } from './pricing.module';
 import { ReviewModule } from './review.module';
 import { TicketModule } from './ticket.module';
 import { DashboardModule } from './dashboard.module';
+import { ReputationModule } from './reputation.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { DashboardModule } from './dashboard.module';
     PushSubscriptionModule,
     TicketModule,
     DashboardModule,
+    ReputationModule,
   ],
 })
 export class AppModule {}

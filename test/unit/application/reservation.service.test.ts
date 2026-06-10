@@ -210,6 +210,8 @@ describe('ReservationService', () => {
   let emailProvider: jest.Mocked<EmailProvider>;
   let identityService: jest.Mocked<Pick<IdentityService, 'assertVerified'>>;
   let driverLicenseService: jest.Mocked<Pick<DriverLicenseService, 'assertVerified'>>;
+  let walletService: any;
+  let reputationService: any;
   let vehicle: Vehicle;
   const conductorA = randomUUID();
   const conductorB = randomUUID();
@@ -233,6 +235,8 @@ describe('ReservationService', () => {
     };
     identityService = { assertVerified: jest.fn().mockResolvedValue(undefined) };
     driverLicenseService = { assertVerified: jest.fn().mockResolvedValue(undefined) };
+    walletService = { recordReservationPayout: jest.fn().mockResolvedValue(undefined) };
+    reputationService = { applyPenalty: jest.fn().mockResolvedValue(undefined) };
     service = new ReservationService(
       repo,
       vehicleRepo,
@@ -245,6 +249,8 @@ describe('ReservationService', () => {
       emailProvider,
       identityService,
       driverLicenseService,
+      walletService,
+      reputationService,
     );
   });
 
@@ -299,6 +305,8 @@ describe('ReservationService', () => {
       emailProvider,
       identityService,
       driverLicenseService,
+      walletService,
+      reputationService,
     );
     await expect(
       service.createReservation(conductorA, {
@@ -325,6 +333,8 @@ describe('ReservationService', () => {
       emailProvider,
       identityService,
       driverLicenseService,
+      walletService,
+      reputationService,
     );
     await expect(
       service.createReservation(conductorA, {
@@ -2122,13 +2132,17 @@ describe('ReservationService', () => {
 
       expect(res.status).toBe('cancelled');
       expect(res.cancelledBy).toBe('owner');
-      expect(res.reputationPenalty).toBe(-50);
+      expect(res.reputationPenalty).toBe(-5);
       
       const saved = await repo.findById(r.id);
       expect(saved?.getStatus()).toBe('cancelled');
 
       expect(userRepo.creditBalance).toHaveBeenCalledWith(conductorA, r.totalCents);
-      expect(userRepo.applyReputationPenalty).toHaveBeenCalledWith(vehicle.getOwnerId(), -50);
+      expect(reputationService.applyPenalty).toHaveBeenCalledWith(expect.objectContaining({
+        userId: vehicle.getOwnerId(),
+        role: 'rentador',
+        scoreDeduction: 5,
+      }));
       expect(notificationProvider.notify).toHaveBeenCalledTimes(2);
     });
 

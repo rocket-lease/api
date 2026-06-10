@@ -101,6 +101,7 @@ export class Vehicle {
     private homeDeliveryFeeCents: number | null = null,
     private homeReturnEnabled: boolean = false,
     private homeReturnFeeCents: number | null = null,
+    private ownerReputationScore: number = 0,
   ) {
     this.validate();
   }
@@ -110,6 +111,9 @@ export class Vehicle {
   }
   public getOwnerId(): string {
     return this.ownerId;
+  }
+  public getOwnerReputationScore(): number {
+    return this.ownerReputationScore;
   }
   public getReservationRuleSetId(): string | null {
     return this.reservationRuleSetId;
