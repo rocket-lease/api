@@ -252,6 +252,7 @@ export class TicketService {
       conductorId: parties?.conductorId ?? null,
       rentadorId: parties?.rentadorId ?? null,
       status: ticket.getStatus(),
+      resolution: null,
       subject: ticket.getSubject(),
       description: ticket.getDescription(),
       photoUrls: ticket.getPhotoUrls(),
