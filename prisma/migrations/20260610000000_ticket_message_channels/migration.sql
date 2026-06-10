@@ -1,6 +1,6 @@
 -- Add channel_participant_id and message_type to ticket_messages
 ALTER TABLE "ticket_messages"
-  ADD COLUMN "channel_participant_id" UUID,
+  ADD COLUMN "channel_participant_id" TEXT,
   ADD COLUMN "message_type" TEXT NOT NULL DEFAULT 'user';
 
 -- Backfill existing messages: assign to the ticket reporter's channel

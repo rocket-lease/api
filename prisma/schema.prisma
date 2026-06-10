@@ -615,7 +615,7 @@ model TicketMessage {
   id                   String   @id @default(uuid())
   ticketId             String   @map("ticket_id")
   senderId             String   @map("sender_id")
-  channelParticipantId String   @map("channel_participant_id") @db.Uuid
+  channelParticipantId String   @map("channel_participant_id")
   messageType          String   @default("user") @map("message_type")
   body                 String   @db.Text
   sentAt               DateTime @default(now()) @map("sent_at") @db.Timestamptz(6)
