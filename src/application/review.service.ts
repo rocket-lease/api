@@ -157,7 +157,7 @@ export class ReviewService {
     const allReviews = [...directReviews, ...vehicleReviews];
 
     if (allReviews.length === 0) {
-      return RentadorReviewsResponseSchema.parse([]);
+      return [] as unknown as RentadorReviewsResponse;
     }
 
     const reviewerIds = [...new Set(allReviews.map((r) => r.getReviewerId()))];
@@ -166,18 +166,16 @@ export class ReviewService {
       profiles.map((p) => [p.id, p.name]),
     );
 
-    return RentadorReviewsResponseSchema.parse(
-      allReviews.map((review) => ({
-        id: review.getId(),
-        reservationId: review.getReservationId(),
-        reviewerName: nameByReviewerId.get(review.getReviewerId()) ?? '',
-        targetType: review.getTargetType(),
-        rating: review.getRating(),
-        vehicleRating: null,
-        comment: review.getComment(),
-        createdAt: review.getCreatedAt().toISOString(),
-      })),
-    );
+    return allReviews.map((review) => ({
+      id: review.getId(),
+      reservationId: review.getReservationId(),
+      reviewerName: nameByReviewerId.get(review.getReviewerId()) ?? '',
+      targetType: review.getTargetType(),
+      rating: review.getRating(),
+      vehicleRating: null,
+      comment: review.getComment(),
+      createdAt: review.getCreatedAt().toISOString(),
+    })) as RentadorReviewsResponse;
   }
 
   /**
@@ -193,7 +191,7 @@ export class ReviewService {
     );
 
     if (reviews.length === 0) {
-      return RentadorReviewsResponseSchema.parse([]);
+      return [] as unknown as RentadorReviewsResponse;
     }
 
     const reviewerIds = [...new Set(reviews.map((r) => r.getReviewerId()))];
@@ -202,18 +200,16 @@ export class ReviewService {
       profiles.map((p) => [p.id, p.name]),
     );
 
-    return RentadorReviewsResponseSchema.parse(
-      reviews.map((review) => ({
-        id: review.getId(),
-        reservationId: review.getReservationId(),
-        reviewerName: nameByReviewerId.get(review.getReviewerId()) ?? '',
-        targetType: review.getTargetType(),
-        rating: review.getRating(),
-        vehicleRating: null,
-        comment: review.getComment(),
-        createdAt: review.getCreatedAt().toISOString(),
-      })),
-    );
+    return reviews.map((review) => ({
+      id: review.getId(),
+      reservationId: review.getReservationId(),
+      reviewerName: nameByReviewerId.get(review.getReviewerId()) ?? '',
+      targetType: review.getTargetType(),
+      rating: review.getRating(),
+      vehicleRating: null,
+      comment: review.getComment(),
+      createdAt: review.getCreatedAt().toISOString(),
+    })) as RentadorReviewsResponse;
   }
 
   /**
@@ -228,7 +224,7 @@ export class ReviewService {
     );
 
     if (reviews.length === 0) {
-      return RentadorReviewsResponseSchema.parse([]);
+      return [] as unknown as RentadorReviewsResponse;
     }
 
     const reviewerIds = [...new Set(reviews.map((r) => r.getReviewerId()))];
@@ -237,18 +233,16 @@ export class ReviewService {
       profiles.map((p) => [p.id, p.name]),
     );
 
-    return RentadorReviewsResponseSchema.parse(
-      reviews.map((review) => ({
-        id: review.getId(),
-        reservationId: review.getReservationId(),
-        reviewerName: nameByReviewerId.get(review.getReviewerId()) ?? '',
-        targetType: review.getTargetType(),
-        rating: review.getRating(),
-        vehicleRating: null,
-        comment: review.getComment(),
-        createdAt: review.getCreatedAt().toISOString(),
-      })),
-    );
+    return reviews.map((review) => ({
+      id: review.getId(),
+      reservationId: review.getReservationId(),
+      reviewerName: nameByReviewerId.get(review.getReviewerId()) ?? '',
+      targetType: review.getTargetType(),
+      rating: review.getRating(),
+      vehicleRating: null,
+      comment: review.getComment(),
+      createdAt: review.getCreatedAt().toISOString(),
+    })) as RentadorReviewsResponse;
   }
 
   /**
@@ -260,7 +254,7 @@ export class ReviewService {
     const reviews = await this.reviewRepository.findByReviewedId(userId);
 
     if (reviews.length === 0) {
-      return RentadorReviewsResponseSchema.parse([]);
+      return [] as unknown as RentadorReviewsResponse;
     }
 
     const reviewerIds = [...new Set(reviews.map((r) => r.getReviewerId()))];
@@ -269,18 +263,16 @@ export class ReviewService {
       profiles.map((p) => [p.id, p.name]),
     );
 
-    return RentadorReviewsResponseSchema.parse(
-      reviews.map((review) => ({
-        id: review.getId(),
-        reservationId: review.getReservationId(),
-        reviewerName: nameByReviewerId.get(review.getReviewerId()) ?? '',
-        targetType: review.getTargetType(),
-        rating: review.getRating(),
-        vehicleRating: null,
-        comment: review.getComment(),
-        createdAt: review.getCreatedAt().toISOString(),
-      })),
-    );
+    return reviews.map((review) => ({
+      id: review.getId(),
+      reservationId: review.getReservationId(),
+      reviewerName: nameByReviewerId.get(review.getReviewerId()) ?? '',
+      targetType: review.getTargetType(),
+      rating: review.getRating(),
+      vehicleRating: null,
+      comment: review.getComment(),
+      createdAt: review.getCreatedAt().toISOString(),
+    })) as RentadorReviewsResponse;
   }
 
   /**

@@ -33,17 +33,11 @@ export class ProfileService {
 
     const identityVerification = await this.identityService.getSummaryByUserId(userId);
     const driverLicenseVerification = await this.driverLicenseService.getSummaryByUserId(userId);
-    const reputation = await this.reputationService.getReputation(userId);
-
     return GetMyProfileResponseSchema.parse({
       ...profile,
       verificationStatus: identityVerification.status,
       identityVerification,
       driverLicenseVerification,
-      reputationScore: reputation.score,
-      reviewCount: reputation.reviewCount,
-      badges: reputation.badges,
-      isLowReputation: reputation.isLowReputation,
     });
   }
 
@@ -55,17 +49,11 @@ export class ProfileService {
 
     const identityVerification = await this.identityService.getSummaryByUserId(userId);
     const driverLicenseVerification = await this.driverLicenseService.getSummaryByUserId(userId);
-    const reputation = await this.reputationService.getReputation(userId);
-
     return GetMyProfileResponseSchema.parse({
       ...profile,
       verificationStatus: identityVerification.status,
       identityVerification,
       driverLicenseVerification,
-      reputationScore: reputation.score,
-      reviewCount: reputation.reviewCount,
-      badges: reputation.badges,
-      isLowReputation: reputation.isLowReputation,
     });
   }
 
@@ -88,17 +76,11 @@ export class ProfileService {
 
     const identityVerification = await this.identityService.getSummaryByUserId(userId);
     const driverLicenseVerification = await this.driverLicenseService.getSummaryByUserId(userId);
-    const reputation = await this.reputationService.getReputation(userId);
-
     return UpdateMyProfileResponseSchema.parse({
       ...updated,
       verificationStatus: identityVerification.status,
       identityVerification,
       driverLicenseVerification,
-      reputationScore: reputation.score,
-      reviewCount: reputation.reviewCount,
-      badges: reputation.badges,
-      isLowReputation: reputation.isLowReputation,
     });
   }
 
@@ -116,17 +98,11 @@ export class ProfileService {
 
     const identityVerification = await this.identityService.getSummaryByUserId(userId);
     const driverLicenseVerification = await this.driverLicenseService.getSummaryByUserId(userId);
-    const reputation = await this.reputationService.getReputation(userId);
-
     return GetMyProfileResponseSchema.parse({
       ...updated,
       verificationStatus: identityVerification.status,
       identityVerification,
       driverLicenseVerification,
-      reputationScore: reputation.score,
-      reviewCount: reputation.reviewCount,
-      badges: reputation.badges,
-      isLowReputation: reputation.isLowReputation,
     });
   }
 }

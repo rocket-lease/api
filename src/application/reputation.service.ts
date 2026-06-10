@@ -12,7 +12,6 @@ import { GetReputationResponse, GetReputationResponseSchema, ReputationBadge } f
 export class ReputationService {
   private readonly BADGE_SCORE_THRESHOLD = 4.8;
   private readonly LOW_REPUTATION_THRESHOLD = 3.5;
-  private readonly BADGE_MIN_REVIEWS = 5;
   private readonly SUSPENSION_PENALTY_THRESHOLD = 3;
 
   constructor(
@@ -52,44 +51,30 @@ export class ReputationService {
     if (!user) throw new Error('USER_NOT_FOUND');
 
     const repData = await this.reputationRepository.getReputationData(userId);
-    
-    // Devolvemos el score general como el promedio de ambos roles,
-    // o solo el que esté activo. Contracts no define score por rol en GetReputationResponse.
-    // Vamos a promediarlo para la UI general, o usar el maximo.
-    // Asumiremos que el frontend pide el profile del user y el contrato GetReputationResponse 
-    // es general. US-3 dice "badge 'Conductor destacado' en su perfil", 
-    // que implica que el badge es global.
-    
-    let totalScore = 0;
-    let totalCount = 0;
-    
-    if (repData.reviewCountAsDriver > 0) {
-      totalScore += repData.scoreAsDriver * repData.reviewCountAsDriver;
-      totalCount += repData.reviewCountAsDriver;
-    }
-    if (repData.reviewCountAsRenter > 0) {
-      totalScore += repData.scoreAsRenter * repData.reviewCountAsRenter;
-      totalCount += repData.reviewCountAsRenter;
-    }
-    
-    const combinedScore = totalCount > 0 ? totalScore / totalCount : 0;
-    const combinedReviewCount = repData.reviewCountAsDriver + repData.reviewCountAsRenter;
-    const combinedPenaltyCount = repData.penaltyCountAsDriver + repData.penaltyCountAsRenter;
-
-    const badges: ReputationBadge[] = [];
-    if (repData.scoreAsDriver >= this.BADGE_SCORE_THRESHOLD && repData.reviewCountAsDriver >= this.BADGE_MIN_REVIEWS) {
-      badges.push('conductor_destacado');
+    const driverBadges: ReputationBadge[] = [];
+    if (repData.scoreAsDriver >= this.BADGE_SCORE_THRESHOLD) {
+      driverBadges.push('conductor_destacado');
     }
 
-    const isLowReputation = combinedScore < this.LOW_REPUTATION_THRESHOLD && combinedReviewCount > 0;
+    const isDriverLowReputation = repData.scoreAsDriver < this.LOW_REPUTATION_THRESHOLD && repData.reviewCountAsDriver > 0;
+    const isRenterLowReputation = repData.scoreAsRenter < this.LOW_REPUTATION_THRESHOLD && repData.reviewCountAsRenter > 0;
 
     return GetReputationResponseSchema.parse({
       userId,
-      score: Number(combinedScore.toFixed(1)),
-      reviewCount: combinedReviewCount,
-      badges,
-      isLowReputation,
-      penaltyCount: combinedPenaltyCount,
+      asDriver: {
+        score: Number(repData.scoreAsDriver.toFixed(1)),
+        reviewCount: repData.reviewCountAsDriver,
+        badges: driverBadges,
+        isLowReputation: isDriverLowReputation,
+        penaltyCount: repData.penaltyCountAsDriver,
+      },
+      asRenter: {
+        score: Number(repData.scoreAsRenter.toFixed(1)),
+        reviewCount: repData.reviewCountAsRenter,
+        badges: [], // Add rentador badges here if defined in the future
+        isLowReputation: isRenterLowReputation,
+        penaltyCount: repData.penaltyCountAsRenter,
+      }
     });
   }
 

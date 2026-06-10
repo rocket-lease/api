@@ -12,6 +12,9 @@ When('el rentador cancela la reserva del conductor {string}', async function (th
   if (!reservationId) throw new Error(`no reservation found for alias ${alias}`);
   
   this.world.reservation_response = await api(this).post(`/reservations/${reservationId}/cancel-by-owner`);
+  if (this.world.reservation_response.status !== 200) {
+    console.log("FAILED CANCEL BY OWNER: ", JSON.stringify(this.world.reservation_response.body, null, 2));
+  }
   expect(this.world.reservation_response.status).toBe(200);
 });
 
@@ -33,11 +36,16 @@ Then('se aplica una penalización de {int} puntos a la reputación del rentador'
   if (!token) throw new Error('owner no autenticado');
   this.world.access_token = token;
   
-  const res = await api(this).get('/profile/me');
+  const profileRes = await api(this).get('/profile/me');
+  expect(profileRes.status).toBe(200);
+  const userId = profileRes.body.id;
+
+  const res = await api(this).get(`/reputation/${userId}`);
   if (res.status !== 200) {
     console.error('ERROR EN PENALIZACION:', res.status, JSON.stringify(res.body, null, 2));
   }
   expect(res.status).toBe(200);
   // Al iniciar en 0 y con un cap en 0, el score quedará en 0.
-  expect(res.body.reputationScore).toBe(0);
+  expect(res.body.asRenter.score).toBe(0);
+  expect(res.body.asRenter.penaltyCount).toBeGreaterThan(0);
 });

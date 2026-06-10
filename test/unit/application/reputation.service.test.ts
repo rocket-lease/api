@@ -62,7 +62,7 @@ describe('ReputationService', () => {
   });
 
   describe('getReputation', () => {
-    it('returns conductor_destacado badge if score >= 4.8 and reviews >= 5', async () => {
+    it('returns conductor_destacado badge if score >= 4.8', async () => {
       userRepoMock.findById.mockResolvedValue({} as any);
       reputationRepoMock.getReputationData.mockResolvedValue({
         id: '123',
@@ -78,9 +78,9 @@ describe('ReputationService', () => {
       });
 
       const rep = await service.getReputation('123e4567-e89b-12d3-a456-426614174000');
-      expect(rep.badges).toContain('conductor_destacado');
-      expect(rep.score).toBe(4.9);
-      expect(rep.reviewCount).toBe(6);
+      expect(rep.asDriver.badges).toContain('conductor_destacado');
+      expect(rep.asDriver.score).toBe(4.9);
+      expect(rep.asDriver.reviewCount).toBe(6);
     });
 
     it('returns lowReputation true if combined score < 3.5 with reviews', async () => {
@@ -99,8 +99,8 @@ describe('ReputationService', () => {
       });
 
       const rep = await service.getReputation('123e4567-e89b-12d3-a456-426614174000');
-      expect(rep.isLowReputation).toBe(true);
-      expect(rep.score).toBe(3.0);
+      expect(rep.asRenter.isLowReputation).toBe(true);
+      expect(rep.asRenter.score).toBe(3.0);
     });
   });
 
