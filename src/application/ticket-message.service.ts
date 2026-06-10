@@ -9,10 +9,7 @@ import {
 import { Ticket } from '@/domain/entities/ticket.entity';
 import { TicketMessage } from '@/domain/entities/ticket-message.entity';
 import { TicketMessageNotAllowedException } from '@/domain/exceptions/ticket.exception';
-import {
-  ReservationForbiddenException,
-  ReservationNotFoundException,
-} from '@/domain/exceptions/reservation.exception';
+import { ReservationForbiddenException } from '@/domain/exceptions/reservation.exception';
 import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
 import type { TicketRepository } from '@/domain/repositories/ticket.repository';
 import { TICKET_REPOSITORY } from '@/domain/repositories/ticket.repository';

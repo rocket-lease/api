@@ -16,7 +16,6 @@ import { AdminAccessRequiredException } from '@/domain/exceptions/domain.excepti
 import {
   TicketAlreadyExistsException,
   TicketAlreadyRatedException,
-  TicketNotFoundException,
   TicketRatingNotAllowedException,
   TicketReservationInvalidStatusException,
 } from '@/domain/exceptions/ticket.exception';
