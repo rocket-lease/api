@@ -6,13 +6,13 @@ import { PrismaService } from '@/infrastructure/database/prisma.service';
 import { Reservation } from '@/domain/entities/reservation.entity';
 import { WalletTransaction } from '@/domain/entities/wallet-transaction.entity';
 import { Withdrawal } from '@/domain/entities/withdrawal.entity';
-import type { WalletBalanceSnapshot, WalletRepository, RecordWithdrawalInput } from '@/domain/repositories/wallet.repository';
+import type { WalletBalanceSnapshot, WalletRepository, RecordWithdrawalInput, RecordDisputePenaltyInput } from '@/domain/repositories/wallet.repository';
 import { InsufficientBalanceException } from '@/domain/exceptions/wallet.exception';
 
 type WalletMovementRow = {
   id: string;
   userId: string;
-  type: 'reservation_credit' | 'withdrawal_debit';
+  type: 'reservation_credit' | 'withdrawal_debit' | 'dispute_penalty_debit' | 'dispute_penalty_credit';
   amountCents: number;
   currency: string;
   reservationId: string | null;
@@ -149,6 +149,80 @@ export class PostgresWalletRepository implements WalletRepository {
     });
 
     return this.toWithdrawalEntity(row);
+  }
+
+  async recordDisputePenalty(input: RecordDisputePenaltyInput): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+
+      const responsible = await tx.user.findUnique({
+        where: { id: input.responsibleUserId },
+        select: { balanceInCents: true },
+      });
+      if (!responsible) {
+        throw new InsufficientBalanceException();
+      }
+      const responsibleBalanceAfter = responsible.balanceInCents - input.amountCents;
+
+      await tx.user.update({
+        where: { id: input.responsibleUserId },
+        data: { balanceInCents: { decrement: input.amountCents } },
+      });
+
+      await tx.walletMovement.create({
+        data: {
+          id: randomUUID(),
+          userId: input.responsibleUserId,
+          type: 'dispute_penalty_debit',
+          amountCents: input.amountCents,
+          currency: input.currency,
+          reservationId: null,
+          withdrawalId: null,
+          providerTransactionId: null,
+          bankAccountId: null,
+          bankAccountAlias: null,
+          bankAccountMaskedCbu: null,
+          providerStatus: null,
+          disputeResolutionId: input.disputeResolutionId,
+          balanceAfterCents: responsibleBalanceAfter,
+          createdAt: now,
+        },
+      });
+
+      const perjudicado = await tx.user.findUnique({
+        where: { id: input.perjudicadoUserId },
+        select: { balanceInCents: true },
+      });
+      if (!perjudicado) {
+        throw new InsufficientBalanceException();
+      }
+      const perjudicadoBalanceAfter = perjudicado.balanceInCents + input.amountCents;
+
+      await tx.user.update({
+        where: { id: input.perjudicadoUserId },
+        data: { balanceInCents: { increment: input.amountCents } },
+      });
+
+      await tx.walletMovement.create({
+        data: {
+          id: randomUUID(),
+          userId: input.perjudicadoUserId,
+          type: 'dispute_penalty_credit',
+          amountCents: input.amountCents,
+          currency: input.currency,
+          reservationId: null,
+          withdrawalId: null,
+          providerTransactionId: null,
+          bankAccountId: null,
+          bankAccountAlias: null,
+          bankAccountMaskedCbu: null,
+          providerStatus: null,
+          disputeResolutionId: null,
+          balanceAfterCents: perjudicadoBalanceAfter,
+          createdAt: now,
+        },
+      });
+    });
   }
 
   private toMovementEntity(row: WalletMovementRow): WalletTransaction {

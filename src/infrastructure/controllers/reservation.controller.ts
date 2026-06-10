@@ -294,7 +294,7 @@ export class ReservationController {
     const userId = await this.requireUserId(req);
     const reservation = await this.reservationService.getById(userId, id);
     const reviews = await this.reviewService.getReservationReviewsByUser(id, userId);
-    return { ...reservation, reviews };
+    return { ...reservation, review: reviews[0] ?? null };
   }
 
   private async requireUserId(req: Request): Promise<string> {

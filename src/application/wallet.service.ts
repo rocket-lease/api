@@ -126,4 +126,20 @@ export class WalletService {
       processedAt: withdrawal.getProcessedAt()?.toISOString() ?? null,
     });
   }
+
+  // disputeResolutionId es null para compensaciones discrecionales (ticket sin disputa formal)
+  public async applyDisputePenalty(input: {
+    disputeResolutionId: string | null;
+    responsibleUserId: string;
+    perjudicadoUserId: string;
+    amountCents: number;
+  }): Promise<void> {
+    await this.walletRepository.recordDisputePenalty({
+      disputeResolutionId: input.disputeResolutionId,
+      responsibleUserId: input.responsibleUserId,
+      perjudicadoUserId: input.perjudicadoUserId,
+      amountCents: input.amountCents,
+      currency: 'ARS',
+    });
+  }
 }

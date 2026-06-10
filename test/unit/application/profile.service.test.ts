@@ -104,6 +104,7 @@ describe('ProfileService', () => {
         maxPriceDaily: 1000000,
       },
       autoAccept: false,
+      isAdmin: false,
     } as any);
 
     const profile = await service.getMyProfile('user-1');
@@ -162,6 +163,7 @@ describe('ProfileService', () => {
         maxPriceDaily: null,
       },
       autoAccept: false,
+      isAdmin: false,
     } as any);
 
     const updated = await service.updateMyProfile('user-1', {
@@ -228,6 +230,7 @@ describe('ProfileService', () => {
         maxPriceDaily: null,
       },
       autoAccept: false,
+      isAdmin: false,
     } as any);
 
     const updated = await service.updateAvatar('user-1', {
