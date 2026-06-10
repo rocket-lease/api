@@ -1,7 +1,7 @@
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from 'expect';
-import { ReputationService } from '../../../../src/application/reputation.service';
-import { PostgresReputationRepository } from '../../../../src/infrastructure/repository/postgres.reputation.repository';
+import { ReputationService } from '@/application/reputation.service';
+import { PostgresReputationRepository } from '@/infrastructure/repository/postgres.reputation.repository';
 
 // Note: In a real environment, we'd inject mocks or use a test database.
 // This is a stub step definition file to satisfy BDD structure.
