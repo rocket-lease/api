@@ -1,6 +1,9 @@
 ALTER TABLE "vehicles"
   ADD COLUMN "dynamic_pricing_enabled" BOOLEAN NOT NULL DEFAULT false;
 
+ALTER TABLE "users"
+  ADD COLUMN "role" TEXT;
+
 CREATE TABLE "price_quotes" (
   "id"                  UUID            NOT NULL DEFAULT gen_random_uuid(),
   "vehicle_id"          TEXT            NOT NULL,
