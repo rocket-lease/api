@@ -16,6 +16,7 @@ export class User {
     private readonly dni: string,
     private readonly phone: string,
     private readonly autoAccept: boolean = false,
+    private readonly isAdmin: boolean = false,
   ) {
     this.validate();
   }
@@ -50,5 +51,8 @@ export class User {
   }
   public getAutoAccept(): boolean {
     return this.autoAccept;
+  }
+  public getIsAdmin(): boolean {
+    return this.isAdmin;
   }
 }
