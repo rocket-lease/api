@@ -11,6 +11,8 @@ datasource db {
 enum WalletMovementType {
   reservation_credit
   withdrawal_debit
+  dispute_penalty_debit
+  dispute_penalty_credit
 }
 
 enum TicketStatus {
@@ -28,6 +30,20 @@ enum TicketReportedBy {
 enum TicketType {
   vehicle_issue
   counterpart_report
+  support_request
+}
+
+enum DisputeStatus {
+  escalated
+  awaiting_info
+  ruled
+  appealed
+  closed
+}
+
+enum PenaltyType {
+  fixed
+  percentage
 }
 
 enum WithdrawalStatus {
@@ -45,7 +61,7 @@ model User {
   avatarUrl             String?    @map("avatar_url")
   verificationStatus    String     @default("pending") @map("verification_status")
   level                 String     @default("bronze")
-  reputationScore       Float      @default(0) @map("reputation_score")
+  reputationScore       Float      @default(0) @map("reputation_score") // TODO: Migrate to Reputation model
   balanceInCents        Int        @default(0) @map("balance_in_cents")
   preferredTransmission String?    @map("preferred_transmission")
   preferredAccessibility String[]  @default([]) @map("preferred_accessibility")
@@ -67,6 +83,14 @@ model User {
   pushSubscriptions     PushSubscription[]
   reviewsWritten        Review[]                  @relation("Reviewer")
   reviewsReceived       Review[]                  @relation("Reviewed")
+  isAdmin               Boolean                   @default(false) @map("is_admin")
+  ticketMessages        TicketMessage[]           @relation("ticket_message_sender")
+  disputesModerated     DisputeResolution[]       @relation("dispute_moderator")
+  disputesResponsible   DisputeResolution[]       @relation("dispute_responsible")
+  priceQuotes           PriceQuote[]
+  searchLogs            SearchLog[]
+  reputation            Reputation?
+  penalties             Penalty[]
 
   @@map("users")
 }
@@ -140,6 +164,7 @@ model Vehicle {
   mileage      Float
   basePriceCents Int    @map("base_price_cents")
   description  String?      @db.Text
+  ownerReputationScore Float @default(0) @map("owner_reputation_score")
   province     String
   city         String
   address      String?
@@ -152,6 +177,7 @@ model Vehicle {
   homeDeliveryFeeCents  Int?     @map("home_delivery_fee_cents")
   homeReturnEnabled     Boolean  @default(false) @map("home_return_enabled")
   homeReturnFeeCents    Int?     @map("home_return_fee_cents")
+  dynamicPricingEnabled Boolean  @default(false) @map("dynamic_pricing_enabled")
 
   ownerId      String
   owner        User         @relation(fields: [ownerId], references: [id])
@@ -166,6 +192,7 @@ model Vehicle {
   reservations    Reservation[]
   promotion       PromotionActive?
   vehicleDocument VehicleDocumentVerification?
+  priceQuotes     PriceQuote[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -250,12 +277,14 @@ model WalletMovement {
   bankAccountMaskedCbu  String?           @map("bank_account_masked_cbu")
   providerStatus        WithdrawalStatus?  @map("provider_status")
   balanceAfterCents      Int               @map("balance_after_cents")
+  disputeResolutionId   String?           @unique @map("dispute_resolution_id")
   createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
 
   user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   reservation           Reservation?      @relation(fields: [reservationId], references: [id], onDelete: Cascade)
   withdrawal            Withdrawal?       @relation(fields: [withdrawalId], references: [id], onDelete: Cascade)
   bankAccount           BankAccount?      @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  disputeResolution     DisputeResolution? @relation(fields: [disputeResolutionId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
   @@index([withdrawalId])
@@ -353,7 +382,7 @@ model Reservation {
   updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
   messages            Message[]
   walletMovement      WalletMovement?
-  review              Review?
+  reviews             Review[]
   tickets             Ticket[]
 
   @@index([vehicleId, status])
@@ -520,7 +549,7 @@ model PushSubscription {
 
 model Review {
   id            String      @id @default(uuid())
-  reservationId String      @unique @map("reservation_id")
+  reservationId String      @map("reservation_id")
   reviewerId    String      @map("reviewer_id")
   reviewedId    String      @map("reviewed_id")
   targetType    String      @map("target_type")
@@ -532,6 +561,8 @@ model Review {
   reviewer      User        @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
   reviewed      User        @relation("Reviewed", fields: [reviewedId], references: [id], onDelete: Cascade)
 
+  @@unique([reservationId, reviewerId, targetType])
+  @@index([targetType, reviewedId])
   @@map("reviews")
 }
 
@@ -558,20 +589,138 @@ enum MaxKilometrageType {
 }
 
 model Ticket {
-  id            String           @id @default(uuid())
-  reservationId String           @map("reservation_id")
-  type          TicketType       @default(vehicle_issue)
-  reportedBy    TicketReportedBy @map("reported_by")
-  reporterId    String           @map("reporter_id")
-  status        TicketStatus     @default(open)
-  description   String           @db.Text
-  photoUrls     String[]         @default([]) @map("photo_urls")
-  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id            String            @id @default(uuid())
+  reservationId String?           @map("reservation_id")
+  type          TicketType        @default(vehicle_issue)
+  reportedBy    TicketReportedBy? @map("reported_by")
+  reporterId    String            @map("reporter_id")
+  status        TicketStatus      @default(open)
+  subject       String
+  description   String            @db.Text
+  photoUrls     String[]          @default([]) @map("photo_urls")
+  rating        Int?
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  reservation   Reservation      @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  reservation   Reservation?      @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  messages      TicketMessage[]
+  dispute       DisputeResolution?
 
-  @@unique([reservationId, reportedBy])
   @@index([reporterId])
+  @@index([status])
   @@map("tickets")
+}
+
+model TicketMessage {
+  id                   String   @id @default(uuid())
+  ticketId             String   @map("ticket_id")
+  senderId             String   @map("sender_id")
+  channelParticipantId String   @map("channel_participant_id")
+  messageType          String   @default("user") @map("message_type")
+  body                 String   @db.Text
+  sentAt               DateTime @default(now()) @map("sent_at") @db.Timestamptz(6)
+
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender    User     @relation("ticket_message_sender", fields: [senderId], references: [id])
+
+  @@index([ticketId, sentAt, id])
+  @@index([ticketId, channelParticipantId, sentAt], map: "ticket_messages_channel_idx")
+  @@map("ticket_messages")
+}
+
+model DisputeResolution {
+  id                  String         @id @default(uuid())
+  ticketId            String         @unique @map("ticket_id")
+  status              DisputeStatus  @default(escalated)
+  moderatorId         String?        @map("moderator_id")
+  infoRequestedAt     DateTime?      @map("info_requested_at") @db.Timestamptz(6)
+  infoDeadlineAt      DateTime?      @map("info_deadline_at") @db.Timestamptz(6)
+  verdict             String?        @db.Text
+  responsibleUserId   String?        @map("responsible_user_id")
+  penaltyType         PenaltyType?   @map("penalty_type")
+  penaltyAmountCents  Int?           @map("penalty_amount_cents")
+  penaltyPercentage   Float?         @map("penalty_percentage")
+  ruledAt             DateTime?      @map("ruled_at") @db.Timestamptz(6)
+  appealCount         Int            @default(0) @map("appeal_count")
+  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  ticket              Ticket          @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  moderator           User?           @relation("dispute_moderator", fields: [moderatorId], references: [id])
+  responsibleUser     User?           @relation("dispute_responsible", fields: [responsibleUserId], references: [id])
+  walletMovement      WalletMovement?
+
+  @@map("dispute_resolutions")
+}
+
+model PriceQuote {
+  id                 String   @id @default(uuid()) @db.Uuid
+  vehicleId          String   @map("vehicle_id")
+  conductorId        String?  @map("conductor_id")
+  startAt            DateTime @map("start_at") @db.Timestamptz(6)
+  endAt              DateTime @map("end_at") @db.Timestamptz(6)
+  basePriceCents     Int      @map("base_price_cents")
+  multiplier         Decimal  @map("multiplier") @db.Decimal(4, 3)
+  discountPercentage Int      @default(0) @map("discount_percentage")
+  deliveryFeeCents   Int      @default(0) @map("delivery_fee_cents")
+  totalCents         Int      @map("total_cents")
+  currency           String
+  h3Cell             String   @map("h3_cell")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt          DateTime @map("expires_at") @db.Timestamptz(6)
+
+  vehicle            Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  conductor          User?    @relation(fields: [conductorId], references: [id])
+
+  @@index([vehicleId, expiresAt], map: "price_quotes_lookup_idx")
+  @@map("price_quotes")
+}
+
+model SearchLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  sessionId   String   @map("session_id")
+  conductorId String?  @map("conductor_id")
+  h3Cell      String   @map("h3_cell")
+  filters     Json
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  conductor   User?    @relation(fields: [conductorId], references: [id])
+
+  @@index([sessionId, createdAt(sort: Desc)], map: "search_logs_session_time_idx")
+  @@index([h3Cell, createdAt(sort: Desc)], map: "search_logs_zone_time_idx")
+  @@map("search_logs")
+}
+
+model Reputation {
+  id                    String   @id @default(uuid())
+  userId                String   @unique @map("user_id")
+  scoreAsDriver         Float    @default(0) @map("score_as_driver")
+  scoreAsRenter         Float    @default(0) @map("score_as_renter")
+  reviewCountAsDriver   Int      @default(0) @map("review_count_as_driver")
+  reviewCountAsRenter   Int      @default(0) @map("review_count_as_renter")
+  penaltyCountAsDriver  Int      @default(0) @map("penalty_count_as_driver")
+  penaltyCountAsRenter  Int      @default(0) @map("penalty_count_as_renter")
+  suspendedAsDriver     Boolean  @default(false) @map("suspended_as_driver")
+  suspendedAsRenter     Boolean  @default(false) @map("suspended_as_renter")
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("reputations")
+}
+
+model Penalty {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  role           String   // 'conductor' | 'rentador'
+  ticketId       String   @unique @map("ticket_id")
+  reason         String   @db.Text
+  scoreDeduction Float    @map("score_deduction")
+  appliedAt      DateTime @default(now()) @map("applied_at") @db.Timestamptz(6)
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("penalties")
 }

@@ -21,6 +21,7 @@ export interface UserProfile {
   balanceInCents: number;
   preferences: VehiclePreferences;
   autoAccept: boolean;
+  isAdmin: boolean;
 }
 
 export interface UpdateUserProfile {

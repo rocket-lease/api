@@ -322,6 +322,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
       raw.homeDeliveryFeeCents,
       raw.homeReturnEnabled,
       raw.homeReturnFeeCents,
+      raw.ownerReputationScore,
     );
   }
 }

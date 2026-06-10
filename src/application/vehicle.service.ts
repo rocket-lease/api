@@ -57,10 +57,14 @@ export class VehicleService {
     ownerId: string,
     data: CreateVehicleRequest,
   ): Promise<CreateVehicleResponse> {
+    console.log('CREATE_VEHICLE_STEP: assertVerified');
     await this.identityService.assertVerified(ownerId);
+    console.log('CREATE_VEHICLE_STEP: assertVerified OK');
 
+    console.log('CREATE_VEHICLE_STEP: findByPlate');
     const exists = await this.vehicleRepository.findByPlate(data.plate);
     if (exists) throw new EntityAlreadyExistsException('vehicle', data.plate);
+    console.log('CREATE_VEHICLE_STEP: findByPlate OK');
 
     if (
       data.latitude === undefined ||
@@ -109,7 +113,7 @@ export class VehicleService {
   public async getById(vehicleId: string): Promise<GetVehicleResponse> {
     const vehicle = await this.vehicleRepository.findById(vehicleId);
     if (!vehicle) throw new EntityNotFoundException('vehicle', vehicleId);
-    const owner = await this.loadOwner(vehicle.getOwnerId());
+    const owner = await this.loadOwner(vehicle.getOwnerId(), vehicle.getOwnerReputationScore());
     return this.toDTO(vehicle, owner, true);
   }
 
@@ -209,7 +213,7 @@ export class VehicleService {
     return { counts };
   }
 
-  private async loadOwner(ownerId: string): Promise<VehicleOwner | undefined> {
+  private async loadOwner(ownerId: string, score: number): Promise<VehicleOwner | undefined> {
     const profile = await this.userRepository.getProfileById(ownerId);
     if (!profile) return undefined;
     const identityVerification = await this.identityService.getSummaryByUserId(ownerId);
@@ -218,7 +222,7 @@ export class VehicleService {
       name: profile.name,
       avatarUrl: profile.avatarUrl,
       level: profile.level,
-      reputationScore: profile.reputationScore,
+      reputationScore: score,
       verified: identityVerification.status === 'verified',
     };
   }
@@ -228,9 +232,12 @@ export class VehicleService {
     const profiles = await this.userRepository.findProfilesByIds(ownerIds);
     const verifications = await this.identityService.getSummariesByUserIds(ownerIds);
     const owners = new Map<string, VehicleOwner>(
-      profiles.map((p) => [p.id, this.profileToOwner(p, verifications.get(p.id))]),
+      profiles.map((p) => [p.id, this.profileToOwner(p, 0, verifications.get(p.id))]),
     );
-    return Promise.all(vehicles.map((v) => this.toDTO(v, owners.get(v.getOwnerId()))));
+    return Promise.all(vehicles.map((v) => {
+      const owner = owners.get(v.getOwnerId());
+      return this.toDTO(v, owner ? { ...owner, reputationScore: v.getOwnerReputationScore() } : undefined);
+    }));
   }
 
   private async toListDTOWithPromotion(vehicles: Vehicle[]): Promise<GetVehicleResponse[]> {
@@ -242,29 +249,33 @@ export class VehicleService {
     const profiles = await this.userRepository.findProfilesByIds(ownerIds);
     const verifications = await this.identityService.getSummariesByUserIds(ownerIds);
     const owners = new Map<string, VehicleOwner>(
-      profiles.map((p) => [p.id, this.profileToOwner(p, verifications.get(p.id))]),
+      profiles.map((p) => [p.id, this.profileToOwner(p, 0, verifications.get(p.id))]),
     );
 
     const sorted = [...vehicles].sort((a, b) => {
       const aPromoted = promotedIds.has(a.getId()) ? 1 : 0;
       const bPromoted = promotedIds.has(b.getId()) ? 1 : 0;
-      return bPromoted - aPromoted;
+      if (aPromoted !== bPromoted) {
+        return bPromoted - aPromoted;
+      }
+      return b.getOwnerReputationScore() - a.getOwnerReputationScore();
     });
 
     return Promise.all(
-      sorted.map((v) =>
-        this.toDTO(v, owners.get(v.getOwnerId()), false, promotedIds.has(v.getId())),
-      ),
+      sorted.map((v) => {
+        const owner = owners.get(v.getOwnerId());
+        return this.toDTO(v, owner ? { ...owner, reputationScore: v.getOwnerReputationScore() } : undefined, false, promotedIds.has(v.getId()));
+      }),
     );
   }
 
-  private profileToOwner(profile: UserProfile, identityVerification?: { status: string } ): VehicleOwner {
+  private profileToOwner(profile: UserProfile, score: number, identityVerification?: { status: string } ): VehicleOwner {
     return {
       id: profile.id,
       name: profile.name,
       avatarUrl: profile.avatarUrl,
       level: profile.level,
-      reputationScore: profile.reputationScore,
+      reputationScore: score,
       verified: identityVerification?.status === 'verified',
     };
   }

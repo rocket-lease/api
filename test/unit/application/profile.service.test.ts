@@ -1,6 +1,7 @@
 import { ProfileService } from '@/application/profile.service';
 import { UserRepository } from '@/domain/repositories/user.repository';
 import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
+import { ReputationService } from '@/application/reputation.service';
 import { MediaProvider } from '@/domain/providers/media.provider';
 import { IdentityService } from '@/application/identity.service';
 import { DriverLicenseService } from '@/application/driver-license.service';
@@ -10,7 +11,8 @@ describe('ProfileService', () => {
   let userRepoMock: jest.Mocked<UserRepository>;
   let mediaProviderMock: jest.Mocked<MediaProvider>;
   let identityServiceMock: jest.Mocked<Pick<IdentityService, 'getSummaryByUserId'>>;
-  let driverLicenseServiceMock: jest.Mocked<Pick<DriverLicenseService, 'getSummaryByUserId'>>;
+  let driverLicenseServiceMock: jest.Mocked<Partial<DriverLicenseService>>;
+  let reputationServiceMock: jest.Mocked<Partial<ReputationService>>;
 
   beforeEach(() => {
     userRepoMock = {
@@ -58,12 +60,23 @@ describe('ProfileService', () => {
         verifiedAt: null,
       }),
     };
+    reputationServiceMock = {
+      getReputation: jest.fn().mockResolvedValue({
+        userId: 'user-1',
+        score: 4.5,
+        reviewCount: 10,
+        badges: ['conductor_destacado'],
+        isLowReputation: false,
+        penaltyCount: 0,
+      }),
+    };
 
     service = new ProfileService(
       userRepoMock,
       mediaProviderMock,
       identityServiceMock as unknown as IdentityService,
       driverLicenseServiceMock as unknown as DriverLicenseService,
+      reputationServiceMock as unknown as ReputationService,
     );
   });
 
@@ -104,6 +117,7 @@ describe('ProfileService', () => {
         maxPriceDaily: 1000000,
       },
       autoAccept: false,
+      isAdmin: false,
     } as any);
 
     const profile = await service.getMyProfile('user-1');
@@ -162,6 +176,7 @@ describe('ProfileService', () => {
         maxPriceDaily: null,
       },
       autoAccept: false,
+      isAdmin: false,
     } as any);
 
     const updated = await service.updateMyProfile('user-1', {
@@ -228,6 +243,7 @@ describe('ProfileService', () => {
         maxPriceDaily: null,
       },
       autoAccept: false,
+      isAdmin: false,
     } as any);
 
     const updated = await service.updateAvatar('user-1', {

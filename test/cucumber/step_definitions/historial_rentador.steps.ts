@@ -183,9 +183,11 @@ Then(
   function (this: MyWorld, rating: number, comment: string) {
     const body = this.world.lastResponse?.body;
     expect(body).toBeDefined();
-    expect(body.review).toBeDefined();
-    expect(body.review.rating).toBe(rating);
-    expect(body.review.comment).toBe(comment);
+    expect(Array.isArray(body.reviews)).toBe(true);
+    const review = body.reviews.find(
+      (r: any) => r.rating === rating && r.comment === comment,
+    );
+    expect(review).toBeDefined();
   },
 );
 
@@ -194,6 +196,7 @@ Then(
   function (this: MyWorld) {
     const body = this.world.lastResponse?.body;
     expect(body).toBeDefined();
-    expect(body.review == null).toBe(true);
+    expect(Array.isArray(body.reviews)).toBe(true);
+    expect(body.reviews.length).toBe(0);
   },
 );

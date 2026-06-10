@@ -92,7 +92,6 @@ Then(
     expect(res.body.phone).toBeDefined();
     expect(res.body.verificationStatus).toBeDefined();
     expect(res.body.level).toBeDefined();
-    expect(typeof res.body.reputationScore).toBe('number');
     expect(res.body.preferences).toBeDefined();
   },
 );

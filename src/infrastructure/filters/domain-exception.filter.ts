@@ -10,6 +10,7 @@ import {
   InvalidEntityDataException,
   IdentityVerificationRequiredException,
   DriverLicenseVerificationRequiredException,
+  AdminAccessRequiredException,
   RuleSetNotFoundForOwnerException,
   RuleSetPrivateCannotBeSharedException,
   RuleSetVehicleIdImmutableException,
@@ -57,9 +58,21 @@ import {
 import { ChatNotAllowedException } from '@/domain/exceptions/messaging.exception';
 import {
   TicketAlreadyExistsException,
+  TicketAlreadyRatedException,
+  TicketMessageNotAllowedException,
   TicketNotFoundException,
+  TicketRatingNotAllowedException,
   TicketReservationInvalidStatusException,
 } from '@/domain/exceptions/ticket.exception';
+import {
+  DisputeAlreadyRuledException,
+  DisputeAppealLimitReachedException,
+  DisputeInvalidPenaltyException,
+  DisputeNotFoundException,
+} from '@/domain/exceptions/dispute.exception';
+import {
+  UserSuspendedException,
+} from '@/domain/exceptions/reputation.exception';
 import {
   ExceptionFilter,
   Catch,
@@ -94,9 +107,16 @@ function prefixValidationError(message: string): string {
   return `Validation error: ${normalized}`;
 }
 
+import * as fs from 'fs';
+
 @Catch(Error)
 export class DomainExceptionFilter implements ExceptionFilter {
   catch(exception: Error, host: ArgumentsHost) {
+    fs.appendFileSync('zod_error_log.txt', `\n--- NEW ERROR ---\nName: ${exception.name}\nMessage: ${exception.message}\nStack: ${exception.stack}\n`);
+    if (isZodError(exception)) {
+      fs.appendFileSync('zod_error_log.txt', `Zod Issues: ${JSON.stringify(exception.issues, null, 2)}\n`);
+    }
+
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
@@ -282,6 +302,41 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.UNPROCESSABLE_ENTITY;
       code = ErrorCodes.TICKET_RESERVATION_INVALID_STATUS;
       title = 'Unprocessable Entity';
+    } else if (exception instanceof TicketRatingNotAllowedException) {
+      status = HttpStatus.UNPROCESSABLE_ENTITY;
+      code = ErrorCodes.TICKET_RATING_NOT_ALLOWED;
+      title = 'Unprocessable Entity';
+    } else if (exception instanceof TicketAlreadyRatedException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.TICKET_ALREADY_RATED;
+      title = 'Conflict';
+    } else if (exception instanceof TicketMessageNotAllowedException) {
+      status = HttpStatus.UNPROCESSABLE_ENTITY;
+      code = ErrorCodes.TICKET_MESSAGE_NOT_ALLOWED;
+      title = 'Unprocessable Entity';
+    } else if (exception instanceof DisputeNotFoundException) {
+      status = HttpStatus.NOT_FOUND;
+      code = ErrorCodes.DISPUTE_NOT_FOUND;
+      title = 'Not Found';
+    } else if (exception instanceof DisputeAlreadyRuledException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.DISPUTE_ALREADY_RULED;
+      title = 'Conflict';
+    } else if (exception instanceof DisputeAppealLimitReachedException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.DISPUTE_APPEAL_LIMIT_REACHED;
+      title = 'Conflict';
+    } else if (exception instanceof DisputeInvalidPenaltyException) {
+      status = HttpStatus.UNPROCESSABLE_ENTITY;
+      code = ErrorCodes.DISPUTE_INVALID_PENALTY;
+      title = 'Unprocessable Entity';
+    } else if (exception instanceof AdminAccessRequiredException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.ADMIN_ACCESS_REQUIRED;
+    } else if (exception instanceof UserSuspendedException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.USER_SUSPENDED;
+      title = 'Forbidden';
     } else if (exception instanceof InvalidEntityDataException) {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.INVALID_ENTITY_DATA;

@@ -32,6 +32,7 @@ export class InMemoryUserRepository implements UserRepository {
         maxPriceDaily: null,
       },
       autoAccept: user.getAutoAccept(),
+      isAdmin: user.getIsAdmin(),
     });
   }
 
