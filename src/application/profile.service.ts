@@ -8,6 +8,7 @@ import {
 } from '@rocket-lease/contracts';
 import { IdentityService } from '@/application/identity.service';
 import { DriverLicenseService } from '@/application/driver-license.service';
+import { ReputationService } from '@/application/reputation.service';
 import type { MediaProvider } from '@/domain/providers/media.provider';
 import { MEDIA_PROVIDER } from '@/domain/providers/media.provider';
 import type { UserRepository } from '@/domain/repositories/user.repository';
@@ -21,6 +22,7 @@ export class ProfileService {
     @Inject(MEDIA_PROVIDER) private readonly mediaProvider: MediaProvider,
     @Inject(IdentityService) private readonly identityService: IdentityService,
     @Inject(DriverLicenseService) private readonly driverLicenseService: DriverLicenseService,
+    @Inject(ReputationService) private readonly reputationService: ReputationService,
   ) {}
 
   public async getMyProfile(userId: string): Promise<GetMyProfileResponse> {
@@ -31,12 +33,17 @@ export class ProfileService {
 
     const identityVerification = await this.identityService.getSummaryByUserId(userId);
     const driverLicenseVerification = await this.driverLicenseService.getSummaryByUserId(userId);
+    const reputation = await this.reputationService.getReputation(userId);
 
     return GetMyProfileResponseSchema.parse({
       ...profile,
       verificationStatus: identityVerification.status,
       identityVerification,
       driverLicenseVerification,
+      reputationScore: reputation.score,
+      reviewCount: reputation.reviewCount,
+      badges: reputation.badges,
+      isLowReputation: reputation.isLowReputation,
     });
   }
 
@@ -48,12 +55,17 @@ export class ProfileService {
 
     const identityVerification = await this.identityService.getSummaryByUserId(userId);
     const driverLicenseVerification = await this.driverLicenseService.getSummaryByUserId(userId);
+    const reputation = await this.reputationService.getReputation(userId);
 
     return GetMyProfileResponseSchema.parse({
       ...profile,
       verificationStatus: identityVerification.status,
       identityVerification,
       driverLicenseVerification,
+      reputationScore: reputation.score,
+      reviewCount: reputation.reviewCount,
+      badges: reputation.badges,
+      isLowReputation: reputation.isLowReputation,
     });
   }
 
@@ -76,12 +88,17 @@ export class ProfileService {
 
     const identityVerification = await this.identityService.getSummaryByUserId(userId);
     const driverLicenseVerification = await this.driverLicenseService.getSummaryByUserId(userId);
+    const reputation = await this.reputationService.getReputation(userId);
 
     return UpdateMyProfileResponseSchema.parse({
       ...updated,
       verificationStatus: identityVerification.status,
       identityVerification,
       driverLicenseVerification,
+      reputationScore: reputation.score,
+      reviewCount: reputation.reviewCount,
+      badges: reputation.badges,
+      isLowReputation: reputation.isLowReputation,
     });
   }
 
@@ -99,12 +116,17 @@ export class ProfileService {
 
     const identityVerification = await this.identityService.getSummaryByUserId(userId);
     const driverLicenseVerification = await this.driverLicenseService.getSummaryByUserId(userId);
+    const reputation = await this.reputationService.getReputation(userId);
 
     return GetMyProfileResponseSchema.parse({
       ...updated,
       verificationStatus: identityVerification.status,
       identityVerification,
       driverLicenseVerification,
+      reputationScore: reputation.score,
+      reviewCount: reputation.reviewCount,
+      badges: reputation.badges,
+      isLowReputation: reputation.isLowReputation,
     });
   }
 }

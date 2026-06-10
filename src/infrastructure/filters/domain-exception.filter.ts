@@ -61,6 +61,9 @@ import {
   TicketReservationInvalidStatusException,
 } from '@/domain/exceptions/ticket.exception';
 import {
+  UserSuspendedException,
+} from '@/domain/exceptions/reputation.exception';
+import {
   ExceptionFilter,
   Catch,
   ArgumentsHost,
@@ -94,9 +97,16 @@ function prefixValidationError(message: string): string {
   return `Validation error: ${normalized}`;
 }
 
+import * as fs from 'fs';
+
 @Catch(Error)
 export class DomainExceptionFilter implements ExceptionFilter {
   catch(exception: Error, host: ArgumentsHost) {
+    fs.appendFileSync('zod_error_log.txt', `\n--- NEW ERROR ---\nName: ${exception.name}\nMessage: ${exception.message}\nStack: ${exception.stack}\n`);
+    if (isZodError(exception)) {
+      fs.appendFileSync('zod_error_log.txt', `Zod Issues: ${JSON.stringify(exception.issues, null, 2)}\n`);
+    }
+
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
@@ -282,6 +292,10 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.UNPROCESSABLE_ENTITY;
       code = ErrorCodes.TICKET_RESERVATION_INVALID_STATUS;
       title = 'Unprocessable Entity';
+    } else if (exception instanceof UserSuspendedException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.USER_SUSPENDED;
+      title = 'Forbidden';
     } else if (exception instanceof InvalidEntityDataException) {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.INVALID_ENTITY_DATA;

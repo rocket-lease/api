@@ -22,6 +22,7 @@ import {
 } from '@/domain/repositories/user.repository';
 import { EntityNotFoundException } from '@/domain/exceptions/domain.exception';
 import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
+import { ReputationService } from '@/application/reputation.service';
 
 @Injectable()
 export class ReviewService {
@@ -32,6 +33,8 @@ export class ReviewService {
     private readonly reservationRepository: ReservationRepository,
     @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepository,
+    @Inject(ReputationService)
+    private readonly reputationService: ReputationService,
   ) {}
 
   /**
@@ -118,15 +121,24 @@ export class ReviewService {
 
     const saved = await this.reviewRepository.save(review);
 
-    return CreateReviewResponseSchema.parse({
+    const response = CreateReviewResponseSchema.parse({
       id: saved.getId(),
       reservationId: saved.getReservationId(),
       reviewerName: reviewerProfile?.name ?? '',
       targetType: saved.getTargetType(),
       rating: saved.getRating(),
+      vehicleRating: null,
       comment: saved.getComment(),
       createdAt: saved.getCreatedAt().toISOString(),
     });
+
+    // Recalcular reputacion asincronamente (falla silenciosa para no romper flujo)
+    if (dto.targetType === 'conductor' || dto.targetType === 'rentador') {
+      const role = dto.targetType as 'conductor' | 'rentador';
+      this.reputationService.recalculateScore(reviewedId, role).catch(console.error);
+    }
+
+    return response;
   }
 
   /**
@@ -161,6 +173,7 @@ export class ReviewService {
         reviewerName: nameByReviewerId.get(review.getReviewerId()) ?? '',
         targetType: review.getTargetType(),
         rating: review.getRating(),
+        vehicleRating: null,
         comment: review.getComment(),
         createdAt: review.getCreatedAt().toISOString(),
       })),
@@ -196,6 +209,7 @@ export class ReviewService {
         reviewerName: nameByReviewerId.get(review.getReviewerId()) ?? '',
         targetType: review.getTargetType(),
         rating: review.getRating(),
+        vehicleRating: null,
         comment: review.getComment(),
         createdAt: review.getCreatedAt().toISOString(),
       })),
@@ -230,6 +244,7 @@ export class ReviewService {
         reviewerName: nameByReviewerId.get(review.getReviewerId()) ?? '',
         targetType: review.getTargetType(),
         rating: review.getRating(),
+        vehicleRating: null,
         comment: review.getComment(),
         createdAt: review.getCreatedAt().toISOString(),
       })),
@@ -261,6 +276,7 @@ export class ReviewService {
         reviewerName: nameByReviewerId.get(review.getReviewerId()) ?? '',
         targetType: review.getTargetType(),
         rating: review.getRating(),
+        vehicleRating: null,
         comment: review.getComment(),
         createdAt: review.getCreatedAt().toISOString(),
       })),
@@ -290,6 +306,7 @@ export class ReviewService {
       reviewerName: nameByReviewerId.get(review.getReviewerId()) ?? '',
       targetType: review.getTargetType(),
       rating: review.getRating(),
+      vehicleRating: null,
       comment: review.getComment(),
       createdAt: review.getCreatedAt().toISOString(),
     }));
