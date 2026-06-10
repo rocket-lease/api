@@ -1,4 +1,5 @@
 import {
+  AdminForbiddenException,
   DepositPercentageOutOfRangeException,
   EmailNotVerifiedException,
   EmailUnverifiedPendingException,
@@ -10,6 +11,10 @@ import {
   InvalidEntityDataException,
   IdentityVerificationRequiredException,
   DriverLicenseVerificationRequiredException,
+  PriceQuoteConductorMismatchException,
+  PriceQuoteExpiredException,
+  PriceQuoteNotFoundException,
+  PriceQuoteVehicleMismatchException,
   AdminAccessRequiredException,
   RuleSetNotFoundForOwnerException,
   RuleSetPrivateCannotBeSharedException,
@@ -107,16 +112,9 @@ function prefixValidationError(message: string): string {
   return `Validation error: ${normalized}`;
 }
 
-import * as fs from 'fs';
-
 @Catch(Error)
 export class DomainExceptionFilter implements ExceptionFilter {
   catch(exception: Error, host: ArgumentsHost) {
-    fs.appendFileSync('zod_error_log.txt', `\n--- NEW ERROR ---\nName: ${exception.name}\nMessage: ${exception.message}\nStack: ${exception.stack}\n`);
-    if (isZodError(exception)) {
-      fs.appendFileSync('zod_error_log.txt', `Zod Issues: ${JSON.stringify(exception.issues, null, 2)}\n`);
-    }
-
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
@@ -302,6 +300,26 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.UNPROCESSABLE_ENTITY;
       code = ErrorCodes.TICKET_RESERVATION_INVALID_STATUS;
       title = 'Unprocessable Entity';
+    } else if (exception instanceof PriceQuoteNotFoundException) {
+      status = HttpStatus.NOT_FOUND;
+      code = ErrorCodes.PRICE_QUOTE_NOT_FOUND;
+      title = 'Not Found';
+    } else if (exception instanceof PriceQuoteExpiredException) {
+      status = HttpStatus.GONE;
+      code = ErrorCodes.PRICE_QUOTE_EXPIRED;
+      title = 'Gone';
+    } else if (exception instanceof PriceQuoteVehicleMismatchException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.PRICE_QUOTE_VEHICLE_MISMATCH;
+      title = 'Conflict';
+    } else if (exception instanceof PriceQuoteConductorMismatchException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.PRICE_QUOTE_CONDUCTOR_MISMATCH;
+      title = 'Forbidden';
+    } else if (exception instanceof AdminForbiddenException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.ADMIN_FORBIDDEN;
+      title = 'Forbidden';
     } else if (exception instanceof TicketRatingNotAllowedException) {
       status = HttpStatus.UNPROCESSABLE_ENTITY;
       code = ErrorCodes.TICKET_RATING_NOT_ALLOWED;
@@ -333,6 +351,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof AdminAccessRequiredException) {
       status = HttpStatus.FORBIDDEN;
       code = ErrorCodes.ADMIN_ACCESS_REQUIRED;
+      title = 'Forbidden';
     } else if (exception instanceof UserSuspendedException) {
       status = HttpStatus.FORBIDDEN;
       code = ErrorCodes.USER_SUSPENDED;

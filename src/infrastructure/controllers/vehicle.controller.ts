@@ -14,17 +14,21 @@ import {
   Query,
   Delete,
   Inject,
+  Headers,
   UnauthorizedException,
 } from '@nestjs/common';
 import * as Contracts from '@rocket-lease/contracts';
 import type { Request } from 'express';
 import { z } from 'zod';
+import { SearchLogService } from '@/application/search-log.service';
 
 @Controller('vehicle')
 export class VehicleController {
   constructor(
     @Inject(VehicleService) private readonly vehicleService: VehicleService,
     @Inject(AuthService) private readonly authService: AuthService,
+    @Inject(SearchLogService)
+    private readonly searchLogService: SearchLogService,
   ) {}
 
   private async resolveUserId(req: Request): Promise<string> {
@@ -34,6 +38,17 @@ export class VehicleController {
       return await this.authService.getUserIdFromToken(authHeader);
     } catch {
       throw new UnauthorizedException('Invalid access token');
+    }
+  }
+
+  private async tryGetConductorId(
+    authHeader: string | undefined,
+  ): Promise<string | null> {
+    if (!authHeader) return null;
+    try {
+      return await this.authService.getUserIdFromToken(authHeader);
+    } catch {
+      return null;
     }
   }
 
@@ -50,9 +65,12 @@ export class VehicleController {
     @Query('characteristics') characteristics?: string | string[],
     @Query('ownerId') ownerId?: string,
     @Query('city') city?: string,
+    @Query('locationCode') locationCode?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('promoted') promoted?: string,
+    @Headers('x-session-id') sessionId?: string,
+    @Headers('authorization') authHeader?: string,
   ): Promise<Array<Contracts.GetVehicleResponse>> {
     if (ownerId !== undefined) {
       const parsed = z.string().uuid().safeParse(ownerId);
@@ -86,6 +104,22 @@ export class VehicleController {
 
     const filter = { city: city?.trim() || undefined, from, to };
     const unique = Array.from(new Set(parsedList));
+    if (locationCode?.trim()) {
+      const conductorId = await this.tryGetConductorId(authHeader);
+      this.searchLogService.maybeLogAsync({
+        sessionId,
+        conductorId,
+        latitude: null,
+        longitude: null,
+        locationCode: locationCode.trim(),
+        filters: {
+          locationCode: locationCode.trim(),
+          characteristics: unique.length > 0 ? unique : undefined,
+          from,
+          to,
+        },
+      });
+    }
 
     if (promoted === 'true') {
       return await this.vehicleService.getAllPromoted(filter);
@@ -125,16 +159,8 @@ export class VehicleController {
     @Req() req: Request,
   ): Promise<Contracts.CreateVehicleResponse> {
     const ownerId = await this.resolveUserId(req);
-    console.log('VEHICLE_BODY:', JSON.stringify(dto));
-    try {
-      const parsed = Contracts.CreateVehicleRequestSchema.parse(dto);
-      return await this.vehicleService.createVehicle(ownerId, parsed);
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        console.log('ZOD_ISSUES:', JSON.stringify(err.issues));
-      }
-      throw err;
-    }
+    const parsed = Contracts.CreateVehicleRequestSchema.parse(dto);
+    return await this.vehicleService.createVehicle(ownerId, parsed);
   }
 
   @Patch('bulk-prices')

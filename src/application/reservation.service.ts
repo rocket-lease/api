@@ -100,6 +100,18 @@ import {
   HomeReturnAddressRequiredException,
 } from '@/domain/exceptions/reservation.exception';
 import {
+  PriceQuoteConductorMismatchException,
+  PriceQuoteExpiredException,
+  PriceQuoteNotFoundException,
+  PriceQuoteVehicleMismatchException,
+} from '@/domain/exceptions/domain.exception';
+import {
+  PRICE_QUOTE_REPOSITORY,
+  type PriceQuoteRepository,
+} from '@/domain/repositories/price-quote.repository';
+import { PricingService } from '@/application/pricing/pricing.service';
+import type { PricingQuote } from '@rocket-lease/contracts';
+import {
   VOUCHER_PROVIDER,
   type VoucherProvider,
 } from '@/domain/providers/voucher.provider';
@@ -112,7 +124,11 @@ import {
   type PaymentGatewayProvider,
 } from '@/domain/providers/payment-gateway.provider';
 import { CLOCK, type Clock } from '@/domain/providers/clock.provider';
-import { computeDepositCents, computePricingQuote } from './helpers/pricing';
+import {
+  computeBaseRentalCents,
+  computeDepositCents,
+  computePricingQuote,
+} from './helpers/pricing';
 import { calculateCancellationRefund } from './helpers/cancellation-refund';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { EMAIL_PROVIDER, type EmailProvider } from '@/domain/providers/email.provider';
@@ -159,6 +175,31 @@ export class ReservationService {
     @Inject(ReputationService)
     private readonly reputationService: Pick<ReputationService, 'applyPenalty'> = {
       applyPenalty: async () => undefined,
+    },
+    @Inject(PRICE_QUOTE_REPOSITORY)
+    private readonly priceQuoteRepository: PriceQuoteRepository = {
+      save: async () => { throw new Error('PriceQuoteRepository not provided'); },
+      findById: async () => null,
+      countByHexSince: async () => 0,
+      aggregateMultiplierByH3Since: async () => [],
+      deleteExpiredBefore: async () => 0,
+    },
+    @Inject(PricingService)
+    private readonly pricingService: Pick<
+      PricingService,
+      'quote' | 'quoteForVehicle'
+    > = {
+      quote: async () => { throw new Error('PricingService not provided'); },
+      quoteForVehicle: async (input) => {
+        const response = computePricingQuote({
+          vehicleId: input.vehicle.getId(),
+          basePriceDailyCents: input.vehicle.getBasePriceCents(),
+          discountTiers: input.vehicle.getDiscountTiers(),
+          startAt: input.startAt,
+          endAt: input.endAt,
+        });
+        return { quote: null as unknown as never, response };
+      },
     },
   ) {}
 
@@ -237,16 +278,17 @@ export class ReservationService {
     const effectiveAutoAccept =
       vehicle.getAutoAccept() ?? ownerProfile?.autoAccept ?? false;
 
-    const pricingSnapshot = computePricingQuote({
-      vehicleId: vehicle.getId(),
-      basePriceDailyCents: vehicle.getBasePriceCents(),
-      discountTiers: vehicle.getDiscountTiers(),
+    const pricingResult = await this.resolvePricingForCreate({
+      vehicle,
       startAt,
       endAt,
+      withHomeDelivery,
+      withHomeReturn,
+      conductorId,
+      quoteToken: dto.quoteToken ?? null,
     });
-    const totalCents = pricingSnapshot.totalCents
-      + (homeDeliveryFeeCentsSnapshot ?? 0)
-      + (homeReturnFeeCentsSnapshot ?? 0);
+    const pricingSnapshot = pricingResult.pricingSnapshot;
+    const totalCents = pricingSnapshot.totalCents;
 
     const status = effectiveAutoAccept ? RESERVATION_STATUS.pending_payment : RESERVATION_STATUS.pending_approval;
     const ttlMs = effectiveAutoAccept ? HOLD_TTL_MS : APPROVAL_TTL_MS;
@@ -1385,13 +1427,15 @@ export class ReservationService {
     const requiresApproval = !effectiveAutoAccept;
 
     const now = this.clock.now();
-    const pricingSnapshot = computePricingQuote({
-      vehicleId: vehicle.getId(),
-      basePriceDailyCents: rules.basePriceCents,
-      discountTiers: vehicle.getDiscountTiers(),
+    const extensionQuote = await this.pricingService.quoteForVehicle({
+      vehicle,
       startAt: tip.getEndAt(),
       endAt: newEndAt,
+      withHomeDelivery: false,
+      withHomeReturn: false,
+      conductorId,
     });
+    const pricingSnapshot = extensionQuote.response;
     const totalCents = pricingSnapshot.totalCents;
     const status = requiresApproval
       ? RESERVATION_STATUS.pending_approval
@@ -1539,13 +1583,15 @@ export class ReservationService {
     const requiresApproval = !effectiveAutoAccept;
 
     const now = this.clock.now();
-    const pricingSnapshot = computePricingQuote({
-      vehicleId: vehicle.getId(),
-      basePriceDailyCents: rules.basePriceCents,
-      discountTiers: vehicle.getDiscountTiers(),
+    const modifyQuote = await this.pricingService.quoteForVehicle({
+      vehicle,
       startAt: parent.getEndAt(),
       endAt: newEndAt,
+      withHomeDelivery: false,
+      withHomeReturn: false,
+      conductorId,
     });
+    const pricingSnapshot = modifyQuote.response;
     const totalCents = pricingSnapshot.totalCents;
     const status = requiresApproval
       ? RESERVATION_STATUS.pending_approval
@@ -1740,6 +1786,96 @@ export class ReservationService {
    * del `totalCents` de la reserva (que ya fue calculado al crear con días *
    * precio del momento).
    */
+  /**
+   * Determina el `pricingSnapshot` final de una nueva reserva. Si vino un
+   * `quoteToken` válido y vigente, respeta los valores cotizados (multiplier
+   * y descuento freezeados al momento del quote). Caso contrario, recotiza
+   * al vuelo aplicando el motor de pricing dinámico.
+   */
+  private async resolvePricingForCreate(input: {
+    vehicle: Vehicle;
+    startAt: Date;
+    endAt: Date;
+    withHomeDelivery: boolean;
+    withHomeReturn: boolean;
+    conductorId: string;
+    quoteToken: string | null;
+  }): Promise<{ pricingSnapshot: PricingQuote }> {
+    if (input.quoteToken) {
+      const quote = await this.priceQuoteRepository.findById(input.quoteToken);
+      if (!quote) {
+        throw new PriceQuoteNotFoundException(input.quoteToken);
+      }
+      const now = this.clock.now();
+      if (quote.isExpired(now)) {
+        throw new PriceQuoteExpiredException(input.quoteToken);
+      }
+      if (!quote.matchesVehicle(input.vehicle.getId())) {
+        throw new PriceQuoteVehicleMismatchException(
+          input.quoteToken,
+          input.vehicle.getId(),
+        );
+      }
+      if (!quote.isUsableBy(input.conductorId)) {
+        throw new PriceQuoteConductorMismatchException(input.quoteToken);
+      }
+      const datesMatch =
+        quote.getStartAt().getTime() === input.startAt.getTime() &&
+        quote.getEndAt().getTime() === input.endAt.getTime();
+      if (datesMatch) {
+        const durationDays = Math.max(
+          1,
+          Math.ceil(
+            (input.endAt.getTime() - input.startAt.getTime()) /
+              (24 * 60 * 60 * 1000),
+          ),
+        );
+        const baseOnly = computeBaseRentalCents(
+          quote.getBasePriceCents(),
+          input.startAt,
+          input.endAt,
+        );
+        const subtotalWithMultiplier = Math.round(
+          baseOnly * quote.getMultiplier(),
+        );
+        const pricingSnapshot: PricingQuote = {
+          vehicleId: input.vehicle.getId(),
+          currency: 'ARS',
+          basePriceCents: quote.getBasePriceCents(),
+          durationDays,
+          subtotalCents: subtotalWithMultiplier,
+          appliedDiscountTier:
+            quote.getDiscountPercentage() > 0
+              ? {
+                  minimumDays: durationDays,
+                  discountPercentage: quote.getDiscountPercentage(),
+                }
+              : null,
+          appliedDiscountPercentage: quote.getDiscountPercentage(),
+          discountCents: Math.floor(
+            (subtotalWithMultiplier * quote.getDiscountPercentage()) / 100,
+          ),
+          totalCents: quote.getTotalCents(),
+          multiplier: quote.getMultiplier(),
+          deliveryFeeCents: quote.getDeliveryFeeCents(),
+          quoteToken: quote.getId(),
+          expiresAt: quote.getExpiresAt().toISOString(),
+        };
+        return { pricingSnapshot };
+      }
+    }
+
+    const result = await this.pricingService.quoteForVehicle({
+      vehicle: input.vehicle,
+      startAt: input.startAt,
+      endAt: input.endAt,
+      withHomeDelivery: input.withHomeDelivery,
+      withHomeReturn: input.withHomeReturn,
+      conductorId: input.conductorId,
+    });
+    return { pricingSnapshot: result.response };
+  }
+
   private async snapshotReservationRules(reservation: Reservation): Promise<void> {
     const vehicle = await this.vehicleRepository.findById(reservation.getVehicleId());
     if (!vehicle) {
