@@ -45,6 +45,7 @@ export class PricingService {
     private readonly priceQuoteRepository: PriceQuoteRepository,
     @Inject(CLOCK)
     private readonly clock: Clock,
+    @Inject(DynamicPricingService)
     private readonly dynamicPricingService: DynamicPricingService,
   ) {}
 

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { UtilizationFactor } from './factors/utilization.factor';
 import { DemandZoneFactor } from './factors/demand-zone.factor';
@@ -23,7 +23,9 @@ export interface DynamicPricingInput {
 @Injectable()
 export class DynamicPricingService {
   constructor(
+    @Inject(UtilizationFactor)
     private readonly utilizationFactor: UtilizationFactor,
+    @Inject(DemandZoneFactor)
     private readonly demandZoneFactor: DemandZoneFactor,
   ) {}
 
