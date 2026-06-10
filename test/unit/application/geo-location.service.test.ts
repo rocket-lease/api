@@ -1,16 +1,11 @@
+import { polygonToCells } from 'h3-js';
 import {
   getH3CellsForGeometry,
   isH3CellInCaba,
   CABA_H3_CELL_LIST,
+  H3_RESOLUTION,
 } from '@/application/helpers/h3';
-
-/* eslint-disable @typescript-eslint/no-require-imports */
-const geojson: {
-  features: Array<{
-    properties: { nombre: string };
-    geometry: { type: string; coordinates: unknown };
-  }>;
-} = require('@/application/geo/caba-neighborhoods.geojson');
+import { CABA_NEIGHBORHOODS_GEOJSON as geojson } from '@/application/geo/caba-geojson';
 
 function featureByName(nombre: string) {
   const f = geojson.features.find((x) => x.properties.nombre === nombre);
@@ -40,6 +35,39 @@ describe('cobertura H3 de barrios CABA', () => {
       const outside = cells.filter((c) => !isH3CellInCaba(c));
       expect(outside).toHaveLength(0);
     });
+  });
+
+  describe('Villa Riachuelo', () => {
+    it('conserva su cobertura completa dentro de la grilla CABA', () => {
+      const cells = getH3CellsForGeometry(
+        featureByName('Villa Riachuelo').geometry,
+      );
+      expect(cells.length).toBeGreaterThan(1);
+      expect(cells.filter((c) => !isH3CellInCaba(c))).toHaveLength(0);
+    });
+  });
+
+  describe('Puerto Madero', () => {
+    it('excluye las celdas dentro del hueco del polígono', () => {
+      const geometry = featureByName('Puerto Madero').geometry;
+      const rings = geometry.coordinates as number[][][];
+      expect(rings.length).toBeGreaterThan(1);
+
+      const withHoles = getH3CellsForGeometry(geometry);
+      const outerOnly = polygonToCells([rings[0]], H3_RESOLUTION, true);
+      expect(withHoles.length).toBeLessThan(outerOnly.length);
+      const outerSet = new Set(outerOnly);
+      expect(withHoles.every((c) => outerSet.has(c))).toBe(true);
+    });
+  });
+
+  it('todas las celdas de cada barrio pertenecen a la grilla CABA', () => {
+    for (const feature of geojson.features) {
+      const outside = getH3CellsForGeometry(feature.geometry).filter(
+        (c) => !isH3CellInCaba(c),
+      );
+      expect(outside).toHaveLength(0);
+    }
   });
 
   it('CABA completa tiene peso total ≈ 1.0', () => {

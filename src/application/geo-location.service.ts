@@ -1,22 +1,21 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { GeoLocationOption } from '@rocket-lease/contracts';
-import { PrismaService } from '@/infrastructure/database/prisma.service';
 import {
-  CABA_H3_CELL_LIST,
-  getH3CellsForGeometry,
-  isH3CellInCaba,
-} from './helpers/h3';
-
-/* eslint-disable @typescript-eslint/no-require-imports */
-const CABA_NEIGHBORHOODS_GEOJSON: {
-  features: Array<{ properties: { nombre: string }; geometry: { type: string; coordinates: unknown } }>;
-} = require('./geo/caba-neighborhoods.geojson');
+  LOCATION_REPOSITORY,
+  type LocationRecord,
+  type LocationRepository,
+} from '@/domain/repositories/location.repository';
+import { CABA_H3_CELL_LIST, getH3CellsForGeometry } from './helpers/h3';
+import {
+  CABA_GEOJSON_SOURCE,
+  CABA_GEOJSON_VERSION,
+  CABA_NEIGHBORHOODS_GEOJSON,
+} from './geo/caba-geojson';
 
 /**
- * Fuente: GCBA Datos Abiertos — "Barrios de la Ciudad Autónoma de Buenos Aires"
- * https://cdn.buenosaires.gob.ar/datosabiertos/datasets/ministerio-de-educacion/barrios/barrios.geojson
- * Mapeo explícito de código interno → nombre en el GeoJSON oficial (campo "nombre").
- * Necesario donde el GeoJSON difiere: Monserrat, Paternal, Villa Del Parque, Villa Gral. Mitre.
+ * Mapeo explícito de código interno → nombre en el GeoJSON oficial (campo
+ * "nombre"). Necesario donde el GeoJSON difiere del nombre del catálogo:
+ * Monserrat, Paternal, Villa Del Parque, Villa Gral. Mitre.
  */
 const NEIGHBORHOOD_GEOJSON_NAME: Record<string, string> = {
   'caba-agronomia': 'Agronomia',
@@ -223,27 +222,24 @@ const SEARCH_LOCATIONS: SeedLocation[] = [
   })),
 ];
 
-const GEOJSON_SOURCE = 'GCBA Datos Abiertos - Barrios de CABA';
-const GEOJSON_VERSION = '2024';
-
 @Injectable()
 export class GeoLocationService {
   private seedPromise: Promise<void> | null = null;
 
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(LOCATION_REPOSITORY)
+    private readonly locationRepository: LocationRepository,
+  ) {}
 
   public async listSearchLocations(): Promise<GeoLocationOption[]> {
     await this.ensureSeeded();
-    const rows = await this.prisma.location.findMany({
-      where: { enabled: true },
-      orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
-    });
-    const byParent = new Map<string | null, typeof rows>();
+    const rows = await this.locationRepository.findAllEnabled();
+    const byParent = new Map<string | null, LocationRecord[]>();
     for (const row of rows) {
       const key = row.parentId ?? null;
       byParent.set(key, [...(byParent.get(key) ?? []), row]);
     }
-    const toOption = (row: (typeof rows)[number]): GeoLocationOption => ({
+    const toOption = (row: LocationRecord): GeoLocationOption => ({
       code: row.code,
       name: row.name,
       type: row.type as GeoLocationOption['type'],
@@ -258,61 +254,45 @@ export class GeoLocationService {
     return (byParent.get(null) ?? []).map(toOption);
   }
 
-  public async findEnabledByCode(code: string) {
+  public async findEnabledByCode(code: string): Promise<LocationRecord | null> {
     await this.ensureSeeded();
-    return this.prisma.location.findFirst({
-      where: { code, enabled: true },
-      select: { id: true, code: true, name: true, cityName: true },
-    });
+    return this.locationRepository.findEnabledByCode(code);
   }
 
+  /**
+   * Garantiza que el catálogo se siembre una única vez por proceso. Si el
+   * seed falla (p.ej. la DB estaba momentáneamente caída) se descarta la
+   * promise para que el próximo request lo reintente, en vez de dejar el
+   * rechazo cacheado hasta reiniciar.
+   */
   private async ensureSeeded(): Promise<void> {
-    this.seedPromise ??= this.seed();
+    this.seedPromise ??= this.seed().catch((error: unknown) => {
+      this.seedPromise = null;
+      throw error;
+    });
     return this.seedPromise;
   }
 
   private async seed(): Promise<void> {
     for (const location of SEARCH_LOCATIONS) {
-      await this.prisma.location.upsert({
-        where: { code: location.code },
-        create: {
-          id: location.code,
-          code: location.code,
-          name: location.name,
-          type: location.type,
-          parentId: location.parentCode,
-          provinceCode: location.provinceCode,
-          cityName: location.cityName,
-          displayOrder: location.displayOrder,
-          centerLat: location.center?.latitude,
-          centerLng: location.center?.longitude,
-        },
-        update: {
-          name: location.name,
-          type: location.type,
-          parentId: location.parentCode,
-          provinceCode: location.provinceCode,
-          cityName: location.cityName,
-          displayOrder: location.displayOrder,
-          centerLat: location.center?.latitude,
-          centerLng: location.center?.longitude,
-          enabled: true,
-        },
-      });
+      await this.locationRepository.upsertLocation(location);
     }
     await this.seedH3Cells();
   }
 
+  /**
+   * Siembra la cobertura H3: CABA completa reparte peso uniforme sobre la
+   * grilla (unión de los 48 barrios) y cada barrio sobre sus propias celdas,
+   * de modo que toda ubicación suma peso 1.0. La cobertura se reemplaza
+   * entera en cada seed para que un cambio de dataset o resolución nunca
+   * deje celdas viejas con pesos desnormalizados.
+   */
   private async seedH3Cells(): Promise<void> {
     const cabaWeight = 1 / CABA_H3_CELL_LIST.length;
-    await this.prisma.locationH3Cell.createMany({
-      data: CABA_H3_CELL_LIST.map((h3Cell) => ({
-        locationId: 'caba',
-        h3Cell,
-        weight: cabaWeight,
-      })),
-      skipDuplicates: true,
-    });
+    await this.locationRepository.replaceCoverage(
+      'caba',
+      CABA_H3_CELL_LIST.map((h3Cell) => ({ h3Cell, weight: cabaWeight })),
+    );
 
     for (const neighborhood of CABA_NEIGHBORHOODS) {
       const geojsonName = NEIGHBORHOOD_GEOJSON_NAME[neighborhood.code];
@@ -322,37 +302,19 @@ export class GeoLocationService {
         continue;
       }
 
-      const cells = getH3CellsForGeometry(feature.geometry).filter(isH3CellInCaba);
+      const cells = getH3CellsForGeometry(feature.geometry);
       if (cells.length === 0) continue;
 
       const weight = 1 / cells.length;
-
-      await this.prisma.$transaction([
-        this.prisma.locationH3Cell.deleteMany({
-          where: { locationId: neighborhood.code },
-        }),
-        this.prisma.locationH3Cell.createMany({
-          data: cells.map((h3Cell) => ({
-            locationId: neighborhood.code,
-            h3Cell,
-            weight,
-          })),
-        }),
-        this.prisma.locationGeometry.upsert({
-          where: { locationId: neighborhood.code },
-          create: {
-            locationId: neighborhood.code,
-            geometry: feature.geometry as object,
-            source: GEOJSON_SOURCE,
-            version: GEOJSON_VERSION,
-          },
-          update: {
-            geometry: feature.geometry as object,
-            source: GEOJSON_SOURCE,
-            version: GEOJSON_VERSION,
-          },
-        }),
-      ]);
+      await this.locationRepository.replaceCoverage(
+        neighborhood.code,
+        cells.map((h3Cell) => ({ h3Cell, weight })),
+        {
+          geometry: feature.geometry,
+          source: CABA_GEOJSON_SOURCE,
+          version: CABA_GEOJSON_VERSION,
+        },
+      );
     }
   }
 }

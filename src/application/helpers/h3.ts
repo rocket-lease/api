@@ -1,4 +1,5 @@
 import { latLngToCell, cellToBoundary, polygonToCells } from 'h3-js';
+import { CABA_NEIGHBORHOODS_GEOJSON } from '../geo/caba-geojson';
 
 /**
  * Resolución H3 usada en el motor de pricing y el admin map. Resolución 8
@@ -6,35 +7,57 @@ import { latLngToCell, cellToBoundary, polygonToCells } from 'h3-js';
  */
 export const H3_RESOLUTION = 8;
 
-const CABA_POLYGON_LAT_LON: Array<[number, number]> = [
-  [-34.5265, -58.5301],
-  [-34.5290, -58.4530],
-  [-34.5410, -58.4170],
-  [-34.5550, -58.3850],
-  [-34.5670, -58.3620],
-  [-34.5990, -58.3360],
-  [-34.6300, -58.3360],
-  [-34.6500, -58.3540],
-  [-34.6630, -58.3720],
-  [-34.6790, -58.4020],
-  [-34.6860, -58.4380],
-  [-34.6850, -58.4780],
-  [-34.6720, -58.5180],
-  [-34.6420, -58.5320],
-  [-34.6020, -58.5320],
-  [-34.5640, -58.5260],
-  [-34.5265, -58.5301],
-];
+/**
+ * Convierte una geometría GeoJSON (Polygon o MultiPolygon) a un array de
+ * celdas H3 a la resolución `H3_RESOLUTION`. Se pasan todos los anillos a
+ * h3-js (`isGeoJson: true` interpreta las coordenadas [lon, lat] tal cual),
+ * de modo que los huecos del polígono quedan excluidos de la cobertura.
+ */
+export function getH3CellsForGeometry(geometry: {
+  type: string;
+  coordinates: unknown;
+}): string[] {
+  if (geometry.type === 'Polygon') {
+    return polygonToCells(
+      geometry.coordinates as number[][][],
+      H3_RESOLUTION,
+      true,
+    );
+  }
+  if (geometry.type === 'MultiPolygon') {
+    const cells = new Set<string>();
+    for (const polygon of geometry.coordinates as number[][][][]) {
+      for (const cell of polygonToCells(polygon, H3_RESOLUTION, true)) {
+        cells.add(cell);
+      }
+    }
+    return Array.from(cells);
+  }
+  return [];
+}
 
-const CABA_H3_CELLS = new Set(
-  polygonToCells(CABA_POLYGON_LAT_LON, H3_RESOLUTION),
+/**
+ * Grilla H3 de CABA: unión de las celdas de los 48 polígonos oficiales de
+ * barrios. Derivarla del mismo dataset que la cobertura por barrio garantiza
+ * que ningún barrio pierda celdas frente a un contorno dibujado aparte y que
+ * la grilla no incluya celdas de agua o puerto.
+ */
+const CABA_H3_CELLS = new Set<string>(
+  CABA_NEIGHBORHOODS_GEOJSON.features.flatMap((feature) =>
+    getH3CellsForGeometry(feature.geometry),
+  ),
 );
 
 export const CABA_H3_CELL_LIST = Array.from(CABA_H3_CELLS);
 
+export function isH3CellInCaba(h3Cell: string): boolean {
+  return CABA_H3_CELLS.has(h3Cell);
+}
+
 /**
- * Convierte coordenadas geográficas a una celda H3 a la resolución `H3_RESOLUTION`.
- * Devuelve `null` si las coordenadas son inválidas o nulas.
+ * Convierte coordenadas geográficas a una celda H3 a la resolución
+ * `H3_RESOLUTION`. Devuelve `null` si las coordenadas son nulas, no finitas
+ * o están fuera del rango geográfico válido.
  */
 export function latLonToH3(
   latitude: number | null | undefined,
@@ -47,7 +70,11 @@ export function latLonToH3(
     longitude === null ||
     longitude === undefined ||
     !Number.isFinite(latitude) ||
-    !Number.isFinite(longitude)
+    !Number.isFinite(longitude) ||
+    latitude < -90 ||
+    latitude > 90 ||
+    longitude < -180 ||
+    longitude > 180
   ) {
     return null;
   }
@@ -55,49 +82,16 @@ export function latLonToH3(
 }
 
 /**
- * Devuelve el polígono GeoJSON (anillo cerrado, en formato `[lon, lat]`) que
- * representa el contorno de la celda H3. Compatible con MapLibre.
+ * Devuelve el polígono GeoJSON (en formato `[lon, lat]`) que representa el
+ * contorno de la celda H3. `cellToBoundary` con `formatAsGeoJson` ya entrega
+ * el anillo cerrado (primer y último vértice iguales), apto para MapLibre.
  */
 export function h3CellToGeoJsonPolygon(h3Cell: string): {
   type: 'Polygon';
   coordinates: Array<Array<[number, number]>>;
 } {
-  const boundary = cellToBoundary(h3Cell, true);
-  const ring: Array<[number, number]> = boundary.map(([lng, lat]) => [lng, lat]);
-  if (ring.length > 0) {
-    ring.push(ring[0]);
-  }
+  const ring = cellToBoundary(h3Cell, true).map(
+    ([lng, lat]) => [lng, lat] as [number, number],
+  );
   return { type: 'Polygon', coordinates: [ring] };
-}
-
-export function isH3CellInCaba(h3Cell: string): boolean {
-  return CABA_H3_CELLS.has(h3Cell);
-}
-
-/**
- * Convierte una geometría GeoJSON (Polygon o MultiPolygon) a un array de celdas
- * H3 a la resolución `H3_RESOLUTION`. Las coordenadas GeoJSON son [lon, lat];
- * h3-js requiere [lat, lon], por lo que se hace el swap aquí.
- */
-export function getH3CellsForGeometry(geometry: {
-  type: string;
-  coordinates: unknown;
-}): string[] {
-  if (geometry.type === 'Polygon') {
-    const coordinates = geometry.coordinates as number[][][];
-    const outerRing = coordinates[0].map(([lon, lat]) => [lat, lon] as [number, number]);
-    return polygonToCells(outerRing, H3_RESOLUTION);
-  }
-  if (geometry.type === 'MultiPolygon') {
-    const coordinates = geometry.coordinates as number[][][][];
-    const cells = new Set<string>();
-    for (const polygon of coordinates) {
-      const outerRing = polygon[0].map(([lon, lat]) => [lat, lon] as [number, number]);
-      for (const cell of polygonToCells(outerRing, H3_RESOLUTION)) {
-        cells.add(cell);
-      }
-    }
-    return Array.from(cells);
-  }
-  return [];
 }

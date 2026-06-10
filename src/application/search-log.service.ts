@@ -65,7 +65,10 @@ export class SearchLogService {
 
   /**
    * Loguea una búsqueda ambient (`signal='search'`) si pasaron al menos 30s
-   * desde el último search de la sesión y las coordenadas son válidas.
+   * desde el último search de la sesión. La búsqueda se ancla a una ubicación
+   * del catálogo (`locationCode`) o a una celda H3 derivada de coordenadas;
+   * son mutuamente excluyentes y, si no hay ninguna de las dos, el evento se
+   * descarta: un log sin ancla espacial no puede agregarse por zona.
    */
   public async maybeLog(input: MaybeLogSearchInput): Promise<void> {
     if (!input.sessionId) return;
