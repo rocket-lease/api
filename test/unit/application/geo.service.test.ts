@@ -45,7 +45,6 @@ function profile(id: string, name: string): UserProfile {
     reputationScore: 4.5,
     preferences: { transmission: null, accessibility: [], maxPriceDaily: null },
     autoAccept: false,
-    isAdmin: false,
   };
 }
 

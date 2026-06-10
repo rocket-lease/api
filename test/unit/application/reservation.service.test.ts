@@ -102,7 +102,6 @@ function makeProfile(id: string, autoAccept = false, balanceInCents = 0): UserPr
       maxPriceDaily: null,
     },
     autoAccept,
-    isAdmin: false,
   };
 }
 

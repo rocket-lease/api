@@ -54,6 +54,7 @@ function makeVehicle(overrides: VehicleOverrides = {}): Vehicle {
     overrides.homeDeliveryFeeCents !== undefined ? overrides.homeDeliveryFeeCents : null,
     overrides.homeReturnEnabled ?? false,
     overrides.homeReturnFeeCents !== undefined ? overrides.homeReturnFeeCents : null,
+    0,
     overrides.dynamicPricingEnabled ?? false,
   )
 }
