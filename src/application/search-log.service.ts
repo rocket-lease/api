@@ -64,11 +64,14 @@ export class SearchLogService {
   ) {}
 
   /**
-   * Loguea una búsqueda ambient (`signal='search'`) si pasaron al menos 30s
-   * desde el último search de la sesión. La búsqueda se ancla a una ubicación
-   * del catálogo (`locationCode`) o a una celda H3 derivada de coordenadas;
-   * son mutuamente excluyentes y, si no hay ninguna de las dos, el evento se
-   * descarta: un log sin ancla espacial no puede agregarse por zona.
+   * Loguea una búsqueda ambient (`signal='search'`). La búsqueda se ancla a
+   * una ubicación del catálogo (`locationCode`) o a una celda H3 derivada de
+   * coordenadas; son mutuamente excluyentes y, si no hay ninguna de las dos,
+   * el evento se descarta: un log sin ancla espacial no puede agregarse por
+   * zona. El debounce de 30s distingue el tipo de ancla: repetir el mismo
+   * barrio es ruido y se suprime, pero elegir un barrio distinto es intención
+   * nueva y se loguea siempre; las búsquedas por coordenadas mantienen el
+   * debounce global porque panear el mapa emite un stream de celdas vecinas.
    */
   public async maybeLog(input: MaybeLogSearchInput): Promise<void> {
     if (!input.sessionId) return;
@@ -90,7 +93,10 @@ export class SearchLogService {
       if (last) {
         const elapsedSec =
           (now.getTime() - last.getCreatedAt().getTime()) / 1000;
-        if (elapsedSec < debounceWindowSec) return;
+        const repeatsAnchor = location
+          ? last.getLocationId() === location.id
+          : true;
+        if (elapsedSec < debounceWindowSec && repeatsAnchor) return;
       }
     }
     const log = new SearchLog({
