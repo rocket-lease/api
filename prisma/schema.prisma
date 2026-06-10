@@ -689,6 +689,8 @@ model SearchLog {
   @@index([sessionId, createdAt(sort: Desc)], map: "search_logs_session_time_idx")
   @@index([h3Cell, createdAt(sort: Desc)], map: "search_logs_zone_time_idx")
   @@map("search_logs")
+}
+
 model Reputation {
   id                    String   @id @default(uuid())
   userId                String   @unique @map("user_id")
