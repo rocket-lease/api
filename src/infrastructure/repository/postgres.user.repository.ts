@@ -35,6 +35,7 @@ export class PostgresUserRepository implements UserRepository {
         maxPriceDaily: row.preferredMaxPriceDaily,
       },
       autoAccept: row.autoAccept,
+      isAdmin: row.isAdmin,
     };
   }
 
