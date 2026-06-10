@@ -21,6 +21,7 @@ import { SearchLogModule } from './search-log.module';
 import { AdminModule } from './admin.module';
 import { ReviewModule } from './review.module';
 import { TicketModule } from './ticket.module';
+import { DashboardModule } from './dashboard.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { TicketModule } from './ticket.module';
     WalletModule,
     PushSubscriptionModule,
     TicketModule,
+    DashboardModule,
   ],
 })
 export class AppModule {}
