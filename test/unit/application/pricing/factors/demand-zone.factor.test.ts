@@ -91,37 +91,14 @@ describe('DemandZoneFactor', () => {
 
   // ─── cálculo de ratio ──────────────────────────────────────────────────────
 
-  describe('cálculo de ratio', () => {
-    it('retorna 0.95 cuando sin señales y supply=1 (demand=0, ratio=0 < 1)', async () => {
+  describe('rampa de surge por ratio', () => {
+    it('retorna 1.0 sin señales (demand=0, ratio=0 ≤ startRatio)', async () => {
       const result = await factor.compute(CABA_LAT, CABA_LON);
 
-      expect(result).toBe(0.95);
+      expect(result).toBe(1.0);
     });
 
-    it('retorna 1.25 cuando ratio > 10 (reservation=1, supply=1 → demand=50, ratio=50)', async () => {
-      statsMock.countConfirmedInHexSince.mockResolvedValue(1);
-      statsMock.countAvailableInHex.mockResolvedValue(1);
-
-      const result = await factor.compute(CABA_LAT, CABA_LON);
-
-      expect(result).toBe(1.25);
-    });
-
-    it('retorna 1.15 cuando ratio > 5 y ≤ 10 (vehicleView=3, supply=2 → demand=15, ratio=7.5)', async () => {
-      searchLogMock.countSignalsInHexSince.mockResolvedValue({
-        search: 0,
-        vehicleView: 3,
-        quote: 0,
-        reservation: 0,
-      });
-      statsMock.countAvailableInHex.mockResolvedValue(2);
-
-      const result = await factor.compute(CABA_LAT, CABA_LON);
-
-      expect(result).toBe(1.15);
-    });
-
-    it('retorna 0.95 cuando ratio < 1 (search=5, supply=10 → demand=5, ratio=0.5)', async () => {
+    it('retorna 1.0 cuando ratio ≤ 1 (search=5, supply=10 → ratio=0.5)', async () => {
       searchLogMock.countSignalsInHexSince.mockResolvedValue({
         search: 5,
         vehicleView: 0,
@@ -132,10 +109,33 @@ describe('DemandZoneFactor', () => {
 
       const result = await factor.compute(CABA_LAT, CABA_LON);
 
-      expect(result).toBe(0.95);
+      expect(result).toBe(1.0);
     });
 
-    it('retorna 1.0 cuando ratio entre 1 y 5 (search=10, supply=5 → demand=10, ratio=2)', async () => {
+    it('topea en 1.5 cuando ratio ≥ fullRatio (reservation=1, supply=1 → ratio=50)', async () => {
+      statsMock.countConfirmedInHexSince.mockResolvedValue(1);
+      statsMock.countAvailableInHex.mockResolvedValue(1);
+
+      const result = await factor.compute(CABA_LAT, CABA_LON);
+
+      expect(result).toBe(1.5);
+    });
+
+    it('sube gradual a mitad de rampa (vehicleView=3, supply=2 → ratio=7.5)', async () => {
+      searchLogMock.countSignalsInHexSince.mockResolvedValue({
+        search: 0,
+        vehicleView: 3,
+        quote: 0,
+        reservation: 0,
+      });
+      statsMock.countAvailableInHex.mockResolvedValue(2);
+
+      const result = await factor.compute(CABA_LAT, CABA_LON);
+
+      expect(result).toBeCloseTo(1.171, 3);
+    });
+
+    it('apenas sube con ratio bajo (search=10, supply=5 → ratio=2)', async () => {
       searchLogMock.countSignalsInHexSince.mockResolvedValue({
         search: 10,
         vehicleView: 0,
@@ -146,22 +146,22 @@ describe('DemandZoneFactor', () => {
 
       const result = await factor.compute(CABA_LAT, CABA_LON);
 
-      expect(result).toBe(1.0);
+      expect(result).toBeCloseTo(1.026, 3);
     });
   });
 
   // ─── ponderación por señal ─────────────────────────────────────────────────
 
   describe('ponderación por señal', () => {
-    it('quote pesa 20: supply=1, quote=1 → demand=20, ratio=20 → 1.25', async () => {
+    it('quote pesa 20: supply=1, quote=1 → ratio=20 → topa en 1.5', async () => {
       priceQuoteMock.countByHexSince.mockResolvedValue(1);
 
       const result = await factor.compute(CABA_LAT, CABA_LON);
 
-      expect(result).toBe(1.25);
+      expect(result).toBe(1.5);
     });
 
-    it('vehicleView pesa 5: supply=1, vehicleView=1 → demand=5, ratio=5 — ratio > 5 es false, retorna 1.0', async () => {
+    it('vehicleView pesa 5: supply=1, vehicleView=1 → ratio=5', async () => {
       searchLogMock.countSignalsInHexSince.mockResolvedValue({
         search: 0,
         vehicleView: 1,
@@ -171,7 +171,7 @@ describe('DemandZoneFactor', () => {
 
       const result = await factor.compute(CABA_LAT, CABA_LON);
 
-      expect(result).toBe(1.0);
+      expect(result).toBeCloseTo(1.105, 3);
     });
   });
 

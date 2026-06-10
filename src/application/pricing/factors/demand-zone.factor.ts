@@ -13,7 +13,10 @@ import {
 } from '@/domain/repositories/price-quote.repository';
 import { CLOCK, type Clock } from '@/domain/providers/clock.provider';
 import { DEMAND_ZONE_FACTOR } from '../config/dynamic-pricing.config';
-import { computeWeightedDemand } from '../demand-weight';
+import {
+  computeWeightedDemand,
+  demandMultiplierFromRatio,
+} from '../demand-weight';
 import { latLonToH3 } from '@/application/helpers/h3';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -67,11 +70,6 @@ export class DemandZoneFactor {
       quote: quotes,
       reservation: reservations,
     });
-    const ratio = demand / supply;
-    const thresholds = DEMAND_ZONE_FACTOR.ratioThresholds;
-    if (ratio > thresholds.veryHigh.ratio) return thresholds.veryHigh.multiplier;
-    if (ratio > thresholds.high.ratio) return thresholds.high.multiplier;
-    if (ratio < thresholds.low.ratio) return thresholds.low.multiplier;
-    return DEMAND_ZONE_FACTOR.neutral;
+    return demandMultiplierFromRatio(demand / supply);
   }
 }

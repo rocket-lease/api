@@ -1,8 +1,11 @@
 /**
  * Bounds globales del multiplier dinámico. Cualquier composición de factores
- * se clampea a este rango antes de aplicarse al precio.
+ * se clampea a este rango antes de aplicarse al precio. El piso es la tarifa
+ * base (1.0): el motor solo infla el precio, nunca lo descuenta por debajo.
+ * Los factores a la baja pueden moderar un surge, pero el resultado final
+ * jamás queda por debajo de la base.
  */
-export const DYNAMIC_PRICING_MIN = 0.7;
+export const DYNAMIC_PRICING_MIN = 1.0;
 export const DYNAMIC_PRICING_MAX = 2.0;
 export const DYNAMIC_PRICING_NEUTRAL = 1.0;
 
@@ -54,30 +57,16 @@ export const DEMAND_ZONE_FACTOR = {
     quote: 20,
     reservation: 50,
   },
-  ratioThresholds: {
-    veryHigh: { ratio: 10, multiplier: 1.25 },
-    high: { ratio: 5, multiplier: 1.15 },
-    low: { ratio: 1, multiplier: 0.95 },
+  /**
+   * Rampa continua de surge por demanda. Por debajo de `startRatio`
+   * (demanda ≤ oferta) no hay surge; sube linealmente hasta `maxMultiplier`
+   * cuando la demanda llega a `fullRatio` veces la oferta. Solo infla.
+   */
+  surge: {
+    startRatio: 1,
+    fullRatio: 20,
+    maxMultiplier: 1.5,
   },
-  neutral: 1.0,
-} as const;
-
-/**
- * Lead-time: cuán cerca está la fecha de pickup.
- */
-export const LEAD_TIME_FACTOR = {
-  shortLeadDays: 1,
-  shortLeadMultiplier: 1.2,
-  longLeadDays: 21,
-  longLeadMultiplier: 0.9,
-  neutral: 1.0,
-} as const;
-
-/**
- * Factor de fin de semana: si el rango incluye sábado o domingo.
- */
-export const WEEKEND_FACTOR = {
-  withWeekendMultiplier: 1.15,
   neutral: 1.0,
 } as const;
 

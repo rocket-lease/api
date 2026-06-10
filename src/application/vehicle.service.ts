@@ -35,6 +35,9 @@ import {
   VEHICLE_DOCUMENT_REPOSITORY,
   type VehicleDocumentRepository,
 } from '@/domain/repositories/vehicle-document.repository';
+import { ZoneDemandPricer } from '@/application/pricing/zone-demand-pricer';
+import { latLonToH3 } from '@/application/helpers/h3';
+import { DYNAMIC_PRICING_NEUTRAL } from '@/application/pricing/config/dynamic-pricing.config';
 
 @Injectable()
 export class VehicleService {
@@ -51,6 +54,8 @@ export class VehicleService {
     @Inject(IdentityService) private readonly identityService: IdentityService,
     @Inject(VEHICLE_DOCUMENT_REPOSITORY)
     private readonly vehicleDocumentRepository: VehicleDocumentRepository,
+    @Inject(ZoneDemandPricer)
+    private readonly zoneDemandPricer: ZoneDemandPricer,
   ) {}
 
   public async createVehicle(
@@ -110,7 +115,38 @@ export class VehicleService {
     const vehicle = await this.vehicleRepository.findById(vehicleId);
     if (!vehicle) throw new EntityNotFoundException('vehicle', vehicleId);
     const owner = await this.loadOwner(vehicle.getOwnerId());
-    return this.toDTO(vehicle, owner, true);
+    const demand = await this.demandMultipliersByVehicle([vehicle]);
+    return this.toDTO(
+      vehicle,
+      owner,
+      true,
+      false,
+      demand.get(vehicle.getId()) ?? DYNAMIC_PRICING_NEUTRAL,
+    );
+  }
+
+  /**
+   * Resuelve el factor de demanda zonal por vehículo (solo los que tienen
+   * pricing dinámico activo) en una sola tanda, deduplicando por celda H3.
+   */
+  private async demandMultipliersByVehicle(
+    vehicles: Vehicle[],
+  ): Promise<Map<string, number>> {
+    const cellByVehicle = new Map<string, string>();
+    for (const vehicle of vehicles) {
+      if (!vehicle.getDynamicPricingEnabled()) continue;
+      const cell = latLonToH3(vehicle.getLatitude(), vehicle.getLongitude());
+      if (cell) cellByVehicle.set(vehicle.getId(), cell);
+    }
+    const result = new Map<string, number>();
+    if (cellByVehicle.size === 0) return result;
+    const byCell = await this.zoneDemandPricer.multipliersForCells(
+      new Set(cellByVehicle.values()),
+    );
+    for (const [vehicleId, cell] of cellByVehicle) {
+      result.set(vehicleId, byCell.get(cell) ?? DYNAMIC_PRICING_NEUTRAL);
+    }
+    return result;
   }
 
   public async updateVehicle(
@@ -244,6 +280,7 @@ export class VehicleService {
     const owners = new Map<string, VehicleOwner>(
       profiles.map((p) => [p.id, this.profileToOwner(p, verifications.get(p.id))]),
     );
+    const demand = await this.demandMultipliersByVehicle(vehicles);
 
     const sorted = [...vehicles].sort((a, b) => {
       const aPromoted = promotedIds.has(a.getId()) ? 1 : 0;
@@ -253,7 +290,13 @@ export class VehicleService {
 
     return Promise.all(
       sorted.map((v) =>
-        this.toDTO(v, owners.get(v.getOwnerId()), false, promotedIds.has(v.getId())),
+        this.toDTO(
+          v,
+          owners.get(v.getOwnerId()),
+          false,
+          promotedIds.has(v.getId()),
+          demand.get(v.getId()) ?? DYNAMIC_PRICING_NEUTRAL,
+        ),
       ),
     );
   }
@@ -288,6 +331,7 @@ export class VehicleService {
     owner?: VehicleOwner,
     includeReservationRuleSet = false,
     isPromoted = false,
+    demandMultiplier = DYNAMIC_PRICING_NEUTRAL,
   ): Promise<GetVehicleResponse> {
     const reservationRuleSet = includeReservationRuleSet
       ? await this.loadReservationRuleSet(
@@ -330,6 +374,7 @@ export class VehicleService {
       homeReturnEnabled: vehicle.getHomeReturnEnabled(),
       homeReturnFeeCents: vehicle.getHomeReturnFeeCents(),
       dynamicPricingEnabled: vehicle.getDynamicPricingEnabled(),
+      demandMultiplier,
       reservationRuleSet: reservationRuleSet,
       owner,
       documentStatus,

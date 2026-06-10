@@ -16,16 +16,14 @@ import {
   type PriceQuoteRepository,
 } from '@/domain/repositories/price-quote.repository';
 import { CLOCK, type Clock } from '@/domain/providers/clock.provider';
-import {
-  DEMAND_ZONE_FACTOR,
-  DYNAMIC_PRICING_NEUTRAL,
-} from '@/application/pricing/config/dynamic-pricing.config';
+import { DEMAND_ZONE_FACTOR } from '@/application/pricing/config/dynamic-pricing.config';
 import {
   h3CellToGeoJsonPolygon,
   isH3CellInCaba,
 } from '@/application/helpers/h3';
 import {
   computeWeightedDemand,
+  demandMultiplierFromRatio,
   type DemandSignalCounts,
 } from '@/application/pricing/demand-weight';
 
@@ -33,10 +31,12 @@ import {
  * Service que arma el agregado de zonas (hex H3) que consume el admin map.
  * Cada hex incluye oferta (cantidad de vehículos), demanda ponderada (suma
  * de cuatro señales con pesos crecientes según intención: search ×1,
- * vehicleView ×5, quote ×20, reservation ×50), ratio, multiplier promedio
- * y un sample de vehículos. La ponderación usa `computeWeightedDemand`,
- * la misma fuente de verdad que el factor de pricing en runtime, así el
- * heatmap y el multiplier cobrado nunca divergen.
+ * vehicleView ×5, quote ×20, reservation ×50), ratio, el factor de demanda
+ * de la zona EN VIVO y un sample de vehículos. El `avgMultiplier` no es un
+ * promedio de cotizaciones pasadas (eso laggea y mezcla fechas) sino el
+ * factor de demanda actual derivado del ratio demanda/oferta, calculado con
+ * los mismos cortes que el motor de pricing. Así el hex reacciona al instante
+ * a la demanda y nunca muestra un número promediado arbitrario.
  */
 @Injectable()
 export class AdminPricingService {
@@ -70,9 +70,6 @@ export class AdminPricingService {
     const supplyByCell = new Map(
       supplyZones.map((row) => [row.h3Cell, row]),
     );
-    const multiplierByCell = new Map(
-      quoteAggregates.map((row) => [row.h3Cell, row]),
-    );
 
     const countsByCell = new Map<string, DemandSignalCounts>();
     const countsFor = (cell: string): DemandSignalCounts => {
@@ -101,7 +98,6 @@ export class AdminPricingService {
     const allCells = new Set<string>([
       ...supplyByCell.keys(),
       ...weightedDemandByCell.keys(),
-      ...multiplierByCell.keys(),
     ]);
 
     const zones = Array.from(allCells)
@@ -109,12 +105,9 @@ export class AdminPricingService {
       .map((h3Cell) => {
         const supply = supplyByCell.get(h3Cell);
         const supplyCount = supply?.supplyCount ?? 0;
-        const demandCount = Math.round(
-          weightedDemandByCell.get(h3Cell) ?? 0,
-        );
+        const demandCount = weightedDemandByCell.get(h3Cell) ?? 0;
         const ratio = supplyCount === 0 ? 0 : demandCount / supplyCount;
-        const avgMultiplier =
-          multiplierByCell.get(h3Cell)?.avgMultiplier ?? DYNAMIC_PRICING_NEUTRAL;
+        const avgMultiplier = demandMultiplierFromRatio(ratio);
         return {
           h3Cell,
           geometry: h3CellToGeoJsonPolygon(h3Cell),

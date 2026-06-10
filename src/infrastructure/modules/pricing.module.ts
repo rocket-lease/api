@@ -2,10 +2,9 @@ import { Module } from '@nestjs/common';
 import { PricingController } from '@/infrastructure/controllers/pricing.controller';
 import { PricingService } from '@/application/pricing/pricing.service';
 import { DynamicPricingService } from '@/application/pricing/dynamic-pricing.service';
+import { ZoneDemandPricer } from '@/application/pricing/zone-demand-pricer';
 import { UtilizationFactor } from '@/application/pricing/factors/utilization.factor';
 import { DemandZoneFactor } from '@/application/pricing/factors/demand-zone.factor';
-import { LeadTimeFactor } from '@/application/pricing/factors/lead-time.factor';
-import { WeekendFactor } from '@/application/pricing/factors/weekend.factor';
 import { PRICE_QUOTE_REPOSITORY } from '@/domain/repositories/price-quote.repository';
 import { SEARCH_LOG_REPOSITORY } from '@/domain/repositories/search-log.repository';
 import { PRICING_STATS_REPOSITORY } from '@/domain/repositories/pricing-stats.repository';
@@ -25,10 +24,9 @@ import { AuthModule } from './auth.module';
     PrismaService,
     PricingService,
     DynamicPricingService,
+    ZoneDemandPricer,
     UtilizationFactor,
     DemandZoneFactor,
-    LeadTimeFactor,
-    WeekendFactor,
     {
       provide: VEHICLE_REPOSITORY,
       useClass: PostgresVehicleRepository,
@@ -53,6 +51,7 @@ import { AuthModule } from './auth.module';
   exports: [
     PricingService,
     DynamicPricingService,
+    ZoneDemandPricer,
     PRICE_QUOTE_REPOSITORY,
     SEARCH_LOG_REPOSITORY,
     PRICING_STATS_REPOSITORY,

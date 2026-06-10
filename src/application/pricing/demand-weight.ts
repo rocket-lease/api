@@ -24,3 +24,24 @@ export function computeWeightedDemand(counts: DemandSignalCounts): number {
     counts.reservation * weights.reservation
   );
 }
+
+/**
+ * Traduce el ratio demanda/oferta de una celda en el multiplier de demanda
+ * zonal, con una rampa lineal continua (`DEMAND_ZONE_FACTOR.surge`): sin surge
+ * hasta `startRatio`, subiendo hasta `maxMultiplier` cuando la demanda llega a
+ * `fullRatio` veces la oferta. Es la única fuente de verdad del corte: la
+ * comparten el factor de pricing en runtime, el precio "desde" de los
+ * vehículos y el heatmap del admin, así nunca divergen. Solo infla.
+ */
+export function demandMultiplierFromRatio(ratio: number): number {
+  const { startRatio, fullRatio, maxMultiplier } = DEMAND_ZONE_FACTOR.surge;
+  if (ratio <= startRatio) return DEMAND_ZONE_FACTOR.neutral;
+  const progress = Math.min(
+    1,
+    (ratio - startRatio) / (fullRatio - startRatio),
+  );
+  const multiplier =
+    DEMAND_ZONE_FACTOR.neutral +
+    (maxMultiplier - DEMAND_ZONE_FACTOR.neutral) * progress;
+  return Math.round(multiplier * 1000) / 1000;
+}

@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { AdminPricingController } from '@/infrastructure/controllers/admin-pricing.controller';
+import { DebugPricingController } from '@/infrastructure/controllers/debug-pricing.controller';
 import { AdminPricingService } from '@/application/admin/admin-pricing.service';
+import { DebugPricingService } from '@/application/admin/debug-pricing.service';
 import { AdminGuard } from '@/infrastructure/auth/admin.guard';
 import { USER_REPOSITORY } from '@/domain/repositories/user.repository';
 import { PRICING_STATS_REPOSITORY } from '@/domain/repositories/pricing-stats.repository';
@@ -16,10 +18,11 @@ import { AuthModule } from './auth.module';
 
 @Module({
   imports: [AuthModule],
-  controllers: [AdminPricingController],
+  controllers: [AdminPricingController, DebugPricingController],
   providers: [
     PrismaService,
     AdminPricingService,
+    DebugPricingService,
     AdminGuard,
     {
       provide: USER_REPOSITORY,

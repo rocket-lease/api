@@ -14,6 +14,7 @@ import { ReservationModule } from './reservation.module';
 import { BankAccountModule } from './bank-account.module';
 import { IdentityModule } from './identity.module';
 import { SearchLogModule } from './search-log.module';
+import { PricingModule } from './pricing.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { SearchLogModule } from './search-log.module';
     BankAccountModule,
     IdentityModule,
     SearchLogModule,
+    PricingModule,
   ],
   controllers: [VehicleController],
   providers: [
