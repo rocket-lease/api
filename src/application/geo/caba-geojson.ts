@@ -13,7 +13,7 @@ export interface CabaNeighborhoodFeature {
  */
 export const CABA_NEIGHBORHOODS_GEOJSON: {
   features: CabaNeighborhoodFeature[];
-} = require('./caba-neighborhoods.geojson');
+} = require('./caba-neighborhoods.json');
 
 export const CABA_GEOJSON_SOURCE = 'GCBA Datos Abiertos - Barrios de CABA';
 export const CABA_GEOJSON_VERSION = '2024';
