@@ -159,16 +159,8 @@ export class VehicleController {
     @Req() req: Request,
   ): Promise<Contracts.CreateVehicleResponse> {
     const ownerId = await this.resolveUserId(req);
-    console.log('VEHICLE_BODY:', JSON.stringify(dto));
-    try {
-      const parsed = Contracts.CreateVehicleRequestSchema.parse(dto);
-      return await this.vehicleService.createVehicle(ownerId, parsed);
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        console.log('ZOD_ISSUES:', JSON.stringify(err.issues));
-      }
-      throw err;
-    }
+    const parsed = Contracts.CreateVehicleRequestSchema.parse(dto);
+    return await this.vehicleService.createVehicle(ownerId, parsed);
   }
 
   @Patch('bulk-prices')

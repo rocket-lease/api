@@ -62,14 +62,10 @@ export class VehicleService {
     ownerId: string,
     data: CreateVehicleRequest,
   ): Promise<CreateVehicleResponse> {
-    console.log('CREATE_VEHICLE_STEP: assertVerified');
     await this.identityService.assertVerified(ownerId);
-    console.log('CREATE_VEHICLE_STEP: assertVerified OK');
 
-    console.log('CREATE_VEHICLE_STEP: findByPlate');
     const exists = await this.vehicleRepository.findByPlate(data.plate);
     if (exists) throw new EntityAlreadyExistsException('vehicle', data.plate);
-    console.log('CREATE_VEHICLE_STEP: findByPlate OK');
 
     if (
       data.latitude === undefined ||

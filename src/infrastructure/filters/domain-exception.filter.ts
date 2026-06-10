@@ -112,16 +112,9 @@ function prefixValidationError(message: string): string {
   return `Validation error: ${normalized}`;
 }
 
-import * as fs from 'fs';
-
 @Catch(Error)
 export class DomainExceptionFilter implements ExceptionFilter {
   catch(exception: Error, host: ArgumentsHost) {
-    fs.appendFileSync('zod_error_log.txt', `\n--- NEW ERROR ---\nName: ${exception.name}\nMessage: ${exception.message}\nStack: ${exception.stack}\n`);
-    if (isZodError(exception)) {
-      fs.appendFileSync('zod_error_log.txt', `Zod Issues: ${JSON.stringify(exception.issues, null, 2)}\n`);
-    }
-
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
