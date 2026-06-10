@@ -73,7 +73,7 @@ export class PostgresUserRepository implements UserRepository {
       row.dni,
       row.phone,
       row.autoAccept,
-      row.role === 'admin' ? 'admin' : null,
+      row.isAdmin,
     );
   }
 
@@ -89,7 +89,7 @@ export class PostgresUserRepository implements UserRepository {
       row.dni,
       row.phone,
       row.autoAccept,
-      row.role === 'admin' ? 'admin' : null,
+      row.isAdmin,
     );
   }
 

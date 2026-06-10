@@ -51,7 +51,7 @@ model User {
   preferredAccessibility String[]  @default([]) @map("preferred_accessibility")
   preferredMaxPriceDaily Int?      @map("preferred_max_price_daily")
   autoAccept            Boolean    @default(false) @map("auto_accept")
-  role                  String?
+  isAdmin               Boolean    @default(false) @map("is_admin")
   createdAt             DateTime   @default(now()) @map("created_at")
   phoneVerifiedAt       DateTime?  @map("phone_verified_at")
   favorites             Favorite[]
