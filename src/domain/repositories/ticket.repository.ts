@@ -9,6 +9,9 @@ export abstract class TicketRepository {
   abstract findByReservationId(reservationId: string): Promise<Ticket[]>;
   abstract findByReporterId(reporterId: string): Promise<Ticket[]>;
   abstract findAgainstUser(userId: string): Promise<Ticket[]>;
+  abstract findById(id: string): Promise<Ticket | null>;
+  abstract findByIdOrThrow(id: string): Promise<Ticket>;
+  abstract findOpenForAdmin(): Promise<Ticket[]>;
 }
 
 export const TICKET_REPOSITORY = Symbol('TicketRepository');

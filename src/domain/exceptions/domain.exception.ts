@@ -129,6 +129,11 @@ export class PriceQuoteConductorMismatchException extends DomainException {
   }
 }
 
+export class AdminAccessRequiredException extends DomainException {
+  constructor() {
+    super('admin access is required to perform this action');
+  }
+}
 /**
  * El % de seña configurado en un set de reglas está fuera del rango
  * aceptado (10-50) o tiene formato inválido. Mapea a 400

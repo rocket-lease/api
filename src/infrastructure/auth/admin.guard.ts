@@ -37,7 +37,7 @@ export class AdminGuard implements CanActivate {
       throw new UnauthorizedException('Invalid access token');
     }
     const user = await this.userRepository.findById(userId);
-    if (!user || !user.isAdmin()) {
+    if (!user || !user.getIsAdmin()) {
       throw new AdminForbiddenException();
     }
     (request as Request & { userId?: string }).userId = userId;

@@ -172,6 +172,10 @@ export class ReservationService {
     private readonly walletService: Pick<WalletService, 'recordReservationPayout'> = {
       recordReservationPayout: async () => undefined,
     },
+    @Inject(ReputationService)
+    private readonly reputationService: Pick<ReputationService, 'applyPenalty'> = {
+      applyPenalty: async () => undefined,
+    },
     @Inject(PRICE_QUOTE_REPOSITORY)
     private readonly priceQuoteRepository: PriceQuoteRepository = {
       save: async () => { throw new Error('PriceQuoteRepository not provided'); },
@@ -196,10 +200,6 @@ export class ReservationService {
         });
         return { quote: null as unknown as never, response };
       },
-    },
-    @Inject(ReputationService)
-    private readonly reputationService: Pick<ReputationService, 'applyPenalty'> = {
-      applyPenalty: async () => undefined,
     },
   ) {}
 

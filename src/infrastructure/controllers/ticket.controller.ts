@@ -15,6 +15,7 @@ import {
   type GetTicketsAgainstMeResponse,
   type TicketResponse,
   CreateTicketRequestSchema,
+  RateTicketRequestSchema,
 } from '@rocket-lease/contracts';
 import { TicketService } from '@/application/ticket.service';
 import { AuthService } from '@/application/auth.service';
@@ -71,5 +72,26 @@ export class TicketsController {
   ): Promise<GetReservationTicketsResponse> {
     const userId = await this.resolveUserId(authorization);
     return this.ticketService.getByReservationId(userId, reservationId);
+  }
+
+  @Get(':id')
+  async getDetail(
+    @Headers('authorization') authorization: string | undefined,
+    @Param('id') id: string,
+  ): Promise<TicketResponse> {
+    const userId = await this.resolveUserId(authorization);
+    return this.ticketService.getDetail(userId, id);
+  }
+
+  @Post(':id/rating')
+  @HttpCode(201)
+  async rate(
+    @Headers('authorization') authorization: string | undefined,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<TicketResponse> {
+    const userId = await this.resolveUserId(authorization);
+    const dto = RateTicketRequestSchema.parse(body);
+    return this.ticketService.rate(userId, id, dto);
   }
 }

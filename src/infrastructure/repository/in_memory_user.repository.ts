@@ -22,7 +22,6 @@ export class InMemoryUserRepository implements UserRepository {
       email: user.getEmail(),
       phone: user.getPhone(),
       avatarUrl: null,
-      isAdmin: user.isAdmin(),
       verificationStatus: 'pending',
       level: 'bronze',
       reputationScore: 0,
@@ -33,6 +32,7 @@ export class InMemoryUserRepository implements UserRepository {
         maxPriceDaily: null,
       },
       autoAccept: user.getAutoAccept(),
+      isAdmin: user.getIsAdmin(),
     });
   }
 

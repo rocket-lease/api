@@ -17,3 +17,21 @@ export class TicketReservationInvalidStatusException extends DomainException {
     super('tickets can only be created for reservations in_progress or completed');
   }
 }
+
+export class TicketRatingNotAllowedException extends DomainException {
+  constructor() {
+    super('ticket can only be rated once it is resolved or rejected');
+  }
+}
+
+export class TicketAlreadyRatedException extends DomainException {
+  constructor() {
+    super('ticket has already been rated');
+  }
+}
+
+export class TicketMessageNotAllowedException extends DomainException {
+  constructor() {
+    super('messages are not allowed on a closed ticket');
+  }
+}
