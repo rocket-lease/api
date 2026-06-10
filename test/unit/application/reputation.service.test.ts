@@ -2,7 +2,7 @@ import { ReputationService } from '@/application/reputation.service';
 import { ReputationRepository } from '@/domain/repositories/reputation.repository';
 import { UserRepository } from '@/domain/repositories/user.repository';
 import { PenaltyAlreadyAppliedException } from '@/domain/exceptions/reputation.exception';
-import { Penalty } from '@/domain/entities/penalty.entity';
+
 
 describe('ReputationService', () => {
   let service: ReputationService;

@@ -5,7 +5,6 @@ import {
   CreateReviewResponseSchema,
   type ReviewItem,
   type RentadorReviewsResponse,
-  RentadorReviewsResponseSchema,
 } from '@rocket-lease/contracts';
 import { Review } from '@/domain/entities/review.entity';
 import {

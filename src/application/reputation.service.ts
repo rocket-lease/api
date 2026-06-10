@@ -29,7 +29,7 @@ export class ReputationService {
     
     // Obtener la data actual para ver si hay deducciones (penalties)
     const repData = await this.reputationRepository.getReputationData(userId);
-    const scoreAsTarget = role === 'conductor' ? repData.scoreAsDriver : repData.scoreAsRenter;
+
     
     // En este diseño simple, el score es solo el promedio (por ahora no consideramos deducción de score por penalties,
     // o si lo consideramos, deberíamos restarlo del promedio, pero la US-3 dice "actualiza el score con el promedio ponderado"
