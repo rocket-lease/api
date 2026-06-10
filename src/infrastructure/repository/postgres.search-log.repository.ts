@@ -23,6 +23,8 @@ export class PostgresSearchLogRepository implements SearchLogRepository {
         sessionId: log.getSessionId(),
         conductorId: log.getConductorId(),
         h3Cell: log.getH3Cell(),
+        locationId: log.getLocationId(),
+        weight: log.getWeight(),
         signal: log.getSignal(),
         filters: log.getFilters() as Prisma.InputJsonValue,
         createdAt: log.getCreatedAt(),
@@ -50,6 +52,8 @@ export class PostgresSearchLogRepository implements SearchLogRepository {
       sessionId: row.sessionId,
       conductorId: row.conductorId,
       h3Cell: row.h3Cell,
+      locationId: row.locationId,
+      weight: row.weight,
       signal: row.signal as SearchSignal,
       filters: row.filters as SearchLogFilters,
       createdAt: row.createdAt,
@@ -57,20 +61,50 @@ export class PostgresSearchLogRepository implements SearchLogRepository {
   }
 
   public async countByHexSince(h3Cell: string, since: Date): Promise<number> {
-    return this.prisma.searchLog.count({
-      where: { h3Cell, createdAt: { gte: since } },
-    });
+    const rows = await this.prisma.$queryRaw<Array<{ count: unknown }>>`
+      SELECT COALESCE(SUM(weighted.weight), 0) AS count
+      FROM (
+        SELECT sl.weight
+        FROM search_logs sl
+        WHERE sl.h3_cell = ${h3Cell}
+          AND sl.created_at >= ${since}
+
+        UNION ALL
+
+        SELECT sl.weight * lhc.weight AS weight
+        FROM search_logs sl
+        JOIN location_h3_cells lhc ON lhc.location_id = sl.location_id
+        WHERE lhc.h3_cell = ${h3Cell}
+          AND sl.created_at >= ${since}
+      ) weighted
+    `;
+    return Number(rows[0]?.count ?? 0);
   }
 
   public async countSignalsInHexSince(
     h3Cell: string,
     since: Date,
   ): Promise<Record<SearchSignal, number>> {
-    const rows = await this.prisma.searchLog.groupBy({
-      by: ['signal'],
-      where: { h3Cell, createdAt: { gte: since } },
-      _count: { _all: true },
-    });
+    const rows = await this.prisma.$queryRaw<
+      Array<{ signal: string; count: unknown }>
+    >`
+      SELECT weighted.signal, COALESCE(SUM(weighted.weight), 0) AS count
+      FROM (
+        SELECT sl.signal, sl.weight
+        FROM search_logs sl
+        WHERE sl.h3_cell = ${h3Cell}
+          AND sl.created_at >= ${since}
+
+        UNION ALL
+
+        SELECT sl.signal, sl.weight * lhc.weight AS weight
+        FROM search_logs sl
+        JOIN location_h3_cells lhc ON lhc.location_id = sl.location_id
+        WHERE lhc.h3_cell = ${h3Cell}
+          AND sl.created_at >= ${since}
+      ) weighted
+      GROUP BY weighted.signal
+    `;
     const counts: Record<SearchSignal, number> = {
       search: 0,
       vehicleView: 0,
@@ -78,7 +112,7 @@ export class PostgresSearchLogRepository implements SearchLogRepository {
       reservation: 0,
     };
     for (const row of rows) {
-      counts[row.signal as SearchSignal] = row._count._all;
+      counts[row.signal as SearchSignal] = Number(row.count);
     }
     return counts;
   }
@@ -86,14 +120,30 @@ export class PostgresSearchLogRepository implements SearchLogRepository {
   public async aggregateByH3Since(
     since: Date,
   ): Promise<SearchLogZoneAggregate[]> {
-    const rows = await this.prisma.searchLog.groupBy({
-      by: ['h3Cell'],
-      where: { createdAt: { gte: since }, signal: 'search' },
-      _count: { _all: true },
-    });
+    const rows = await this.prisma.$queryRaw<
+      Array<{ h3Cell: string; searches: unknown }>
+    >`
+      SELECT weighted.h3_cell AS "h3Cell", COALESCE(SUM(weighted.weight), 0) AS searches
+      FROM (
+        SELECT sl.h3_cell, sl.weight
+        FROM search_logs sl
+        WHERE sl.h3_cell IS NOT NULL
+          AND sl.created_at >= ${since}
+          AND sl.signal = 'search'
+
+        UNION ALL
+
+        SELECT lhc.h3_cell, sl.weight * lhc.weight AS weight
+        FROM search_logs sl
+        JOIN location_h3_cells lhc ON lhc.location_id = sl.location_id
+        WHERE sl.created_at >= ${since}
+          AND sl.signal = 'search'
+      ) weighted
+      GROUP BY weighted.h3_cell
+    `;
     return rows.map((row) => ({
       h3Cell: row.h3Cell,
-      searches: row._count._all,
+      searches: Number(row.searches),
       vehicleSampleIds: [],
     }));
   }
@@ -101,15 +151,32 @@ export class PostgresSearchLogRepository implements SearchLogRepository {
   public async aggregateByH3AndSignalSince(
     since: Date,
   ): Promise<SearchLogZoneSignalAggregate[]> {
-    const rows = await this.prisma.searchLog.groupBy({
-      by: ['h3Cell', 'signal'],
-      where: { createdAt: { gte: since } },
-      _count: { _all: true },
-    });
+    const rows = await this.prisma.$queryRaw<
+      Array<{ h3Cell: string; signal: string; count: unknown }>
+    >`
+      SELECT
+        weighted.h3_cell AS "h3Cell",
+        weighted.signal,
+        COALESCE(SUM(weighted.weight), 0) AS count
+      FROM (
+        SELECT sl.h3_cell, sl.signal, sl.weight
+        FROM search_logs sl
+        WHERE sl.h3_cell IS NOT NULL
+          AND sl.created_at >= ${since}
+
+        UNION ALL
+
+        SELECT lhc.h3_cell, sl.signal, sl.weight * lhc.weight AS weight
+        FROM search_logs sl
+        JOIN location_h3_cells lhc ON lhc.location_id = sl.location_id
+        WHERE sl.created_at >= ${since}
+      ) weighted
+      GROUP BY weighted.h3_cell, weighted.signal
+    `;
     return rows.map((row) => ({
       h3Cell: row.h3Cell,
       signal: row.signal as SearchSignal,
-      count: row._count._all,
+      count: Number(row.count),
     }));
   }
 

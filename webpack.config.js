@@ -10,6 +10,14 @@ const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 module.exports = function (options) {
   return {
     ...options,
+    module: {
+      ...options.module,
+      rules: [
+        ...(options.module?.rules ?? []),
+        // Treat .geojson files as JSON asset modules (bundled inline).
+        { test: /\.geojson$/, type: 'json' },
+      ],
+    },
     externals: [
       nodeExternals({
         // Bundle @rocket-lease/contracts INTO the output instead of leaving

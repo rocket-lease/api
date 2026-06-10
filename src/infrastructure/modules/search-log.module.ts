@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { SearchLogService } from '@/application/search-log.service';
+import { GeoLocationService } from '@/application/geo-location.service';
 import { SEARCH_LOG_REPOSITORY } from '@/domain/repositories/search-log.repository';
 import { PRICE_QUOTE_REPOSITORY } from '@/domain/repositories/price-quote.repository';
 import { PostgresSearchLogRepository } from '@/infrastructure/repository/postgres.search-log.repository';
@@ -12,6 +13,7 @@ import { SearchLogCleanupJob } from '@/infrastructure/jobs/search-log-cleanup.jo
   providers: [
     PrismaService,
     SearchLogService,
+    GeoLocationService,
     SearchLogCleanupJob,
     {
       provide: SEARCH_LOG_REPOSITORY,
@@ -26,6 +28,11 @@ import { SearchLogCleanupJob } from '@/infrastructure/jobs/search-log-cleanup.jo
       useClass: SystemClock,
     },
   ],
-  exports: [SearchLogService, SEARCH_LOG_REPOSITORY, PRICE_QUOTE_REPOSITORY],
+  exports: [
+    SearchLogService,
+    GeoLocationService,
+    SEARCH_LOG_REPOSITORY,
+    PRICE_QUOTE_REPOSITORY,
+  ],
 })
 export class SearchLogModule {}

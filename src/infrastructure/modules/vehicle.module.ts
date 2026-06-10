@@ -13,9 +13,17 @@ import { ReservationRuleSetModule } from './reservation-rule-set.module';
 import { ReservationModule } from './reservation.module';
 import { BankAccountModule } from './bank-account.module';
 import { IdentityModule } from './identity.module';
+import { SearchLogModule } from './search-log.module';
 
 @Module({
-  imports: [AuthModule, ReservationModule, ReservationRuleSetModule, BankAccountModule, IdentityModule],
+  imports: [
+    AuthModule,
+    ReservationModule,
+    ReservationRuleSetModule,
+    BankAccountModule,
+    IdentityModule,
+    SearchLogModule,
+  ],
   controllers: [VehicleController],
   providers: [
     VehicleService,

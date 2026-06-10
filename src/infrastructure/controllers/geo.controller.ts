@@ -12,6 +12,7 @@ import {
 import * as Contracts from '@rocket-lease/contracts';
 import { GeoService } from '@/application/geo.service';
 import { SearchLogService } from '@/application/search-log.service';
+import { GeoLocationService } from '@/application/geo-location.service';
 import { AuthService } from '@/application/auth.service';
 import {
   VEHICLE_REPOSITORY,
@@ -57,6 +58,8 @@ export class GeoController {
     @Inject(GeoService) private readonly geoService: GeoService,
     @Inject(SearchLogService)
     private readonly searchLogService: SearchLogService,
+    @Inject(GeoLocationService)
+    private readonly geoLocationService: GeoLocationService,
     @Inject(AuthService)
     private readonly authService: AuthService,
     @Inject(VEHICLE_REPOSITORY)
@@ -89,6 +92,12 @@ export class GeoController {
     });
   }
 
+  @Get('locations')
+  public async getLocations(): Promise<Contracts.GeoLocationsResponse> {
+    const locations = await this.geoLocationService.listSearchLocations();
+    return Contracts.GeoLocationsResponseSchema.parse({ locations });
+  }
+
   private async tryGetConductorId(
     authHeader: string | undefined,
   ): Promise<string | null> {
@@ -113,6 +122,7 @@ export class GeoController {
     @Query('lat') lat?: string,
     @Query('lng') lng?: string,
     @Query('radiusKm') radiusKm?: string,
+    @Query('locationCode') locationCode?: string,
     @Query('zoom') zoom?: string,
     @Query('transmission') transmission?: string,
     @Query('maxPriceDaily') maxPriceDaily?: string,
@@ -145,6 +155,7 @@ export class GeoController {
         ? { latitude: centerLat, longitude: centerLng }
         : undefined,
       radiusKm: hasRadius ? radius : undefined,
+      locationCode: locationCode?.trim() || undefined,
       zoom: parseNumber('zoom', zoom),
       transmission: transmission || undefined,
       maxPriceDaily: parseNumber('maxPriceDaily', maxPriceDaily),
@@ -164,7 +175,9 @@ export class GeoController {
       conductorId: null,
       latitude: logCoords.latitude,
       longitude: logCoords.longitude,
+      locationCode: request.locationCode,
       filters: {
+        locationCode: request.locationCode,
         transmission: request.transmission,
         maxPriceDaily: request.maxPriceDaily,
         characteristics: request.characteristics,

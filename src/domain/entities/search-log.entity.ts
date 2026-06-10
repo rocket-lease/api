@@ -10,13 +10,16 @@ export interface SearchLogFilters {
   from?: string;
   to?: string;
   vehicleId?: string;
+  locationCode?: string;
 }
 
 export interface SearchLogProps {
   id?: string;
   sessionId: string;
   conductorId: string | null;
-  h3Cell: string;
+  h3Cell: string | null;
+  locationId?: string | null;
+  weight?: number;
   signal?: SearchSignal;
   filters: SearchLogFilters;
   createdAt: Date;
@@ -32,7 +35,9 @@ export class SearchLog {
   private readonly id: string;
   private readonly sessionId: string;
   private readonly conductorId: string | null;
-  private readonly h3Cell: string;
+  private readonly h3Cell: string | null;
+  private readonly locationId: string | null;
+  private readonly weight: number;
   private readonly signal: SearchSignal;
   private readonly filters: SearchLogFilters;
   private readonly createdAt: Date;
@@ -42,6 +47,8 @@ export class SearchLog {
     this.sessionId = props.sessionId;
     this.conductorId = props.conductorId;
     this.h3Cell = props.h3Cell;
+    this.locationId = props.locationId ?? null;
+    this.weight = props.weight ?? 1;
     this.signal = props.signal ?? 'search';
     this.filters = props.filters;
     this.createdAt = props.createdAt;
@@ -56,8 +63,14 @@ export class SearchLog {
   public getConductorId(): string | null {
     return this.conductorId;
   }
-  public getH3Cell(): string {
+  public getH3Cell(): string | null {
     return this.h3Cell;
+  }
+  public getLocationId(): string | null {
+    return this.locationId;
+  }
+  public getWeight(): number {
+    return this.weight;
   }
   public getSignal(): SearchSignal {
     return this.signal;

@@ -10,6 +10,7 @@ import {
   type SearchSignal,
 } from '@/domain/entities/search-log.entity';
 import { latLonToH3 } from '@/application/helpers/h3';
+import { GeoLocationService } from './geo-location.service';
 
 /**
  * Ventanas de debounce por señal. Las búsquedas viewport son ambient (señal
@@ -30,6 +31,7 @@ export interface MaybeLogSearchInput {
   conductorId: string | null;
   latitude: number | null;
   longitude: number | null;
+  locationCode?: string | null;
   signal?: SearchSignal;
   filters: SearchLogFilters;
 }
@@ -57,6 +59,8 @@ export class SearchLogService {
     private readonly searchLogRepository: SearchLogRepository,
     @Inject(CLOCK)
     private readonly clock: Clock,
+    @Inject(GeoLocationService)
+    private readonly geoLocationService: GeoLocationService,
   ) {}
 
   /**
@@ -65,8 +69,13 @@ export class SearchLogService {
    */
   public async maybeLog(input: MaybeLogSearchInput): Promise<void> {
     if (!input.sessionId) return;
-    const h3Cell = latLonToH3(input.latitude, input.longitude);
-    if (!h3Cell) return;
+    const location = input.locationCode
+      ? await this.geoLocationService.findEnabledByCode(input.locationCode)
+      : null;
+    const h3Cell = location
+      ? null
+      : latLonToH3(input.latitude, input.longitude);
+    if (!location && !h3Cell) return;
     const signal: SearchSignal = input.signal ?? 'search';
     const now = this.clock.now();
     const debounceWindowSec = DEBOUNCE_SECONDS_BY_SIGNAL[signal];
@@ -85,8 +94,12 @@ export class SearchLogService {
       sessionId: input.sessionId,
       conductorId: input.conductorId,
       h3Cell,
+      locationId: location?.id ?? null,
       signal,
-      filters: input.filters,
+      filters: {
+        ...input.filters,
+        locationCode: location?.code ?? input.locationCode ?? undefined,
+      },
       createdAt: now,
     });
     await this.searchLogRepository.save(log);
