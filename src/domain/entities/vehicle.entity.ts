@@ -102,6 +102,7 @@ export class Vehicle {
     private homeDeliveryFeeCents: number | null = null,
     private homeReturnEnabled: boolean = false,
     private homeReturnFeeCents: number | null = null,
+    private ownerReputationScore: number = 0,
     private dynamicPricingEnabled: boolean = false,
   ) {
     this.validate();
@@ -112,6 +113,9 @@ export class Vehicle {
   }
   public getOwnerId(): string {
     return this.ownerId;
+  }
+  public getOwnerReputationScore(): number {
+    return this.ownerReputationScore;
   }
   public getReservationRuleSetId(): string | null {
     return this.reservationRuleSetId;
@@ -307,6 +311,7 @@ export class Vehicle {
     });
 
     if (!result.success) {
+      console.log('VEHICLE_VALIDATION_ERROR:', JSON.stringify(result.error.issues));
       throw new InvalidEntityDataException(result.error.issues[0].message);
     }
   }

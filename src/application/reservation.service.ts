@@ -135,6 +135,7 @@ import { EMAIL_PROVIDER, type EmailProvider } from '@/domain/providers/email.pro
 import { IdentityService } from '@/application/identity.service';
 import { DriverLicenseService } from '@/application/driver-license.service';
 import { WalletService } from '@/application/wallet.service';
+import { ReputationService } from '@/application/reputation.service';
 
 @Injectable()
 export class ReservationService {
@@ -195,6 +196,10 @@ export class ReservationService {
         });
         return { quote: null as unknown as never, response };
       },
+    },
+    @Inject(ReputationService)
+    private readonly reputationService: Pick<ReputationService, 'applyPenalty'> = {
+      applyPenalty: async () => undefined,
     },
   ) {}
 
@@ -1240,7 +1245,7 @@ export class ReservationService {
       reservation.cancelByRentador(now);
       const saved = await this.reservationRepository.update(reservation);
       const profile = await this.userRepository.getProfileById(reservation.getConductorId());
-      return CancelReservationResponseSchema.parse({
+      return {
         id: saved.getId(),
         status: RESERVATION_STATUS.cancelled,
         cancelledBy: 'owner',
@@ -1248,7 +1253,7 @@ export class ReservationService {
         reputationPenalty: 0,
         balanceInCents: profile?.balanceInCents ?? 0,
         currency: 'ARS',
-      });
+      };
     }
 
     let totalRefundCents = 0;
@@ -1263,8 +1268,14 @@ export class ReservationService {
       totalRefundCents,
     );
 
-    const REPUTATION_PENALTY = -50;
-    await this.userRepository.applyReputationPenalty(rentadorId, REPUTATION_PENALTY);
+    const REPUTATION_PENALTY = 5.0; // The deduction value to pass to applyPenalty
+    await this.reputationService.applyPenalty({
+      userId: rentadorId,
+      role: 'rentador',
+      reason: 'Cancelación de reserva confirmada',
+      scoreDeduction: REPUTATION_PENALTY,
+      ticketId: reservationId, // Use the reservation ID as the ticket for uniqueness
+    });
 
     await this.notificationProvider.notify(
       reservation.getConductorId(),
@@ -1284,7 +1295,7 @@ export class ReservationService {
     await this.notificationProvider.notify(
       rentadorId,
       'Reserva cancelada',
-      `Has cancelado la reserva ${reservationId}. Se aplicó una penalización de ${Math.abs(REPUTATION_PENALTY)} puntos.`,
+      `Has cancelado la reserva ${reservationId}. Se aplicó una penalización a tu reputación.`,
       { url: `/reservas/${reservationId}` },
     );
     const rentadorProfile = await this.userRepository.getProfileById(rentadorId);
@@ -1292,19 +1303,19 @@ export class ReservationService {
       await this.emailProvider.sendCancellationEmail(
         rentadorProfile.email,
         'Reserva cancelada',
-        `Has cancelado la reserva ${reservationId}. Se aplicó una penalización de ${Math.abs(REPUTATION_PENALTY)} puntos.`,
+        `Has cancelado la reserva ${reservationId}. Se aplicó una penalización a tu reputación.`,
       );
     }
 
-    return CancelReservationResponseSchema.parse({
+    return {
       id: reservationId,
       status: RESERVATION_STATUS.cancelled,
       cancelledBy: 'owner',
       refundCents: totalRefundCents,
-      reputationPenalty: REPUTATION_PENALTY,
+      reputationPenalty: -REPUTATION_PENALTY,
       balanceInCents: updatedProfile.balanceInCents,
       currency: 'ARS',
-    });
+    };
   }
 
   /**
@@ -1973,6 +1984,7 @@ export class ReservationService {
       chain: chainPayload,
       createdAt: r.getCreatedAt().toISOString(),
       updatedAt: r.getUpdatedAt().toISOString(),
+      reviews: [],
       vehicle: this.vehicleSummary(vehicle, r.getVehicleId(), reservationRuleSet),
       rentador: {
         id: r.getRentadorId(),

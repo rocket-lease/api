@@ -7,9 +7,10 @@ import { PostgresReviewRepository } from '@/infrastructure/repository/postgres.r
 import { PostgresReservationRepository } from '@/infrastructure/repository/postgres.reservation.repository';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 import { AuthModule } from './auth.module';
+import { ReputationModule } from './reputation.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, ReputationModule],
   controllers: [ReviewController],
   providers: [
     ReviewService,

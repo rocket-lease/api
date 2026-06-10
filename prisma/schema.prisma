@@ -45,7 +45,7 @@ model User {
   avatarUrl             String?    @map("avatar_url")
   verificationStatus    String     @default("pending") @map("verification_status")
   level                 String     @default("bronze")
-  reputationScore       Float      @default(0) @map("reputation_score")
+  reputationScore       Float      @default(0) @map("reputation_score") // TODO: Migrate to Reputation model
   balanceInCents        Int        @default(0) @map("balance_in_cents")
   preferredTransmission String?    @map("preferred_transmission")
   preferredAccessibility String[]  @default([]) @map("preferred_accessibility")
@@ -69,7 +69,8 @@ model User {
   driverLicenseVerification DriverLicenseVerification?
   pushSubscriptions     PushSubscription[]
   reviewsWritten        Review[]                  @relation("Reviewer")
-  reviewsReceived       Review[]                  @relation("Reviewed")
+  reputation            Reputation?
+  penalties             Penalty[]
 
   @@map("users")
 }
@@ -143,6 +144,7 @@ model Vehicle {
   mileage      Float
   basePriceCents Int    @map("base_price_cents")
   description  String?      @db.Text
+  ownerReputationScore Float @default(0) @map("owner_reputation_score")
   province     String
   city         String
   address      String?
@@ -360,7 +362,7 @@ model Reservation {
   updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
   messages            Message[]
   walletMovement      WalletMovement?
-  review              Review?
+  reviews             Review[]
   tickets             Ticket[]
 
   @@index([vehicleId, status])
@@ -527,7 +529,7 @@ model PushSubscription {
 
 model Review {
   id            String      @id @default(uuid())
-  reservationId String      @unique @map("reservation_id")
+  reservationId String      @map("reservation_id")
   reviewerId    String      @map("reviewer_id")
   reviewedId    String      @map("reviewed_id")
   targetType    String      @map("target_type")
@@ -537,8 +539,9 @@ model Review {
 
   reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
   reviewer      User        @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
-  reviewed      User        @relation("Reviewed", fields: [reviewedId], references: [id], onDelete: Cascade)
 
+  @@unique([reservationId, reviewerId, targetType])
+  @@index([targetType, reviewedId])
   @@map("reviews")
 }
 
@@ -678,4 +681,38 @@ model Ticket {
   @@unique([reservationId, reportedBy])
   @@index([reporterId])
   @@map("tickets")
+}
+
+model Reputation {
+  id                    String   @id @default(uuid())
+  userId                String   @unique @map("user_id")
+  scoreAsDriver         Float    @default(0) @map("score_as_driver")
+  scoreAsRenter         Float    @default(0) @map("score_as_renter")
+  reviewCountAsDriver   Int      @default(0) @map("review_count_as_driver")
+  reviewCountAsRenter   Int      @default(0) @map("review_count_as_renter")
+  penaltyCountAsDriver  Int      @default(0) @map("penalty_count_as_driver")
+  penaltyCountAsRenter  Int      @default(0) @map("penalty_count_as_renter")
+  suspendedAsDriver     Boolean  @default(false) @map("suspended_as_driver")
+  suspendedAsRenter     Boolean  @default(false) @map("suspended_as_renter")
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("reputations")
+}
+
+model Penalty {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  role           String   // 'conductor' | 'rentador'
+  ticketId       String   @unique @map("ticket_id")
+  reason         String   @db.Text
+  scoreDeduction Float    @map("score_deduction")
+  appliedAt      DateTime @default(now()) @map("applied_at") @db.Timestamptz(6)
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("penalties")
 }
