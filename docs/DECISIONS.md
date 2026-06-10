@@ -59,6 +59,7 @@ Single source of truth for the architectural decisions taken before and during t
 | 31 | Date/time | UTC in DB + JSON. Reservations use `tstzrange`. Web displays in `America/Argentina/Buenos_Aires` via `date-fns-tz`. |
 | 32 | Money | Smallest unit (cents) as integer. Currency code stored. No floats. Display via `Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' })`. |
 | 33 | Domain glossary | `CONTEXT.md` per repo. Spanish terms canonical (Rentador, Conductor, Reserva, Voucher, Set de reglas). Code identifiers in English (`Reservation`, `Vehicle`), domain language Spanish in user-facing text + comments where relevant. |
+| 34 | Dynamic pricing demand model | Weighted demand from four signals (search ×1, vehicleView ×5, quote ×20, reservation ×50) aggregated by H3 hex over 7d. Weights live in `DEMAND_ZONE_FACTOR.signalWeights` and drive both the admin map and the runtime `DemandZoneFactor` so the multiplier shown to the conductor and the heatmap shown to the admin always agree. See ADR-0008. |
 
 ## Reservation State Machine
 

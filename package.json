@@ -38,6 +38,7 @@
         "@supabase/supabase-js": "^2.105.4",
         "cloudinary": "^2.7.0",
         "dotenv": "^17.4.2",
+        "h3-js": "^4.4.0",
         "jose": "^6.2.3",
         "nodemailer": "^8.0.7",
         "prisma": "^6.19.3",

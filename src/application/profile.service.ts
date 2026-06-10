@@ -41,6 +41,10 @@ export class ProfileService {
     });
   }
 
+  /**
+   * Perfil público de cualquier usuario. A diferencia de `getMyProfile`, el
+   * flag de administración se omite: solo el propio usuario conoce su rol.
+   */
   public async getProfileById(userId: string): Promise<GetMyProfileResponse> {
     const profile = await this.userRepository.getProfileById(userId);
     if (!profile) {
@@ -51,6 +55,7 @@ export class ProfileService {
     const driverLicenseVerification = await this.driverLicenseService.getSummaryByUserId(userId);
     return GetMyProfileResponseSchema.parse({
       ...profile,
+      isAdmin: undefined,
       verificationStatus: identityVerification.status,
       identityVerification,
       driverLicenseVerification,

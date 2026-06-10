@@ -90,6 +90,7 @@ function makeProfile(id: string, autoAccept = false, balanceInCents = 0): UserPr
     name: 'Owner',
     email: 'o@e.com',
     phone: '1',
+    isAdmin: false,
     avatarUrl: null,
     verificationStatus: 'verified',
     level: 'bronze',
@@ -101,7 +102,6 @@ function makeProfile(id: string, autoAccept = false, balanceInCents = 0): UserPr
       maxPriceDaily: null,
     },
     autoAccept,
-    isAdmin: false,
   };
 }
 

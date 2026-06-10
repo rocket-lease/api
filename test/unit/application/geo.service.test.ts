@@ -38,13 +38,13 @@ function profile(id: string, name: string): UserProfile {
     email: `${name}@example.com`,
     phone: '123',
     avatarUrl: null,
+    isAdmin: false,
     balanceInCents: 0,
     verificationStatus: 'verified',
     level: 'gold',
     reputationScore: 4.5,
     preferences: { transmission: null, accessibility: [], maxPriceDaily: null },
     autoAccept: false,
-    isAdmin: false,
   };
 }
 
