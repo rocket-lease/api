@@ -878,7 +878,10 @@ export class ReservationService {
     const reservation =
       await this.reservationRepository.findById(reservationId);
     if (!reservation) throw new ReservationNotFoundException(reservationId);
+    const callerProfile = await this.userRepository.getProfileById(conductorId);
+    const isAdmin = callerProfile?.isAdmin ?? false;
     if (
+      !isAdmin &&
       !reservation.isOwnedByConductor(conductorId) &&
       reservation.getRentadorId() !== conductorId
     ) {
