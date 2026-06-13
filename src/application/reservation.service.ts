@@ -2012,27 +2012,45 @@ export class ReservationService {
 
   private resolvePricingSnapshot(reservation: Reservation) {
     const snapshot = reservation.getPricingSnapshot();
-    if (snapshot) return snapshot;
+    if (!snapshot) {
+      const durationDays = Math.max(
+        1,
+        Math.ceil(
+          (reservation.getEndAt().getTime() - reservation.getStartAt().getTime()) /
+            DAY_MS,
+        ),
+      );
 
-    const durationDays = Math.max(
-      1,
-      Math.ceil(
-        (reservation.getEndAt().getTime() - reservation.getStartAt().getTime()) /
-          DAY_MS,
-      ),
-    );
+      return {
+        vehicleId: reservation.getVehicleId(),
+        currency: 'ARS' as const,
+        basePriceCents: reservation.getBasePriceCentsSnapshot(),
+        durationDays,
+        subtotalCents: reservation.getTotalCents(),
+        appliedDiscountTier: null,
+        appliedDiscountPercentage: 0,
+        discountCents: 0,
+        totalCents: reservation.getTotalCents(),
+      };
+    }
 
-    return {
-      vehicleId: reservation.getVehicleId(),
-      currency: 'ARS' as const,
-      basePriceCents: reservation.getBasePriceCentsSnapshot(),
-      durationDays,
-      subtotalCents: reservation.getTotalCents(),
-      appliedDiscountTier: null,
-      appliedDiscountPercentage: 0,
-      discountCents: 0,
-      totalCents: reservation.getTotalCents(),
-    };
+    // Fallback para snapshots existentes que se guardaron sin levelDiscountPercentage
+    // (previo a agregar el campo a PriceQuoteEntity). Deduce el porcentaje restando
+    // el descuento por tiers del descuento total. Asume que discountCents es solo
+    // tier + level, sin otros descuentos mixtos.
+    if (snapshot.levelDiscountPercentage == null) {
+      const appliedDiscountAmount = Math.floor(
+        snapshot.subtotalCents * ((snapshot.appliedDiscountPercentage ?? 0) / 100),
+      );
+      const levelDiscountAmount = snapshot.discountCents - appliedDiscountAmount;
+      const levelDiscountPercentage =
+        levelDiscountAmount > 0 && snapshot.subtotalCents > 0
+          ? Math.round((levelDiscountAmount / snapshot.subtotalCents) * 100)
+          : undefined;
+      return { ...snapshot, levelDiscountPercentage };
+    }
+
+    return snapshot;
   }
 
   private async getVehicleReservationRuleSet(

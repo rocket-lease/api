@@ -1710,6 +1710,34 @@ describe('ReservationService', () => {
       ).rejects.toThrow(ReservationForbiddenException);
     });
 
+    it('registra experiencia al conductor al confirmar devolución', async () => {
+      const loyaltyMock = { registerPendingReservation: jest.fn().mockResolvedValue(undefined) };
+      const localService = new ReservationService(
+        repo, vehicleRepo, userRepo, ruleSetRepo, clock,
+        voucherProvider, notificationProvider, paymentGateway,
+        emailProvider,
+        undefined as any,
+        undefined as any,
+        undefined as any,
+        undefined as any,
+        loyaltyMock,
+      );
+
+      const id = await makeInProgressReservation();
+      const saved = await repo.findById(id);
+      await localService.confirmReturn(conductorA, saved!.getReturnQrToken()!);
+
+      expect(loyaltyMock.registerPendingReservation).toHaveBeenCalledTimes(1);
+      expect(loyaltyMock.registerPendingReservation).toHaveBeenCalledWith(
+        conductorA,
+        id,
+        expect.stringContaining('Ford'),
+        expect.any(String),
+        expect.any(Date),
+        expect.any(Date),
+      );
+    });
+
     it('completa en cascada todas las piezas del chain al confirmar devolución', async () => {
       // A (parent): in_progress
       const parentId = await makeInProgressReservation();
@@ -1730,6 +1758,73 @@ describe('ReservationService', () => {
       const childFinal = await repo.findById(childId);
       expect(parentFinal!.getStatus()).toBe('completed');
       expect(childFinal!.getStatus()).toBe('completed');
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // resolvePricingSnapshot — levelDiscountPercentage
+  // ─────────────────────────────────────────────
+  describe('resolvePricingSnapshot', () => {
+    it('computa levelDiscountPercentage cuando el snapshot almacenado no lo tiene y hay level discount en discountCents', async () => {
+      const r = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+
+      const stored = await repo.findById(r.id);
+      jest.spyOn(stored!, 'getPricingSnapshot').mockReturnValue({
+        vehicleId: vehicle.getId(),
+        currency: 'ARS' as const,
+        basePriceCents: 24000,
+        durationDays: 3,
+        subtotalCents: 72000,
+        appliedDiscountTier: null,
+        appliedDiscountPercentage: 0,
+        discountCents: 3600,
+        totalCents: 68400,
+      });
+
+      const res = await service.getById(conductorA, r.id);
+      expect(res.pricingSnapshot.levelDiscountPercentage).toBe(5);
+    });
+
+    it('no incluye levelDiscountPercentage cuando discountCents == appliedDiscountAmount', async () => {
+      const r = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+
+      const res = await service.getById(conductorA, r.id);
+      expect(res.pricingSnapshot.levelDiscountPercentage).toBeUndefined();
+    });
+
+    it('computa levelDiscountPercentage correctamente cuando co-existe con appliedDiscountPercentage', async () => {
+      const r = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+
+      const stored = await repo.findById(r.id);
+      jest.spyOn(stored!, 'getPricingSnapshot').mockReturnValue({
+        vehicleId: vehicle.getId(),
+        currency: 'ARS' as const,
+        basePriceCents: 24000,
+        durationDays: 3,
+        subtotalCents: 72000,
+        appliedDiscountTier: { minimumDays: 3, discountPercentage: 15 },
+        appliedDiscountPercentage: 15,
+        discountCents: 14400,
+        totalCents: 57600,
+      });
+
+      const res = await service.getById(conductorA, r.id);
+      expect(res.pricingSnapshot.levelDiscountPercentage).toBe(5);
     });
   });
 
