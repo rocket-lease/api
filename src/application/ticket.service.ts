@@ -7,23 +7,27 @@ import {
   type GetReservationTicketsResponse,
   type GetTicketsAgainstMeResponse,
   type RateTicketRequest,
+  type ResolveTicketRequest,
+  type TicketPartyImpact,
   type TicketResponse,
-  type UpdateTicketStatusRequest,
   TicketResponseSchema,
 } from '@rocket-lease/contracts';
 import { Ticket } from '@/domain/entities/ticket.entity';
+import type { Reservation } from '@/domain/entities/reservation.entity';
 import { AdminAccessRequiredException } from '@/domain/exceptions/domain.exception';
 import {
   TicketAlreadyExistsException,
   TicketAlreadyRatedException,
+  TicketAlreadyClosedException,
+  TicketInvalidTransitionException,
   TicketRatingNotAllowedException,
   TicketReservationInvalidStatusException,
+  TicketResolutionImpactException,
 } from '@/domain/exceptions/ticket.exception';
 import {
   ReservationForbiddenException,
   ReservationNotFoundException,
 } from '@/domain/exceptions/reservation.exception';
-import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
 import type { TicketRepository } from '@/domain/repositories/ticket.repository';
 import { TICKET_REPOSITORY } from '@/domain/repositories/ticket.repository';
 import type { ReservationRepository } from '@/domain/repositories/reservation.repository';
@@ -33,9 +37,10 @@ import { USER_REPOSITORY } from '@/domain/repositories/user.repository';
 import type { NotificationProvider } from '@/domain/providers/notification.provider';
 import { NOTIFICATION_PROVIDER } from '@/domain/providers/notification.provider';
 import { WalletService } from '@/application/wallet.service';
+import { ReputationService } from '@/application/reputation.service';
 
 const TICKET_ALLOWED_STATUSES = new Set(['in_progress', 'completed']);
-const RATEABLE_STATUSES = new Set(['resolved', 'rejected']);
+const RATEABLE_STATUSES = new Set(['resolved', 'closed']);
 
 @Injectable()
 export class TicketService {
@@ -50,6 +55,8 @@ export class TicketService {
     private readonly notificationProvider: NotificationProvider,
     @Inject(WalletService)
     private readonly walletService: WalletService,
+    @Inject(ReputationService)
+    private readonly reputationService: ReputationService,
   ) {}
 
   private async assertAdmin(callerId: string): Promise<void> {
@@ -197,49 +204,89 @@ export class TicketService {
     return tickets.map((t) => this.toResponse(t));
   }
 
-  async updateStatus(
-    adminId: string,
-    ticketId: string,
-    dto: UpdateTicketStatusRequest,
-  ): Promise<TicketResponse> {
+  async markUnderReview(adminId: string, ticketId: string): Promise<TicketResponse> {
+    await this.assertAdmin(adminId);
+    const ticket = await this.ticketRepo.findByIdOrThrow(ticketId);
+    if (ticket.getStatus() !== 'open') throw new TicketInvalidTransitionException();
+    const updated = ticket.withStatus('under_review');
+    const saved = await this.ticketRepo.save(updated);
+    void this.notificationProvider.notify(
+      saved.getReporterId(),
+      'Tu ticket está siendo revisado',
+      `Tu ticket "${saved.getSubject()}" pasó a revisión.`,
+      { url: `/soporte/tickets/${saved.getId()}` },
+    );
+    return this.toResponse(saved);
+  }
+
+  async resolve(adminId: string, ticketId: string, dto: ResolveTicketRequest): Promise<TicketResponse> {
     await this.assertAdmin(adminId);
     const ticket = await this.ticketRepo.findByIdOrThrow(ticketId);
 
-    if (dto.compensation) {
-      const reservationId = ticket.getReservationId();
-      if (!reservationId) throw new InvalidEntityDataException('cannot compensate a ticket without a reservation');
-      const reservation = await this.reservationRepo.findById(reservationId);
-      if (!reservation) throw new ReservationNotFoundException(reservationId);
-
-      const { responsibleUserId, amountCents } = dto.compensation;
-      const isConductorResponsible = reservation.getConductorId() === responsibleUserId;
-      const isRentadorResponsible = reservation.getRentadorId() === responsibleUserId;
-      if (!isConductorResponsible && !isRentadorResponsible) {
-        throw new InvalidEntityDataException('responsible user is not part of the reservation');
-      }
-      const perjudicadoUserId = isConductorResponsible
-        ? reservation.getRentadorId()
-        : reservation.getConductorId();
-
-      await this.walletService.applyDisputePenalty({
-        disputeResolutionId: null,
-        responsibleUserId,
-        perjudicadoUserId,
-        amountCents,
-      });
+    const status = ticket.getStatus();
+    if (status === 'resolved' || status === 'closed') {
+      throw new TicketAlreadyClosedException();
     }
 
-    const updated = ticket.withStatus(dto.status);
-    const saved = await this.ticketRepo.save(updated);
+    if (dto.type === 'close') {
+      const updated = ticket.withStatus('closed');
+      const saved = await this.ticketRepo.save(updated);
+      void this.notificationProvider.notify(
+        saved.getReporterId(),
+        'Tu ticket fue cerrado',
+        `Tu ticket "${saved.getSubject()}" fue cerrado sin penalización.`,
+        { url: `/soporte/tickets/${saved.getId()}` },
+      );
+      return this.toResponse(saved);
+    }
 
+    const reservation = ticket.getReservationId()
+      ? await this.reservationRepo.findById(ticket.getReservationId() as string)
+      : null;
+
+    await this.applyPartyImpact(dto.primary, reservation, ticketId);
+    if (dto.counterpart) {
+      await this.applyPartyImpact(dto.counterpart, reservation, ticketId);
+    }
+
+    const updated = ticket.withStatus('resolved');
+    const saved = await this.ticketRepo.save(updated);
     void this.notificationProvider.notify(
       saved.getReporterId(),
-      'Tu ticket fue actualizado',
-      `Tu ticket "${saved.getSubject()}" ahora está en estado "${saved.getStatus()}".`,
+      'Tu ticket fue resuelto',
+      `Tu ticket "${saved.getSubject()}" fue resuelto con fallo emitido.`,
       { url: `/soporte/tickets/${saved.getId()}` },
     );
-
     return this.toResponse(saved);
+  }
+
+  private async applyPartyImpact(
+    impact: TicketPartyImpact,
+    reservation: Reservation | null,
+    ticketId: string,
+  ): Promise<void> {
+    if (impact.economic) {
+      let amountCents: number;
+      if (impact.economic.type === 'absolute') {
+        amountCents = impact.economic.amountCents;
+      } else {
+        if (!reservation) {
+          throw new TicketResolutionImpactException('porcentaje requiere una reserva asociada');
+        }
+        amountCents = Math.round(reservation.getTotalCents() * impact.economic.percentage / 100);
+      }
+      await this.walletService.applyTicketResolution(impact.userId, amountCents, ticketId);
+    }
+
+    if (impact.reputation) {
+      await this.reputationService.applyPenalty({
+        userId: impact.userId,
+        role: impact.role,
+        reason: `Fallo emitido por admin en ticket ${ticketId}`,
+        scoreDeduction: impact.reputation.scoreDeduction,
+        ticketId,
+      });
+    }
   }
 
   private toResponse(ticket: Ticket, parties?: { conductorId: string; rentadorId: string } | null): TicketResponse {

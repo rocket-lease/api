@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { Reservation } from '@/domain/entities/reservation.entity';
 import { WalletTransaction } from '@/domain/entities/wallet-transaction.entity';
 import { Withdrawal } from '@/domain/entities/withdrawal.entity';
-import type { WalletBalanceSnapshot, WalletRepository, RecordWithdrawalInput, RecordDisputePenaltyInput } from '@/domain/repositories/wallet.repository';
+import type { WalletBalanceSnapshot, WalletRepository, RecordWithdrawalInput } from '@/domain/repositories/wallet.repository';
 
 @Injectable()
 export class InMemoryWalletRepository implements WalletRepository {
@@ -76,33 +76,19 @@ export class InMemoryWalletRepository implements WalletRepository {
     return withdrawal;
   }
 
-  async recordDisputePenalty(input: RecordDisputePenaltyInput): Promise<void> {
-    const responsibleBalance = this.balances.get(input.responsibleUserId) ?? 0;
-    const responsibleAfter = responsibleBalance - input.amountCents;
-    this.balances.set(input.responsibleUserId, responsibleAfter);
-    this.transactions.set(input.responsibleUserId, [
+  async applyTicketResolution(userId: string, amountCents: number, _ticketId: string): Promise<void> {
+    const balance = this.balances.get(userId) ?? 0;
+    const balanceAfter = balance + amountCents;
+    this.balances.set(userId, balanceAfter);
+    this.transactions.set(userId, [
       new WalletTransaction({
-        userId: input.responsibleUserId,
-        type: 'dispute_penalty_debit',
-        amountCents: input.amountCents,
-        balanceAfterCents: responsibleAfter,
+        userId,
+        type: amountCents >= 0 ? 'ticket_resolution_credit' : 'ticket_resolution_debit',
+        amountCents: Math.abs(amountCents),
+        balanceAfterCents: balanceAfter,
         createdAt: new Date(),
       }),
-      ...(this.transactions.get(input.responsibleUserId) ?? []),
-    ]);
-
-    const perjudicadoBalance = this.balances.get(input.perjudicadoUserId) ?? 0;
-    const perjudicadoAfter = perjudicadoBalance + input.amountCents;
-    this.balances.set(input.perjudicadoUserId, perjudicadoAfter);
-    this.transactions.set(input.perjudicadoUserId, [
-      new WalletTransaction({
-        userId: input.perjudicadoUserId,
-        type: 'dispute_penalty_credit',
-        amountCents: input.amountCents,
-        balanceAfterCents: perjudicadoAfter,
-        createdAt: new Date(),
-      }),
-      ...(this.transactions.get(input.perjudicadoUserId) ?? []),
+      ...(this.transactions.get(userId) ?? []),
     ]);
   }
 }

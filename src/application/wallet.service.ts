@@ -127,19 +127,7 @@ export class WalletService {
     });
   }
 
-  // disputeResolutionId es null para compensaciones discrecionales (ticket sin disputa formal)
-  public async applyDisputePenalty(input: {
-    disputeResolutionId: string | null;
-    responsibleUserId: string;
-    perjudicadoUserId: string;
-    amountCents: number;
-  }): Promise<void> {
-    await this.walletRepository.recordDisputePenalty({
-      disputeResolutionId: input.disputeResolutionId,
-      responsibleUserId: input.responsibleUserId,
-      perjudicadoUserId: input.perjudicadoUserId,
-      amountCents: input.amountCents,
-      currency: 'ARS',
-    });
+  public async applyTicketResolution(userId: string, amountCents: number, ticketId: string): Promise<void> {
+    await this.walletRepository.applyTicketResolution(userId, amountCents, ticketId);
   }
 }
