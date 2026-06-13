@@ -22,7 +22,7 @@ import { USER_REPOSITORY } from '@/domain/repositories/user.repository';
 import type { NotificationProvider } from '@/domain/providers/notification.provider';
 import { NOTIFICATION_PROVIDER } from '@/domain/providers/notification.provider';
 
-const CLOSED_TICKET_STATUSES = new Set(['resolved', 'rejected']);
+const CLOSED_TICKET_STATUSES = new Set(['resolved', 'closed']);
 
 @Injectable()
 export class TicketMessageService {
@@ -89,6 +89,15 @@ export class TicketMessageService {
     const channelParticipantId = isAdmin
       ? (dto.channelParticipantId ?? (() => { throw new InvalidEntityDataException('admin must supply channelParticipantId'); })())
       : derivedChannel;
+
+    // Auto-transition: primer mensaje en cualquier canal → under_review
+    if (ticket.getStatus() === 'open') {
+      const count = await this.ticketMessageRepo.countByTicketId(ticket.getId());
+      if (count === 0) {
+        const transitioned = ticket.withStatus('under_review');
+        await this.ticketRepo.save(transitioned);
+      }
+    }
 
     const message = new TicketMessage({
       ticketId: ticket.getId(),

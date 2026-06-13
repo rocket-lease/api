@@ -13,13 +13,15 @@ enum WalletMovementType {
   withdrawal_debit
   dispute_penalty_debit
   dispute_penalty_credit
+  ticket_resolution_credit
+  ticket_resolution_debit
 }
 
 enum TicketStatus {
   open
   under_review
   resolved
-  rejected
+  closed
 }
 
 enum TicketReportedBy {
@@ -31,19 +33,6 @@ enum TicketType {
   vehicle_issue
   counterpart_report
   support_request
-}
-
-enum DisputeStatus {
-  escalated
-  awaiting_info
-  ruled
-  appealed
-  closed
-}
-
-enum PenaltyType {
-  fixed
-  percentage
 }
 
 enum WithdrawalStatus {
@@ -87,8 +76,6 @@ model User {
   reviewsWritten        Review[]                  @relation("Reviewer")
   reviewsReceived       Review[]                  @relation("Reviewed")
   ticketMessages        TicketMessage[]           @relation("ticket_message_sender")
-  disputesModerated     DisputeResolution[]       @relation("dispute_moderator")
-  disputesResponsible   DisputeResolution[]       @relation("dispute_responsible")
   reputation            Reputation?
   penalties             Penalty[]
 
@@ -279,14 +266,14 @@ model WalletMovement {
   bankAccountMaskedCbu  String?           @map("bank_account_masked_cbu")
   providerStatus        WithdrawalStatus?  @map("provider_status")
   balanceAfterCents      Int               @map("balance_after_cents")
-  disputeResolutionId   String?           @unique @map("dispute_resolution_id")
+  ticketId              String?           @map("ticket_id")
   createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
 
   user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   reservation           Reservation?      @relation(fields: [reservationId], references: [id], onDelete: Cascade)
   withdrawal            Withdrawal?       @relation(fields: [withdrawalId], references: [id], onDelete: Cascade)
   bankAccount           BankAccount?      @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
-  disputeResolution     DisputeResolution? @relation(fields: [disputeResolutionId], references: [id], onDelete: Cascade)
+  ticket                Ticket?           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
   @@index([withdrawalId])
@@ -703,7 +690,7 @@ model Ticket {
 
   reservation   Reservation?      @relation(fields: [reservationId], references: [id], onDelete: Cascade)
   messages      TicketMessage[]
-  dispute       DisputeResolution?
+  walletMovements WalletMovement[]
 
   @@index([reporterId])
   @@index([status])
@@ -725,31 +712,6 @@ model TicketMessage {
   @@index([ticketId, sentAt, id])
   @@index([ticketId, channelParticipantId, sentAt], map: "ticket_messages_channel_idx")
   @@map("ticket_messages")
-}
-
-model DisputeResolution {
-  id                  String         @id @default(uuid())
-  ticketId            String         @unique @map("ticket_id")
-  status              DisputeStatus  @default(escalated)
-  moderatorId         String?        @map("moderator_id")
-  infoRequestedAt     DateTime?      @map("info_requested_at") @db.Timestamptz(6)
-  infoDeadlineAt      DateTime?      @map("info_deadline_at") @db.Timestamptz(6)
-  verdict             String?        @db.Text
-  responsibleUserId   String?        @map("responsible_user_id")
-  penaltyType         PenaltyType?   @map("penalty_type")
-  penaltyAmountCents  Int?           @map("penalty_amount_cents")
-  penaltyPercentage   Float?         @map("penalty_percentage")
-  ruledAt             DateTime?      @map("ruled_at") @db.Timestamptz(6)
-  appealCount         Int            @default(0) @map("appeal_count")
-  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  ticket              Ticket          @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  moderator           User?           @relation("dispute_moderator", fields: [moderatorId], references: [id])
-  responsibleUser     User?           @relation("dispute_responsible", fields: [responsibleUserId], references: [id])
-  walletMovement      WalletMovement?
-
-  @@map("dispute_resolutions")
 }
 
 model Reputation {
