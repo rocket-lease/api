@@ -12,7 +12,7 @@ import { InsufficientBalanceException } from '@/domain/exceptions/wallet.excepti
 type WalletMovementRow = {
   id: string;
   userId: string;
-  type: 'reservation_credit' | 'withdrawal_debit' | 'dispute_penalty_debit' | 'dispute_penalty_credit' | 'ticket_resolution_credit' | 'ticket_resolution_debit';
+  type: 'reservation_credit' | 'withdrawal_debit' | 'ticket_resolution_credit' | 'ticket_resolution_debit';
   amountCents: number;
   currency: string;
   reservationId: string | null;

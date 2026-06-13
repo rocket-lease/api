@@ -5,8 +5,6 @@ import { InvalidEntityDataException } from '../exceptions/domain.exception';
 export const WalletTransactionTypeSchema = z.enum([
   'reservation_credit',
   'withdrawal_debit',
-  'dispute_penalty_debit',
-  'dispute_penalty_credit',
   'ticket_resolution_credit',
   'ticket_resolution_debit',
 ]);

@@ -28,7 +28,6 @@ import {
   ReservationForbiddenException,
   ReservationNotFoundException,
 } from '@/domain/exceptions/reservation.exception';
-import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
 import type { TicketRepository } from '@/domain/repositories/ticket.repository';
 import { TICKET_REPOSITORY } from '@/domain/repositories/ticket.repository';
 import type { ReservationRepository } from '@/domain/repositories/reservation.repository';
