@@ -168,6 +168,7 @@ function makeUserRepo(): jest.Mocked<UserRepository> {
     isPhoneVerified: jest.fn(),
     updateAutoAccept: jest.fn(),
     applyReputationPenalty: jest.fn(),
+    updateLevel: jest.fn(),
   };
 }
 

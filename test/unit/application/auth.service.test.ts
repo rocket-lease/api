@@ -59,6 +59,7 @@ describe('AuthService', () => {
       isPhoneVerified: jest.fn().mockResolvedValue(false),
       updateAutoAccept: jest.fn(),
       applyReputationPenalty: jest.fn(),
+      updateLevel: jest.fn(),
     };
     authProviderMock = {
       signUp: jest.fn().mockResolvedValue({ userId: 'stub-id' }),

@@ -16,9 +16,10 @@ import { PostgresVehicleRepository } from '@/infrastructure/repository/postgres.
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 import { CLOCK, SystemClock } from '@/domain/providers/clock.provider';
 import { AuthModule } from './auth.module';
+import { LoyaltyModule } from './loyalty.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, LoyaltyModule],
   controllers: [PricingController],
   providers: [
     PrismaService,

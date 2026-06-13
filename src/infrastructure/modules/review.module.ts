@@ -8,9 +8,10 @@ import { PostgresReservationRepository } from '@/infrastructure/repository/postg
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 import { AuthModule } from './auth.module';
 import { ReputationModule } from './reputation.module';
+import { LoyaltyModule } from './loyalty.module';
 
 @Module({
-  imports: [AuthModule, ReputationModule],
+  imports: [AuthModule, ReputationModule, LoyaltyModule],
   controllers: [ReviewController],
   providers: [
     ReviewService,

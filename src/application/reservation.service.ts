@@ -136,6 +136,7 @@ import { IdentityService } from '@/application/identity.service';
 import { DriverLicenseService } from '@/application/driver-license.service';
 import { WalletService } from '@/application/wallet.service';
 import { ReputationService } from '@/application/reputation.service';
+import { LoyaltyService } from '@/application/loyalty.service';
 
 @Injectable()
 export class ReservationService {
@@ -175,6 +176,10 @@ export class ReservationService {
     @Inject(ReputationService)
     private readonly reputationService: Pick<ReputationService, 'applyPenalty'> = {
       applyPenalty: async () => undefined,
+    },
+    @Inject(LoyaltyService)
+    private readonly loyaltyService: Pick<LoyaltyService, 'registerPendingReservation'> = {
+      registerPendingReservation: async (_conductorId: string, _reservationId: string, _vehicleName: string, _vehicleId: string, _startAt: Date, _endAt: Date) => undefined,
     },
     @Inject(PRICE_QUOTE_REPOSITORY)
     private readonly priceQuoteRepository: PriceQuoteRepository = {
@@ -1720,6 +1725,16 @@ export class ReservationService {
     reservation.confirmReturn(returnQrToken, now);
     await this.reservationRepository.update(reservation);
     await this.walletService.recordReservationPayout(reservation);
+    const vehicle = await this.vehicleRepository.findById(reservation.getVehicleId());
+    const vehicleName = vehicle ? `${vehicle.getBrand()} ${vehicle.getModel()}` : 'Vehículo';
+    await this.loyaltyService.registerPendingReservation(
+      reservation.getConductorId(),
+      reservation.getId(),
+      vehicleName,
+      reservation.getVehicleId(),
+      reservation.getStartAt(),
+      reservation.getEndAt(),
+    );
 
     // Cascade completion to every other chain member that has been confirmed or
     // is already in_progress (extensions that were paid for or actively running).
@@ -1860,6 +1875,7 @@ export class ReservationService {
           deliveryFeeCents: quote.getDeliveryFeeCents(),
           quoteToken: quote.getId(),
           expiresAt: quote.getExpiresAt().toISOString(),
+          levelDiscountPercentage: quote.getLevelDiscountPercentage(),
         };
         return { pricingSnapshot };
       }

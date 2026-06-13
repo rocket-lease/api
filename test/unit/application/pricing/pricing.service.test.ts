@@ -68,6 +68,7 @@ describe('PricingService', () => {
   let quoteRepoMock: jest.Mocked<PriceQuoteRepository>
   let clockMock: jest.Mocked<Clock>
   let dynamicPricingMock: { computeMultiplier: jest.Mock }
+  let loyaltyServiceMock: { getDiscountPercentage: jest.Mock }
 
   beforeEach(() => {
     vehicleRepoMock = {
@@ -95,6 +96,9 @@ describe('PricingService', () => {
     dynamicPricingMock = {
       computeMultiplier: jest.fn().mockResolvedValue(1.0),
     }
+    loyaltyServiceMock = {
+      getDiscountPercentage: jest.fn().mockResolvedValue(0),
+    }
 
     quoteRepoMock.save.mockImplementation(async (q) => q)
 
@@ -103,6 +107,7 @@ describe('PricingService', () => {
       quoteRepoMock,
       clockMock,
       dynamicPricingMock as any,
+      loyaltyServiceMock as any,
     )
   })
 
