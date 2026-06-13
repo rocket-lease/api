@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { Prisma, type Withdrawal as PrismaWithdrawal } from '@prisma/client';
+import { Prisma, type Withdrawal as PrismaWithdrawal, type WalletMovementType } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import type { InputJsonValue } from '@prisma/client/runtime/library';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
@@ -12,7 +12,7 @@ import { InsufficientBalanceException } from '@/domain/exceptions/wallet.excepti
 type WalletMovementRow = {
   id: string;
   userId: string;
-  type: 'reservation_credit' | 'withdrawal_debit' | 'ticket_resolution_credit' | 'ticket_resolution_debit';
+  type: WalletMovementType;
   amountCents: number;
   currency: string;
   reservationId: string | null;
