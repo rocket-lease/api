@@ -55,7 +55,7 @@ export class ReservationExpiryJob {
     }
   }
 
-  @Cron('*/5 * * * *')
+  @Cron('0 */5 * * * *')
   async handleOverdueInProgress(): Promise<void> {
     try {
       const notified = await this.reservationService.notifyOverdueInProgress();
