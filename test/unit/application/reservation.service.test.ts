@@ -2174,12 +2174,10 @@ describe('ReservationService', () => {
       const savedExtension = await repo.findById(extension.id);
       await service.confirmPickup(discountedVehicle.getOwnerId(), savedExtension!.getVoucherToken()!);
 
-      (userRepo.creditBalance as jest.Mock).mockClear();
-
       const res = await service.cancelReservation(conductorA, parentId);
 
       expect(res.refundCents).toBe(112800);
-      expect(userRepo.creditBalance).toHaveBeenCalledWith(conductorA, 112800);
+      expect(res.balanceInCents).toBe(112800);
       const parent = await repo.findById(parentId);
       const child = await repo.findById(extension.id);
       expect(parent?.getStatus()).toBe('cancelled');
@@ -2222,19 +2220,18 @@ describe('ReservationService', () => {
       await service.confirmPayment(conductorA, r.id, { paymentMethod: 'credit_card' });
 
       (notificationProvider.notify as jest.Mock).mockClear();
-      (userRepo.creditBalance as jest.Mock).mockClear();
       (userRepo.applyReputationPenalty as jest.Mock).mockClear();
-      
+
       const res = await service.cancelReservationByRentador(vehicle.getOwnerId(), r.id);
 
       expect(res.status).toBe('cancelled');
       expect(res.cancelledBy).toBe('owner');
       expect(res.reputationPenalty).toBe(-5);
-      
+      expect(res.balanceInCents).toBe(r.totalCents);
+
       const saved = await repo.findById(r.id);
       expect(saved?.getStatus()).toBe('cancelled');
 
-      expect(userRepo.creditBalance).toHaveBeenCalledWith(conductorA, r.totalCents);
       expect(reputationService.applyPenalty).toHaveBeenCalledWith(expect.objectContaining({
         userId: vehicle.getOwnerId(),
         role: 'rentador',
@@ -2492,7 +2489,7 @@ describe('ReservationService', () => {
         const totalConDescuento = res.pricingSnapshot.totalCents;
         expect(cancelRes.refundCents).toBe(totalConDescuento);
         expect(cancelRes.status).toBe('cancelled');
-        expect(userRepo.creditBalance).toHaveBeenCalledWith(conductorA, totalConDescuento);
+        expect(cancelRes.balanceInCents).toBe(totalConDescuento);
       });
     });
   });

@@ -1218,9 +1218,8 @@ export class ReservationService {
       totalRefundCents += refund.refundCents;
       r.cancel(now);
     }
-    await this.reservationRepository.updateMany(toCancel);
-
-    const updatedProfile = await this.userRepository.creditBalance(
+    const { balanceInCents } = await this.reservationRepository.cancelManyAndCreditBalance(
+      toCancel,
       conductorId,
       totalRefundCents,
     );
@@ -1231,7 +1230,7 @@ export class ReservationService {
       cancelledBy: 'conductor',
       refundCents: totalRefundCents,
       reputationPenalty: 0,
-      balanceInCents: updatedProfile.balanceInCents,
+      balanceInCents,
       currency: 'ARS',
     });
   }
@@ -1276,9 +1275,8 @@ export class ReservationService {
       totalRefundCents += r.getTotalCents();
       r.cancelByRentador(now);
     }
-    await this.reservationRepository.updateMany(toCancel);
-
-    const updatedProfile = await this.userRepository.creditBalance(
+    const { balanceInCents } = await this.reservationRepository.cancelManyAndCreditBalance(
+      toCancel,
       reservation.getConductorId(),
       totalRefundCents,
     );
@@ -1328,7 +1326,7 @@ export class ReservationService {
       cancelledBy: 'owner',
       refundCents: totalRefundCents,
       reputationPenalty: -REPUTATION_PENALTY,
-      balanceInCents: updatedProfile.balanceInCents,
+      balanceInCents,
       currency: 'ARS',
     };
   }

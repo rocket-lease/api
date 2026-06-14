@@ -219,6 +219,22 @@ export interface ReservationRepository {
    *   memoria al estado destino.
    */
   updateMany(reservations: Reservation[]): Promise<void>;
+
+  /**
+   * Cancela la lista de reservas Y acredita el reembolso en la billetera del
+   * conductor dentro de una única transacción. Garantiza que nunca ocurra una
+   * cancelación sin reembolso ni un reembolso sin cancelación efectiva.
+   *
+   * @param reservations - Entidades ya transicionadas a `cancelled` en memoria.
+   * @param conductorId  - ID del conductor que recibe el reembolso.
+   * @param refundCents  - Monto a acreditar (puede ser 0 si no hubo pago).
+   * @returns El nuevo saldo de la billetera del conductor tras el crédito.
+   */
+  cancelManyAndCreditBalance(
+    reservations: Reservation[],
+    conductorId: string,
+    refundCents: number,
+  ): Promise<{ balanceInCents: number }>;
 }
 
 export const RESERVATION_REPOSITORY = Symbol('ReservationRepository');

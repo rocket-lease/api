@@ -14,6 +14,7 @@ import {
 @Injectable()
 export class InMemoryReservationRepository implements ReservationRepository {
   private readonly store = new Map<string, Reservation>();
+  private readonly userBalances = new Map<string, number>();
 
   async save(reservation: Reservation): Promise<Reservation> {
     if (
@@ -258,7 +259,22 @@ export class InMemoryReservationRepository implements ReservationRepository {
     }
   }
 
+  async cancelManyAndCreditBalance(
+    reservations: Reservation[],
+    conductorId: string,
+    refundCents: number,
+  ): Promise<{ balanceInCents: number }> {
+    for (const r of reservations) {
+      this.store.set(r.getId(), r);
+    }
+    const current = this.userBalances.get(conductorId) ?? 0;
+    const newBalance = current + refundCents;
+    this.userBalances.set(conductorId, newBalance);
+    return { balanceInCents: newBalance };
+  }
+
   clear() {
     this.store.clear();
+    this.userBalances.clear();
   }
 }

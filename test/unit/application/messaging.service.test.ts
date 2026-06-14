@@ -79,6 +79,7 @@ describe('MessagingService', () => {
       findChain: jest.fn().mockResolvedValue([]),
       findChainTipFor: jest.fn().mockResolvedValue(null),
       updateMany: jest.fn().mockResolvedValue(undefined),
+      cancelManyAndCreditBalance: jest.fn().mockResolvedValue({ balanceInCents: 0 }),
     };
     notificationProviderMock = {
       notify: jest.fn().mockResolvedValue(undefined),
