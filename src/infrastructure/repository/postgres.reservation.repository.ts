@@ -209,6 +209,27 @@ export class PostgresReservationRepository implements ReservationRepository {
     await this.prisma.$transaction(ops);
   }
 
+  async cancelManyAndCreditBalance(
+    reservations: Reservation[],
+    conductorId: string,
+    refundCents: number,
+  ): Promise<{ balanceInCents: number }> {
+    return this.prisma.$transaction(async (tx) => {
+      for (const r of reservations) {
+        await tx.reservation.update({
+          where: { id: r.getId() },
+          data: this.toRow(r),
+        });
+      }
+      const user = await tx.user.update({
+        where: { id: conductorId },
+        data: { balanceInCents: { increment: refundCents } },
+        select: { balanceInCents: true },
+      });
+      return { balanceInCents: user.balanceInCents };
+    });
+  }
+
   async findActiveByVehicleId(
     vehicleId: string,
     statuses: ReservationStatus[],
