@@ -609,6 +609,17 @@ export class ReservationService {
       `Tu transferencia fue acreditada. Reserva ${saved.getId().slice(0, 8)} confirmada.`,
       { url: `/reservas/${saved.getId()}` },
     );
+    await this.notificationProvider.notify(
+      saved.getRentadorId(),
+      'Nueva reserva confirmada',
+      `Tenés una nueva reserva confirmada para tu vehículo (pago por transferencia).`,
+      { url: `/reservas/${saved.getId()}` },
+    );
+    const conductorProfile = await this.userRepository.getProfileById(saved.getConductorId());
+    if (conductorProfile?.email) {
+      const voucherData = await this.getVoucher(saved.getId(), saved.getConductorId());
+      await this.emailProvider.sendVoucherEmail(conductorProfile.email, voucherData);
+    }
 
     return ConfirmTransferResponseSchema.parse({
       id: saved.getId(),

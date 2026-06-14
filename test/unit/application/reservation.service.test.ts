@@ -547,6 +547,57 @@ describe('ReservationService', () => {
     });
   });
 
+  describe('confirmTransferPayment', () => {
+    async function setupTransferReservation() {
+      const created = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      await service.initiateBankTransfer(conductorA, created.id, {});
+      return created;
+    }
+
+    it('confirma la reserva y devuelve status confirmed', async () => {
+      const created = await setupTransferReservation();
+      const res = await service.confirmTransferPayment(conductorA, created.id);
+      expect(res.status).toBe('confirmed');
+      expect(res.notified).toBe(true);
+    });
+
+    it('notifica al conductor y al rentador', async () => {
+      notificationProvider.notify.mockClear();
+      const created = await setupTransferReservation();
+      await service.confirmTransferPayment(conductorA, created.id);
+
+      const calls = notificationProvider.notify.mock.calls;
+      const conductorNotified = calls.some(([uid]) => uid === conductorA);
+      const rentadorNotified = calls.some(([uid]) => uid === vehicle.getOwnerId());
+      expect(conductorNotified).toBe(true);
+      expect(rentadorNotified).toBe(true);
+    });
+
+    it('envía email del voucher al conductor', async () => {
+      const created = await setupTransferReservation();
+      await service.confirmTransferPayment(conductorA, created.id);
+      expect(emailProvider.sendVoucherEmail).toHaveBeenCalledTimes(1);
+    });
+
+    it('lanza ReservationNotFoundException si la reserva no existe', async () => {
+      await expect(
+        service.confirmTransferPayment(conductorA, randomUUID()),
+      ).rejects.toThrow(ReservationNotFoundException);
+    });
+
+    it('lanza ReservationForbiddenException si el caller no es el conductor', async () => {
+      const created = await setupTransferReservation();
+      await expect(
+        service.confirmTransferPayment(conductorB, created.id),
+      ).rejects.toThrow(ReservationForbiddenException);
+    });
+  });
+
   describe('rules snapshot on confirmation (US-49)', () => {
     it('persists defaults when vehicle has no rule set', async () => {
       const created = await service.createReservation(conductorA, {
