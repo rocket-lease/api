@@ -51,4 +51,26 @@ export class PostgresMessageRepository implements MessageRepository {
     });
     return rows.map((r) => this.reconstitute(r));
   }
+
+  async upsertLastSeen(
+    userId: string,
+    reservationId: string,
+    lastSeenAt: Date,
+  ): Promise<void> {
+    await this.prisma.chatLastSeen.upsert({
+      where: { reservationId_userId: { reservationId, userId } },
+      create: { reservationId, userId, lastSeenAt },
+      update: { lastSeenAt },
+    });
+  }
+
+  async getLastSeen(
+    userId: string,
+    reservationId: string,
+  ): Promise<Date | null> {
+    const row = await this.prisma.chatLastSeen.findUnique({
+      where: { reservationId_userId: { reservationId, userId } },
+    });
+    return row?.lastSeenAt ?? null;
+  }
 }

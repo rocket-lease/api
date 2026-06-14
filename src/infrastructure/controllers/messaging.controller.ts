@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -8,11 +7,11 @@ import {
   Inject,
   Param,
   Post,
-  Query,
   UnauthorizedException,
 } from '@nestjs/common';
 import {
   SendMessageRequestSchema,
+  MarkReadBodySchema,
   type SendMessageResponse,
   type ListMessagesResponse,
 } from '@rocket-lease/contracts';
@@ -59,18 +58,20 @@ export class MessagingController {
   async list(
     @Headers('authorization') auth: string | undefined,
     @Param('reservationId') reservationId: string,
-    @Query('after') after?: string,
   ): Promise<ListMessagesResponse> {
     const userId = await this.resolveUserId(auth);
-    let afterDate: Date | undefined;
-    if (after !== undefined) {
-      afterDate = new Date(after);
-      if (isNaN(afterDate.getTime())) {
-        throw new BadRequestException(
-          `Query param 'after' must be a valid ISO 8601 date string`,
-        );
-      }
-    }
-    return this.messagingService.listMessages(userId, reservationId, afterDate);
+    return this.messagingService.listMessages(userId, reservationId);
+  }
+
+  @Post('read')
+  @HttpCode(204)
+  async markRead(
+    @Headers('authorization') auth: string | undefined,
+    @Param('reservationId') reservationId: string,
+    @Body() body: unknown,
+  ): Promise<void> {
+    const userId = await this.resolveUserId(auth);
+    const dto = MarkReadBodySchema.parse(body);
+    await this.messagingService.markRead(userId, reservationId, dto);
   }
 }

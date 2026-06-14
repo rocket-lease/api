@@ -67,6 +67,7 @@ model User {
   reservations          Reservation[] @relation("conductor_reservations")
   paymentMethods        UserPaymentMethod[]
   messages              Message[]
+  chatLastSeen          ChatLastSeen[]
   bankAccounts          BankAccount[]
   walletMovements       WalletMovement[]
   withdrawals           Withdrawal[]
@@ -405,6 +406,7 @@ model Reservation {
   createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
   messages            Message[]
+  chatLastSeen        ChatLastSeen[]
   walletMovement      WalletMovement?
   reviews             Review[]
   tickets             Ticket[]
@@ -429,6 +431,18 @@ model Message {
 
   @@index([reservationId, sentAt, id])
   @@map("messages")
+}
+
+model ChatLastSeen {
+  reservationId String   @map("reservation_id")
+  userId        String   @map("user_id")
+  lastSeenAt    DateTime @map("last_seen_at") @db.Timestamptz(6)
+
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id])
+
+  @@id([reservationId, userId])
+  @@map("chat_last_seen")
 }
 
 model Photo {
