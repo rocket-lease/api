@@ -207,6 +207,13 @@ export class PostgresUserRepository implements UserRepository {
     return !!row?.phoneVerifiedAt;
   }
 
+  async updateLevel(id: string, level: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id },
+      data: { level },
+    });
+  }
+
   async clean(): Promise<void> {
     await this.prisma.user.deleteMany({});
   }

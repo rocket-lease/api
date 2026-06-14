@@ -136,6 +136,7 @@ import { IdentityService } from '@/application/identity.service';
 import { DriverLicenseService } from '@/application/driver-license.service';
 import { WalletService } from '@/application/wallet.service';
 import { ReputationService } from '@/application/reputation.service';
+import { LoyaltyService } from '@/application/loyalty.service';
 
 @Injectable()
 export class ReservationService {
@@ -175,6 +176,10 @@ export class ReservationService {
     @Inject(ReputationService)
     private readonly reputationService: Pick<ReputationService, 'applyPenalty'> = {
       applyPenalty: async () => undefined,
+    },
+    @Inject(LoyaltyService)
+    private readonly loyaltyService: Pick<LoyaltyService, 'registerPendingReservation'> = {
+      registerPendingReservation: async (_conductorId: string, _reservationId: string, _vehicleName: string, _vehicleId: string, _startAt: Date, _endAt: Date) => undefined,
     },
     @Inject(PRICE_QUOTE_REPOSITORY)
     private readonly priceQuoteRepository: PriceQuoteRepository = {
@@ -1723,6 +1728,16 @@ export class ReservationService {
     reservation.confirmReturn(returnQrToken, now);
     await this.reservationRepository.update(reservation);
     await this.walletService.recordReservationPayout(reservation);
+    const vehicle = await this.vehicleRepository.findById(reservation.getVehicleId());
+    const vehicleName = vehicle ? `${vehicle.getBrand()} ${vehicle.getModel()}` : 'Vehículo';
+    await this.loyaltyService.registerPendingReservation(
+      reservation.getConductorId(),
+      reservation.getId(),
+      vehicleName,
+      reservation.getVehicleId(),
+      reservation.getStartAt(),
+      reservation.getEndAt(),
+    );
 
     // Cascade completion to every other chain member that has been confirmed or
     // is already in_progress (extensions that were paid for or actively running).
@@ -1863,6 +1878,7 @@ export class ReservationService {
           deliveryFeeCents: quote.getDeliveryFeeCents(),
           quoteToken: quote.getId(),
           expiresAt: quote.getExpiresAt().toISOString(),
+          levelDiscountPercentage: quote.getLevelDiscountPercentage(),
         };
         return { pricingSnapshot };
       }
@@ -1999,27 +2015,45 @@ export class ReservationService {
 
   private resolvePricingSnapshot(reservation: Reservation) {
     const snapshot = reservation.getPricingSnapshot();
-    if (snapshot) return snapshot;
+    if (!snapshot) {
+      const durationDays = Math.max(
+        1,
+        Math.ceil(
+          (reservation.getEndAt().getTime() - reservation.getStartAt().getTime()) /
+            DAY_MS,
+        ),
+      );
 
-    const durationDays = Math.max(
-      1,
-      Math.ceil(
-        (reservation.getEndAt().getTime() - reservation.getStartAt().getTime()) /
-          DAY_MS,
-      ),
-    );
+      return {
+        vehicleId: reservation.getVehicleId(),
+        currency: 'ARS' as const,
+        basePriceCents: reservation.getBasePriceCentsSnapshot(),
+        durationDays,
+        subtotalCents: reservation.getTotalCents(),
+        appliedDiscountTier: null,
+        appliedDiscountPercentage: 0,
+        discountCents: 0,
+        totalCents: reservation.getTotalCents(),
+      };
+    }
 
-    return {
-      vehicleId: reservation.getVehicleId(),
-      currency: 'ARS' as const,
-      basePriceCents: reservation.getBasePriceCentsSnapshot(),
-      durationDays,
-      subtotalCents: reservation.getTotalCents(),
-      appliedDiscountTier: null,
-      appliedDiscountPercentage: 0,
-      discountCents: 0,
-      totalCents: reservation.getTotalCents(),
-    };
+    // Fallback para snapshots existentes que se guardaron sin levelDiscountPercentage
+    // (previo a agregar el campo a PriceQuoteEntity). Deduce el porcentaje restando
+    // el descuento por tiers del descuento total. Asume que discountCents es solo
+    // tier + level, sin otros descuentos mixtos.
+    if (snapshot.levelDiscountPercentage == null) {
+      const appliedDiscountAmount = Math.floor(
+        snapshot.subtotalCents * ((snapshot.appliedDiscountPercentage ?? 0) / 100),
+      );
+      const levelDiscountAmount = snapshot.discountCents - appliedDiscountAmount;
+      const levelDiscountPercentage =
+        levelDiscountAmount > 0 && snapshot.subtotalCents > 0
+          ? Math.round((levelDiscountAmount / snapshot.subtotalCents) * 100)
+          : undefined;
+      return { ...snapshot, levelDiscountPercentage };
+    }
+
+    return snapshot;
   }
 
   private async getVehicleReservationRuleSet(

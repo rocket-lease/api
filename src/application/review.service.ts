@@ -5,6 +5,7 @@ import {
   CreateReviewResponseSchema,
   type ReviewItem,
   type RentadorReviewsResponse,
+  type LevelUpInfo,
 } from '@rocket-lease/contracts';
 import { Review } from '@/domain/entities/review.entity';
 import {
@@ -22,6 +23,7 @@ import {
 import { EntityNotFoundException } from '@/domain/exceptions/domain.exception';
 import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
 import { ReputationService } from '@/application/reputation.service';
+import { LoyaltyService } from '@/application/loyalty.service';
 
 @Injectable()
 export class ReviewService {
@@ -34,6 +36,8 @@ export class ReviewService {
     private readonly userRepository: UserRepository,
     @Inject(ReputationService)
     private readonly reputationService: ReputationService,
+    @Inject(LoyaltyService)
+    private readonly loyaltyService: LoyaltyService,
   ) {}
 
   /**
@@ -120,6 +124,15 @@ export class ReviewService {
 
     const saved = await this.reviewRepository.save(review);
 
+    let levelUp: LevelUpInfo | null = null;
+    if (dto.targetType === 'conductor' || dto.targetType === 'vehicle') {
+      try {
+        levelUp = await this.loyaltyService.claimXpFromReview(reviewerId, reservationId);
+      } catch {
+        // fail silently
+      }
+    }
+
     const response = CreateReviewResponseSchema.parse({
       id: saved.getId(),
       reservationId: saved.getReservationId(),
@@ -129,6 +142,7 @@ export class ReviewService {
       vehicleRating: null,
       comment: saved.getComment(),
       createdAt: saved.getCreatedAt().toISOString(),
+      levelUp,
     });
 
     // Recalcular reputacion asincronamente (falla silenciosa para no romper flujo)

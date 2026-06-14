@@ -36,6 +36,7 @@ describe('VerificationService', () => {
       isPhoneVerified: jest.fn().mockResolvedValue(false),
       updateAutoAccept: jest.fn(),
       applyReputationPenalty: jest.fn(),
+      updateLevel: jest.fn(),
     };
     service = new VerificationService(authProviderMock, userRepoMock);
   });

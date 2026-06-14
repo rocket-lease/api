@@ -45,6 +45,7 @@ describe('VehicleService — bulk price operations', () => {
       isPhoneVerified: jest.fn().mockResolvedValue(false),
       updateAutoAccept: jest.fn(),
       applyReputationPenalty: jest.fn(),
+      updateLevel: jest.fn(),
       creditBalance: jest.fn(),
     };
 

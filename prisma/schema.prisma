@@ -78,8 +78,43 @@ model User {
   ticketMessages        TicketMessage[]           @relation("ticket_message_sender")
   reputation            Reputation?
   penalties             Penalty[]
+  loyaltyProfile        LoyaltyProfile?
 
   @@map("users")
+}
+
+model LoyaltyProfile {
+  id          String   @id @default(uuid())
+  conductorId String   @unique @map("conductor_id")
+  level       String   @default("bronze")
+  totalXp     Int      @default(0) @map("total_xp")
+  pendingXp   Int      @default(0) @map("pending_xp")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  conductor    User                    @relation(fields: [conductorId], references: [id], onDelete: Cascade)
+  transactions ExperienceTransaction[]
+
+  @@map("loyalty_profiles")
+}
+
+model ExperienceTransaction {
+  id                    String   @id @default(uuid())
+  profileId             String   @map("profile_id")
+  amount                Int
+  reservationId         String   @map("reservation_id")
+  reservationVehicleName String  @map("reservation_vehicle_name")
+  reservationVehicleId  String   @map("reservation_vehicle_id")
+  reservationStartAt    DateTime @map("reservation_start_at") @db.Timestamptz(6)
+  reservationEndAt      DateTime @map("reservation_end_at") @db.Timestamptz(6)
+  status                String   @default("pending")
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  profile LoyaltyProfile @relation(fields: [profileId], references: [id])
+
+  @@index([profileId, status])
+  @@index([profileId, reservationId])
+  @@map("experience_transactions")
 }
 
 model IdentityVerification {
@@ -578,20 +613,21 @@ enum MaxKilometrageType {
 }
 
 model PriceQuote {
-  id                 String   @id @default(uuid()) @db.Uuid
-  vehicleId          String   @map("vehicle_id")
-  conductorId        String?  @map("conductor_id")
-  startAt            DateTime @map("start_at")            @db.Timestamptz(6)
-  endAt              DateTime @map("end_at")              @db.Timestamptz(6)
-  basePriceCents     Int      @map("base_price_cents")
-  multiplier         Decimal  @db.Decimal(4, 3)
-  discountPercentage Int      @default(0) @map("discount_percentage")
-  deliveryFeeCents   Int      @default(0) @map("delivery_fee_cents")
-  totalCents         Int      @map("total_cents")
-  currency           String
-  h3Cell             String   @map("h3_cell")
-  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  expiresAt          DateTime @map("expires_at")         @db.Timestamptz(6)
+  id                      String   @id @default(uuid()) @db.Uuid
+  vehicleId               String   @map("vehicle_id")
+  conductorId             String?  @map("conductor_id")
+  startAt                 DateTime @map("start_at")            @db.Timestamptz(6)
+  endAt                   DateTime @map("end_at")              @db.Timestamptz(6)
+  basePriceCents          Int      @map("base_price_cents")
+  multiplier              Decimal  @db.Decimal(4, 3)
+  discountPercentage      Int      @default(0) @map("discount_percentage")
+  deliveryFeeCents        Int      @default(0) @map("delivery_fee_cents")
+  totalCents              Int      @map("total_cents")
+  currency                String
+  h3Cell                  String   @map("h3_cell")
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt               DateTime @map("expires_at")         @db.Timestamptz(6)
+  levelDiscountPercentage  Int?    @map("level_discount_percentage")
 
   vehicle            Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   conductor          User?    @relation(fields: [conductorId], references: [id], onDelete: SetNull)
