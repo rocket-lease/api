@@ -265,6 +265,15 @@ export class PostgresVehicleRepository implements VehicleRepository {
     return counts;
   }
 
+  async findEnabledVehicles(): Promise<Vehicle[]> {
+    const raws = await this.prisma.vehicle.findMany({
+      where: { enabled: true },
+      include: VEHICLE_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+    });
+    return raws.map((raw) => this.mapToDomain(raw));
+  }
+
   async delete(id: string): Promise<void> {
     await this.prisma.vehicle.delete({ where: { id } });
   }

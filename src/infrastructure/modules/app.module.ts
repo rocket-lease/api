@@ -16,6 +16,7 @@ import { PromotionModule } from './promotion.module';
 import { IdentityModule } from './identity.module';
 import { WalletModule } from './wallet.module';
 import { PushSubscriptionModule } from './push-subscription.module';
+import { RecommendationModule } from './recommendation.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { PushSubscriptionModule } from './push-subscription.module';
     VehicleDocumentModule,
     WalletModule,
     PushSubscriptionModule,
+    RecommendationModule,
   ],
 })
 export class AppModule {}
