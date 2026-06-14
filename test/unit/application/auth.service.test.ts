@@ -35,6 +35,7 @@ describe('AuthService', () => {
       approveWithCascade: jest.fn(),
       findExpiredTransfers: jest.fn(),
       findOverdueBalances: jest.fn().mockResolvedValue([]),
+      findOverdueInProgress: jest.fn().mockResolvedValue([]),
       findBalanceReminderCandidates: jest.fn().mockResolvedValue([]),
       findActiveByVehicleId: jest.fn(),
       findByUser: jest.fn(),

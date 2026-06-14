@@ -71,6 +71,7 @@ describe('MessagingService', () => {
       findActiveByVehicleId: jest.fn(),
       findExpiredTransfers: jest.fn(),
       findOverdueBalances: jest.fn().mockResolvedValue([]),
+      findOverdueInProgress: jest.fn().mockResolvedValue([]),
       findBalanceReminderCandidates: jest.fn().mockResolvedValue([]),
       findOverlappingPendingApproval: jest.fn(),
       approveWithCascade: jest.fn(),
