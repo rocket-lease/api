@@ -1144,7 +1144,7 @@ export class ReservationService {
    * US-34 AC3: detecta reservas `in_progress` cuyo `endAt` ya pasó y notifica
    * a conductor y rentador que el tiempo acordado venció. No realiza transición
    * de estado ni lleva registro de notificaciones — cuando llegue la capa de
-   * notificaciones reales, agregar `overdueNotifiedAt` para idempotencia.
+   * notificaciones reales, agregar `overdueNotifiedAt` para idempotencia (#136).
    */
   public async notifyOverdueInProgress(): Promise<number> {
     const now = this.clock.now();
