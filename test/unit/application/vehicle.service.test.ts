@@ -78,6 +78,7 @@ describe('VehicleService', () => {
       delete: jest.fn().mockResolvedValue(undefined),
       bulkUpdatePrices: jest.fn(),
       countActiveReservationsByVehicleIds: jest.fn(),
+      findEnabledVehicles: jest.fn().mockResolvedValue([]),
     };
     userRepoMock = {
       save: jest.fn(),

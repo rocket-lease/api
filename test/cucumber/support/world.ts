@@ -57,6 +57,12 @@ interface GlobalContext {
   driver_license_verified_by_alias?: Record<string, boolean>;
   payment_method_response?: any;
   payment_method_id?: string;
+
+  // US-23: Recomendaciones personalizadas
+  recommendation_response?: any;
+  search_response?: any;
+  alternatives_response?: any;
+  _notification_expected?: boolean;
 }
 
 export interface MyWorld extends World {

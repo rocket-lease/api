@@ -118,6 +118,7 @@ function makeVehicleRepo(vehicles: Vehicle[]): jest.Mocked<VehicleRepository> {
     delete: jest.fn(),
     bulkUpdatePrices: jest.fn(),
     countActiveReservationsByVehicleIds: jest.fn(),
+    findEnabledVehicles: jest.fn().mockResolvedValue([]),
   };
 }
 
