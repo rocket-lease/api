@@ -869,6 +869,13 @@ export class ReservationService {
     reservation.reject(reason && reason.length > 0 ? reason : null, now);
     const saved = await this.reservationRepository.update(reservation);
 
+    await this.notificationProvider.notify(
+      saved.getConductorId(),
+      'Solicitud rechazada',
+      `Tu solicitud de reserva fue rechazada por el rentador.${saved.getRejectionReason() ? ` Motivo: ${saved.getRejectionReason()}` : ''}`,
+      { url: `/reservas/${saved.getId()}` },
+    );
+
     return RejectReservationResponseSchema.parse({
       id: saved.getId(),
       status: RESERVATION_STATUS.rejected,
@@ -1499,6 +1506,13 @@ export class ReservationService {
       : 'Tu alquiler fue extendido. Completá el pago para confirmar.';
     await this.notificationProvider.notify(audienceId, subject, message, { url: `/reservas/${saved.getId()}` });
 
+    const otherPartyId = requiresApproval ? saved.getConductorId() : saved.getRentadorId();
+    const otherSubject = requiresApproval ? 'Solicitud de extensión enviada' : 'Extensión aprobada';
+    const otherMessage = requiresApproval
+      ? 'Tu solicitud de extensión fue enviada al rentador.'
+      : 'Se aprobó una extensión para tu vehículo.';
+    await this.notificationProvider.notify(otherPartyId, otherSubject, otherMessage, { url: `/reservas/${saved.getId()}` });
+
     return ExtendReservationResponseSchema.parse({
       id: saved.getId(),
       parentReservationId: tip.getId(),
@@ -1705,6 +1719,14 @@ export class ReservationService {
     }
     reservation.confirmPickup(this.clock.now());
     const saved = await this.reservationRepository.update(reservation);
+
+    await this.notificationProvider.notify(
+      saved.getConductorId(),
+      'Alquiler iniciado',
+      `El rentador escaneó tu QR. Tu alquiler está en curso.`,
+      { url: `/reservas/${saved.getId()}` },
+    );
+
     return ConfirmPickupResponseSchema.parse({
       reservationId: saved.getId(),
       status: RESERVATION_STATUS.in_progress,
@@ -1754,6 +1776,19 @@ export class ReservationService {
         await this.walletService.recordReservationPayout(r);
       }
     }
+
+    await this.notificationProvider.notify(
+      reservation.getConductorId(),
+      'Alquiler completado',
+      `Devolviste el vehículo. Tu alquiler fue completado con éxito.`,
+      { url: `/reservas/${reservation.getId()}` },
+    );
+    await this.notificationProvider.notify(
+      reservation.getRentadorId(),
+      'Devolución registrada',
+      `El conductor devolvió el vehículo. La reserva fue completada.`,
+      { url: `/reservas/${reservation.getId()}` },
+    );
 
     return ConfirmReturnResponseSchema.parse({
       reservationId: reservation.getId(),
