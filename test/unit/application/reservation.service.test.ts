@@ -781,6 +781,62 @@ describe('ReservationService', () => {
     });
   });
 
+  describe('notifyOverdueInProgress', () => {
+    async function makeInProgressReservation() {
+      const r = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      await service.confirmPayment(conductorA, r.id, { paymentMethod: 'credit_card' });
+      const saved = await repo.findById(r.id);
+      await service.confirmPickup(vehicle.getOwnerId(), saved!.getVoucherToken()!);
+      return r.id;
+    }
+
+    it('returns 0 and does not notify when no overdue reservations', async () => {
+      await makeInProgressReservation();
+      notificationProvider.notify.mockClear();
+      // clock is before endAt — not overdue
+      const count = await service.notifyOverdueInProgress();
+      expect(count).toBe(0);
+      expect(notificationProvider.notify).not.toHaveBeenCalled();
+    });
+
+    it('notifies conductor and rentador when in_progress past endAt', async () => {
+      const id = await makeInProgressReservation();
+      notificationProvider.notify.mockClear();
+      // Advance clock past endAt
+      clock.set(new Date('2026-06-05T10:00:00Z'));
+      const count = await service.notifyOverdueInProgress();
+      expect(count).toBe(1);
+      const calls = notificationProvider.notify.mock.calls;
+      const recipients = calls.map((c) => c[0]);
+      expect(recipients).toContain(conductorA);
+      expect(recipients).toContain(vehicle.getOwnerId());
+      // Conductor message
+      const conductorCall = calls.find((c) => c[0] === conductorA);
+      expect(conductorCall?.[1]).toContain('devolución');
+      // Rentador message
+      const rentadorCall = calls.find((c) => c[0] === vehicle.getOwnerId());
+      expect(rentadorCall?.[1]).toContain('devolvió');
+      // Both messages include reservation id (first 8 chars) and url hint
+      const reservationEntity = await repo.findById(id);
+      expect(conductorCall?.[2]).toContain(reservationEntity!.getId().slice(0, 8));
+    });
+
+    it('does not pick up completed reservations past their endAt', async () => {
+      const id = await makeInProgressReservation();
+      const saved = await repo.findById(id);
+      await service.confirmReturn(conductorA, saved!.getReturnQrToken()!);
+      notificationProvider.notify.mockClear();
+      clock.set(new Date('2026-06-05T10:00:00Z'));
+      const count = await service.notifyOverdueInProgress();
+      expect(count).toBe(0);
+    });
+  });
+
   describe('cancelPendingByVehicle', () => {
     it('cancels pending holds and leaves confirmed intact', async () => {
       const a = await service.createReservation(conductorA, {
