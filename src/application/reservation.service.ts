@@ -1141,6 +1141,39 @@ export class ReservationService {
   }
 
   /**
+   * US-34 AC3: detecta reservas `in_progress` cuyo `endAt` ya pasó y notifica
+   * a conductor y rentador que el tiempo acordado venció. No realiza transición
+   * de estado ni lleva registro de notificaciones — cuando llegue la capa de
+   * notificaciones reales, agregar `overdueNotifiedAt` para idempotencia.
+   */
+  public async notifyOverdueInProgress(): Promise<number> {
+    const now = this.clock.now();
+    const overdue = await this.reservationRepository.findOverdueInProgress(now);
+    for (const r of overdue) {
+      const hoursOverdue = Math.floor(
+        (now.getTime() - r.getEndAt().getTime()) / (60 * 60 * 1000),
+      );
+      const suffix =
+        hoursOverdue > 0
+          ? ` Lleva ${hoursOverdue} hora${hoursOverdue > 1 ? 's' : ''} en mora.`
+          : '';
+      await this.notificationProvider.notify(
+        r.getConductorId(),
+        'Tiempo de devolución vencido',
+        `El tiempo acordado para tu reserva ${r.getId().slice(0, 8)} venció.${suffix} Por favor devolvé el vehículo o reportá un problema.`,
+        { url: `/reservas/${r.getId()}` },
+      );
+      await this.notificationProvider.notify(
+        r.getRentadorId(),
+        'Conductor no devolvió el vehículo',
+        `El conductor no devolvió el vehículo de tu reserva ${r.getId().slice(0, 8)}.${suffix} Podés reportar el problema desde la app.`,
+        { url: `/reservas/${r.getId()}` },
+      );
+    }
+    return overdue.length;
+  }
+
+  /**
    * Cancela una reserva pendiente del conductor. Acepta tanto `pending_payment`
    * (hold de pago activo) como `pending_approval` (solicitud sin respuesta del
    * rentador — el conductor la retira) y `confirmed`/`in_progress` (cancelación

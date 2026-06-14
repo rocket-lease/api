@@ -140,6 +140,12 @@ export class InMemoryReservationRepository implements ReservationRepository {
     );
   }
 
+  async findOverdueInProgress(now: Date): Promise<Reservation[]> {
+    return Array.from(this.store.values()).filter(
+      (r) => r.getStatus() === 'in_progress' && r.getEndAt().getTime() <= now.getTime(),
+    );
+  }
+
   async findOverdueBalances(now: Date): Promise<Reservation[]> {
     return Array.from(this.store.values()).filter(
       (r) =>

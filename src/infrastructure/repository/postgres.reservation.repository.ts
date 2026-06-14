@@ -149,6 +149,16 @@ export class PostgresReservationRepository implements ReservationRepository {
     return rows.map((r) => this.toEntity(r));
   }
 
+  async findOverdueInProgress(now: Date): Promise<Reservation[]> {
+    const rows = await this.prisma.reservation.findMany({
+      where: {
+        status: 'in_progress',
+        endAt: { lte: now },
+      },
+    });
+    return rows.map((r) => this.toEntity(r));
+  }
+
   async findOverdueBalances(now: Date): Promise<Reservation[]> {
     const rows = await this.prisma.reservation.findMany({
       where: {

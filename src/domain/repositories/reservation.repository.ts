@@ -104,6 +104,15 @@ export interface ReservationRepository {
   findExpiredTransfers(now: Date): Promise<Reservation[]>;
 
   /**
+   * Devuelve reservas `in_progress` cuyo `endAt <= now`. Las recoge el job de
+   * detección de devoluciones vencidas para notificar a ambas partes (US-34 AC3).
+   *
+   * @param now - Instante actual del clock inyectado.
+   * @returns Lista de reservas `in_progress` con tiempo acordado vencido.
+   */
+  findOverdueInProgress(now: Date): Promise<Reservation[]>;
+
+  /**
    * Devuelve las reservas señadas (`pending_balance`) cuyo `balanceDueAt <= now`.
    * Las recoge el job para cancelarlas automáticamente y aplicar la política de
    * cancelación sobre la seña (US-26).
