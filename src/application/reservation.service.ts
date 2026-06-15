@@ -119,6 +119,7 @@ import {
   NOTIFICATION_PROVIDER,
   type NotificationProvider,
 } from '@/domain/providers/notification.provider';
+import { formatArs, formatNotificationDate } from './notification.format';
 import {
   PAYMENT_GATEWAY_PROVIDER,
   type PaymentGatewayProvider,
@@ -328,6 +329,19 @@ export class ReservationService {
       throw e;
     }
 
+    if (saved.getStatus() === RESERVATION_STATUS.pending_approval) {
+      const approvalDeadline = saved.getHoldExpiresAt();
+      const deadlineText = approvalDeadline
+        ? ` Respondé antes del ${formatNotificationDate(approvalDeadline)}.`
+        : '';
+      await this.notificationProvider.notify(
+        saved.getRentadorId(),
+        'Nueva solicitud de reserva',
+        `Un conductor quiere reservar tu ${vehicle.getBrand()} ${vehicle.getModel()}.${deadlineText}`,
+        this.reservationUrl(saved.getId()),
+      );
+    }
+
     return CreateReservationResponseSchema.parse({
       id: saved.getId(),
       status: saved.getStatus(),
@@ -403,15 +417,19 @@ export class ReservationService {
       );
       const savedDeposit = await this.reservationRepository.update(reservation);
 
+      const depositLabel = await this.vehicleLabel(savedDeposit.getVehicleId());
+      const depositBalanceDue = formatNotificationDate(savedDeposit.getBalanceDueAt()!);
       await this.notificationProvider.notify(
         savedDeposit.getConductorId(),
         'Seña confirmada',
-        `Señaste la reserva ${savedDeposit.getId().slice(0, 8)}. Tenés hasta el ${savedDeposit.getBalanceDueAt()!.toISOString()} para pagar el saldo.`,
+        `Señaste el ${depositLabel}. Tenés hasta el ${depositBalanceDue} para pagar el saldo y confirmar la reserva.`,
+        this.reservationUrl(savedDeposit.getId()),
       );
       await this.notificationProvider.notify(
         savedDeposit.getRentadorId(),
         'Reserva señada',
-        `Un conductor señó una reserva para tu vehículo.`,
+        `Un conductor señó tu ${depositLabel}. Te avisamos cuando complete el pago del saldo.`,
+        this.reservationUrl(savedDeposit.getId()),
       );
 
       return ConfirmReservationPaymentResponseSchema.parse({
@@ -434,17 +452,19 @@ export class ReservationService {
 
     await this.voucherProvider.generateVoucher(saved.getId());
 
+    const confirmedLabel = await this.vehicleLabel(saved.getVehicleId());
+    const confirmedFrom = formatNotificationDate(saved.getStartAt());
     await this.notificationProvider.notify(
       saved.getConductorId(),
       'Reserva confirmada',
-      `Tu reserva ${saved.getId().slice(0, 8)} fue confirmada.`,
-      { url: `/reservas/${saved.getId()}` },
+      `Tu reserva del ${confirmedLabel} está confirmada. El alquiler arranca el ${confirmedFrom}.`,
+      this.reservationUrl(saved.getId()),
     );
     await this.notificationProvider.notify(
       saved.getRentadorId(),
       'Nueva reserva confirmada',
-      `Tenés una nueva reserva confirmada para el vehículo.`,
-      { url: `/reservas/${saved.getId()}` },
+      `Tenés una reserva confirmada de tu ${confirmedLabel} a partir del ${confirmedFrom}.`,
+      this.reservationUrl(saved.getId()),
     );
     const conductorProfile = await this.userRepository.getProfileById(conductorId);
     if (conductorProfile?.email) {
@@ -574,15 +594,19 @@ export class ReservationService {
       reservation.confirmTransferAsDeposit(depositCents, now);
       const savedDeposit = await this.reservationRepository.update(reservation);
 
+      const transferDepositLabel = await this.vehicleLabel(savedDeposit.getVehicleId());
+      const transferBalanceDue = formatNotificationDate(savedDeposit.getBalanceDueAt()!);
       await this.notificationProvider.notify(
         savedDeposit.getConductorId(),
         'Seña acreditada',
-        `Tu seña fue acreditada. Tenés hasta el ${savedDeposit.getBalanceDueAt()!.toISOString()} para pagar el saldo.`,
+        `Tu seña por el ${transferDepositLabel} fue acreditada. Tenés hasta el ${transferBalanceDue} para pagar el saldo.`,
+        this.reservationUrl(savedDeposit.getId()),
       );
       await this.notificationProvider.notify(
         savedDeposit.getRentadorId(),
         'Reserva señada',
-        `Un conductor señó una reserva para tu vehículo.`,
+        `Un conductor señó tu ${transferDepositLabel}. Te avisamos cuando complete el pago del saldo.`,
+        this.reservationUrl(savedDeposit.getId()),
       );
 
       return ConfirmTransferResponseSchema.parse({
@@ -598,11 +622,18 @@ export class ReservationService {
 
     const voucher = await this.voucherProvider.generateVoucher(saved.getId());
 
+    const transferLabel = await this.vehicleLabel(saved.getVehicleId());
     await this.notificationProvider.notify(
       saved.getConductorId(),
       'Transferencia acreditada',
-      `Tu transferencia fue acreditada. Reserva ${saved.getId().slice(0, 8)} confirmada.`,
-      { url: `/reservas/${saved.getId()}` },
+      `Tu transferencia fue acreditada. La reserva del ${transferLabel} está confirmada.`,
+      this.reservationUrl(saved.getId()),
+    );
+    await this.notificationProvider.notify(
+      saved.getRentadorId(),
+      'Nueva reserva confirmada',
+      `Tenés una reserva confirmada de tu ${transferLabel}.`,
+      this.reservationUrl(saved.getId()),
     );
 
     return ConfirmTransferResponseSchema.parse({
@@ -650,15 +681,18 @@ export class ReservationService {
 
     await this.voucherProvider.generateVoucher(saved.getId());
 
+    const paidLabel = await this.vehicleLabel(saved.getVehicleId());
     await this.notificationProvider.notify(
       saved.getConductorId(),
       'Reserva pagada',
-      `Completaste el pago de la reserva ${saved.getId().slice(0, 8)}. Ya está confirmada.`,
+      `Completaste el pago del ${paidLabel}. Tu reserva ya está confirmada.`,
+      this.reservationUrl(saved.getId()),
     );
     await this.notificationProvider.notify(
       saved.getRentadorId(),
       'Saldo acreditado',
-      `El conductor completó el pago de una reserva de tu vehículo.`,
+      `El conductor completó el pago de tu ${paidLabel}. La reserva está confirmada.`,
+      this.reservationUrl(saved.getId()),
     );
     const conductorProfile = await this.userRepository.getProfileById(conductorId);
     if (conductorProfile?.email) {
@@ -752,15 +786,18 @@ export class ReservationService {
 
     const voucher = await this.voucherProvider.generateVoucher(saved.getId());
 
+    const balanceLabel = await this.vehicleLabel(saved.getVehicleId());
     await this.notificationProvider.notify(
       saved.getConductorId(),
       'Reserva pagada',
-      `Tu transferencia fue acreditada. Reserva ${saved.getId().slice(0, 8)} confirmada.`,
+      `Tu transferencia por el ${balanceLabel} fue acreditada. La reserva está confirmada.`,
+      this.reservationUrl(saved.getId()),
     );
     await this.notificationProvider.notify(
       saved.getRentadorId(),
       'Saldo acreditado',
-      `El conductor completó el pago de una reserva de tu vehículo.`,
+      `El conductor completó el pago de tu ${balanceLabel}. La reserva está confirmada.`,
+      this.reservationUrl(saved.getId()),
     );
 
     return ConfirmBalanceTransferResponseSchema.parse({
@@ -830,6 +867,35 @@ export class ReservationService {
       }
     }
 
+    const approvedLabel = await this.vehicleLabel(reservation.getVehicleId());
+    if (reservation.getStatus() === RESERVATION_STATUS.confirmed) {
+      await this.notificationProvider.notify(
+        reservation.getConductorId(),
+        'Extensión confirmada',
+        `El rentador aprobó tu extensión del ${approvedLabel} y cobramos el pago automáticamente.`,
+        this.reservationUrl(reservation.getId()),
+      );
+    } else {
+      const approvalDeadline = reservation.getHoldExpiresAt();
+      const approvalDeadlineText = approvalDeadline
+        ? ` Completá el pago antes del ${formatNotificationDate(approvalDeadline)} para confirmarla.`
+        : ' Completá el pago para confirmarla.';
+      await this.notificationProvider.notify(
+        reservation.getConductorId(),
+        'Solicitud aprobada',
+        `El rentador aprobó tu reserva del ${approvedLabel}.${approvalDeadlineText}`,
+        this.reservationUrl(reservation.getId()),
+      );
+    }
+    for (const rejected of overlapping) {
+      await this.notificationProvider.notify(
+        rejected.getConductorId(),
+        'Solicitud no disponible',
+        `El ${approvedLabel} se reservó para esas fechas, así que tu solicitud no pudo confirmarse.`,
+        this.reservationUrl(rejected.getId()),
+      );
+    }
+
     return ApproveReservationResponseSchema.parse({
       id: reservation.getId(),
       status: reservation.getStatus(),
@@ -863,6 +929,16 @@ export class ReservationService {
     const now = this.clock.now();
     reservation.reject(reason && reason.length > 0 ? reason : null, now);
     const saved = await this.reservationRepository.update(reservation);
+
+    const rejectedLabel = await this.vehicleLabel(saved.getVehicleId());
+    const rejectionReason = saved.getRejectionReason();
+    const reasonText = rejectionReason ? ` Motivo: ${rejectionReason}.` : '';
+    await this.notificationProvider.notify(
+      saved.getConductorId(),
+      'Solicitud rechazada',
+      `El rentador rechazó tu solicitud para el ${rejectedLabel}.${reasonText}`,
+      this.reservationUrl(saved.getId()),
+    );
 
     return RejectReservationResponseSchema.parse({
       id: saved.getId(),
@@ -1050,6 +1126,12 @@ export class ReservationService {
     for (const r of expiredHolds) {
       r.markExpired(now);
       await this.reservationRepository.update(r);
+      await this.notificationProvider.notify(
+        r.getConductorId(),
+        'Reserva expirada',
+        `Se liberó tu reserva del ${await this.vehicleLabel(r.getVehicleId())} porque no se completó el pago a tiempo.`,
+        this.reservationUrl(r.getId()),
+      );
     }
 
     const cutoff = new Date(now.getTime() - APPROVAL_TTL_MS);
@@ -1058,6 +1140,12 @@ export class ReservationService {
     for (const r of expiredApprovals) {
       r.markApprovalExpired(now);
       await this.reservationRepository.update(r);
+      await this.notificationProvider.notify(
+        r.getConductorId(),
+        'Solicitud vencida',
+        `El rentador no respondió tu solicitud del ${await this.vehicleLabel(r.getVehicleId())} a tiempo. Probá con otras fechas u otro vehículo.`,
+        this.reservationUrl(r.getId()),
+      );
     }
 
     return expiredHolds.length + expiredApprovals.length;
@@ -1091,15 +1179,22 @@ export class ReservationService {
             refund.refundCents,
           );
         }
+        const expiredLabel = await this.vehicleLabel(r.getVehicleId());
+        const refundText =
+          refund.refundCents > 0
+            ? ` Te reembolsamos la seña: ${formatArs(refund.refundCents)}.`
+            : '';
         await this.notificationProvider.notify(
           r.getConductorId(),
           'Reserva cancelada por falta de pago',
-          `Tu reserva ${r.getId().slice(0, 8)} se canceló porque no se pagó el saldo a tiempo. Reembolso de la seña: ${refund.refundCents} centavos.`,
+          `Tu reserva del ${expiredLabel} se canceló porque no se pagó el saldo a tiempo.${refundText}`,
+          this.reservationUrl(r.getId()),
         );
         await this.notificationProvider.notify(
           r.getRentadorId(),
           'Reserva señada cancelada',
-          `Una reserva señada de tu vehículo se canceló por falta de pago del saldo. El vehículo vuelve a estar disponible.`,
+          `Una reserva señada de tu ${expiredLabel} se canceló por falta de pago del saldo. El vehículo vuelve a estar disponible.`,
+          this.reservationUrl(r.getId()),
         );
         processed += 1;
       } catch (e) {
@@ -1121,10 +1216,13 @@ export class ReservationService {
     const candidates =
       await this.reservationRepository.findBalanceReminderCandidates(now);
     for (const r of candidates) {
+      const reminderLabel = await this.vehicleLabel(r.getVehicleId());
+      const reminderDue = formatNotificationDate(r.getBalanceDueAt()!);
       await this.notificationProvider.notify(
         r.getConductorId(),
         'Recordatorio: pago de saldo pendiente',
-        `Tu reserva ${r.getId().slice(0, 8)} vence el ${r.getBalanceDueAt()!.toISOString()}. Completá el pago para no perderla.`,
+        `El saldo de tu reserva del ${reminderLabel} vence el ${reminderDue}. Completá el pago para no perderla.`,
+        this.reservationUrl(r.getId()),
       );
       r.markBalanceReminderSent(now);
       await this.reservationRepository.update(r);
@@ -1171,6 +1269,7 @@ export class ReservationService {
     if (toCancel.length === 0) {
       reservation.cancel(now);
       const saved = await this.reservationRepository.update(reservation);
+      await this.notifyRentadorReservationFreed(saved);
       const profile = await this.userRepository.getProfileById(conductorId);
       return CancelReservationResponseSchema.parse({
         id: saved.getId(),
@@ -1210,6 +1309,8 @@ export class ReservationService {
       totalRefundCents,
     );
 
+    await this.notifyRentadorReservationFreed(reservation);
+
     return CancelReservationResponseSchema.parse({
       id: reservationId,
       status: RESERVATION_STATUS.cancelled,
@@ -1245,6 +1346,12 @@ export class ReservationService {
       reservation.cancelByRentador(now);
       const saved = await this.reservationRepository.update(reservation);
       const profile = await this.userRepository.getProfileById(reservation.getConductorId());
+      await this.notificationProvider.notify(
+        reservation.getConductorId(),
+        'Reserva cancelada por el rentador',
+        `El rentador canceló tu reserva del ${await this.vehicleLabel(reservation.getVehicleId())}.`,
+        this.reservationUrl(reservation.getId()),
+      );
       return {
         id: saved.getId(),
         status: RESERVATION_STATUS.cancelled,
@@ -1277,26 +1384,27 @@ export class ReservationService {
       ticketId: reservationId, // Use the reservation ID as the ticket for uniqueness
     });
 
+    const cancelledLabel = await this.vehicleLabel(reservation.getVehicleId());
     await this.notificationProvider.notify(
       reservation.getConductorId(),
       'Reserva cancelada por el rentador',
-      `El rentador ha cancelado tu reserva. Recibiste un reembolso de $${totalRefundCents / 100} ARS.`,
-      { url: `/reservas/${reservation.getId()}` },
+      `El rentador canceló tu reserva del ${cancelledLabel}. Te reembolsamos ${formatArs(totalRefundCents)}.`,
+      this.reservationUrl(reservation.getId()),
     );
     const conductorProfile = await this.userRepository.getProfileById(reservation.getConductorId());
     if (conductorProfile?.email) {
       await this.emailProvider.sendCancellationEmail(
         conductorProfile.email,
         'Reserva cancelada por el rentador',
-        `El rentador ha cancelado tu reserva ${reservationId}. Recibiste un reembolso de $${totalRefundCents / 100} ARS.`,
+        `El rentador canceló tu reserva del ${cancelledLabel}. Recibiste un reembolso de ${formatArs(totalRefundCents)}.`,
       );
     }
 
     await this.notificationProvider.notify(
       rentadorId,
       'Reserva cancelada',
-      `Has cancelado la reserva ${reservationId}. Se aplicó una penalización a tu reputación.`,
-      { url: `/reservas/${reservationId}` },
+      `Cancelaste la reserva de tu ${cancelledLabel}. Se aplicó una penalización a tu reputación.`,
+      this.reservationUrl(reservationId),
     );
     const rentadorProfile = await this.userRepository.getProfileById(rentadorId);
     if (rentadorProfile?.email) {
@@ -1482,14 +1590,25 @@ export class ReservationService {
       await this.attemptAutoChargeExtension(saved, parentRequest);
     }
 
-    const audienceId = requiresApproval ? saved.getRentadorId() : saved.getConductorId();
-    const subject = requiresApproval
-      ? 'Solicitud de extensión recibida'
-      : 'Extensión confirmada';
-    const message = requiresApproval
-      ? 'Tenés una solicitud de extensión pendiente de aprobación.'
-      : 'Tu alquiler fue extendido. Completá el pago para confirmar.';
-    await this.notificationProvider.notify(audienceId, subject, message, { url: `/reservas/${saved.getId()}` });
+    const extensionLabel = await this.vehicleLabel(saved.getVehicleId());
+    if (requiresApproval) {
+      await this.notificationProvider.notify(
+        saved.getRentadorId(),
+        'Solicitud de extensión recibida',
+        `Tenés una solicitud de extensión del ${extensionLabel} pendiente de aprobación.`,
+        this.reservationUrl(saved.getId()),
+      );
+    } else {
+      const autoCharged = saved.getStatus() === RESERVATION_STATUS.confirmed;
+      await this.notificationProvider.notify(
+        saved.getConductorId(),
+        autoCharged ? 'Extensión confirmada' : 'Extensión pendiente de pago',
+        autoCharged
+          ? `Extendiste tu alquiler del ${extensionLabel} y cobramos el pago automáticamente.`
+          : `Extendiste tu alquiler del ${extensionLabel}. Completá el pago para confirmar.`,
+        this.reservationUrl(saved.getId()),
+      );
+    }
 
     return ExtendReservationResponseSchema.parse({
       id: saved.getId(),
@@ -1639,6 +1758,26 @@ export class ReservationService {
       await this.attemptAutoChargeExtension(saved, parent);
     }
 
+    const modifyLabel = await this.vehicleLabel(saved.getVehicleId());
+    if (requiresApproval) {
+      await this.notificationProvider.notify(
+        saved.getRentadorId(),
+        'Solicitud de extensión actualizada',
+        `Se actualizó una solicitud de extensión del ${modifyLabel} pendiente de aprobación.`,
+        this.reservationUrl(saved.getId()),
+      );
+    } else {
+      const autoCharged = saved.getStatus() === RESERVATION_STATUS.confirmed;
+      await this.notificationProvider.notify(
+        saved.getConductorId(),
+        autoCharged ? 'Extensión confirmada' : 'Extensión pendiente de pago',
+        autoCharged
+          ? `Se actualizó tu extensión del ${modifyLabel} y cobramos el pago automáticamente.`
+          : `Se actualizó tu extensión del ${modifyLabel}. Completá el pago para confirmar.`,
+        this.reservationUrl(saved.getId()),
+      );
+    }
+
     return ExtendReservationResponseSchema.parse({
       id: saved.getId(),
       parentReservationId: parentId,
@@ -1697,6 +1836,12 @@ export class ReservationService {
     }
     reservation.confirmPickup(this.clock.now());
     const saved = await this.reservationRepository.update(reservation);
+    await this.notificationProvider.notify(
+      saved.getConductorId(),
+      'Alquiler iniciado',
+      `Retiraste el ${await this.vehicleLabel(saved.getVehicleId())}. ¡Buen viaje! Acordate de devolverlo el ${formatNotificationDate(saved.getEndAt())}.`,
+      this.reservationUrl(saved.getId()),
+    );
     return ConfirmPickupResponseSchema.parse({
       reservationId: saved.getId(),
       status: RESERVATION_STATUS.in_progress,
@@ -1720,6 +1865,20 @@ export class ReservationService {
     reservation.confirmReturn(returnQrToken, now);
     await this.reservationRepository.update(reservation);
     await this.walletService.recordReservationPayout(reservation);
+
+    const returnLabel = await this.vehicleLabel(reservation.getVehicleId());
+    await this.notificationProvider.notify(
+      reservation.getConductorId(),
+      'Alquiler finalizado',
+      `Devolviste el ${returnLabel}. ¡Gracias por usar Rocket Lease! Ya podés calificar tu experiencia.`,
+      this.reservationUrl(reservation.getId()),
+    );
+    await this.notificationProvider.notify(
+      reservation.getRentadorId(),
+      'Vehículo devuelto',
+      `El conductor devolvió tu ${returnLabel} y se acreditó tu pago. Ya podés dejar tu reseña.`,
+      this.reservationUrl(reservation.getId()),
+    );
 
     // Cascade completion to every other chain member that has been confirmed or
     // is already in_progress (extensions that were paid for or actively running).
@@ -1750,6 +1909,12 @@ export class ReservationService {
     for (const r of expired) {
       r.expireTransfer(now);
       await this.reservationRepository.update(r);
+      await this.notificationProvider.notify(
+        r.getConductorId(),
+        'Transferencia vencida',
+        `Venció el plazo para acreditar la transferencia de tu reserva del ${await this.vehicleLabel(r.getVehicleId())}. La reserva se liberó.`,
+        this.reservationUrl(r.getId()),
+      );
     }
     return expired.length;
   }
@@ -1769,9 +1934,17 @@ export class ReservationService {
       vehicleId,
       [RESERVATION_STATUS.pending_payment, RESERVATION_STATUS.pending_approval],
     );
+    if (pending.length === 0) return 0;
+    const label = await this.vehicleLabel(vehicleId);
     for (const r of pending) {
       r.cancel(now);
       await this.reservationRepository.update(r);
+      await this.notificationProvider.notify(
+        r.getConductorId(),
+        'Reserva cancelada',
+        `El ${label} ya no está disponible, así que se canceló tu reserva pendiente. Buscá otro vehículo para esas fechas.`,
+        this.reservationUrl(r.getId()),
+      );
     }
     return pending.length;
   }
@@ -2080,6 +2253,24 @@ export class ReservationService {
         avatarUrl: rentadorProfile?.avatarUrl ?? null,
       },
     };
+  }
+
+  private reservationUrl(reservationId: string): { url: string } {
+    return { url: `/reservas/${reservationId}` };
+  }
+
+  private async vehicleLabel(vehicleId: string): Promise<string> {
+    const vehicle = await this.vehicleRepository.findById(vehicleId);
+    return vehicle ? `${vehicle.getBrand()} ${vehicle.getModel()}` : 'el vehículo';
+  }
+
+  private async notifyRentadorReservationFreed(reservation: Reservation): Promise<void> {
+    await this.notificationProvider.notify(
+      reservation.getRentadorId(),
+      'Reserva cancelada',
+      `El conductor canceló su reserva de tu ${await this.vehicleLabel(reservation.getVehicleId())}. Las fechas vuelven a estar disponibles.`,
+      this.reservationUrl(reservation.getId()),
+    );
   }
 
   private vehicleSummary(

@@ -232,10 +232,16 @@ export class TicketService {
     const updated = ticket.withStatus(dto.status);
     const saved = await this.ticketRepo.save(updated);
 
+    const statusLabels: Record<string, string> = {
+      open: 'abierto',
+      under_review: 'en revisión',
+      resolved: 'resuelto',
+      rejected: 'rechazado',
+    };
     void this.notificationProvider.notify(
       saved.getReporterId(),
       'Tu ticket fue actualizado',
-      `Tu ticket "${saved.getSubject()}" ahora está en estado "${saved.getStatus()}".`,
+      `Tu ticket "${saved.getSubject()}" pasó a "${statusLabels[saved.getStatus()] ?? saved.getStatus()}".`,
       { url: `/soporte/tickets/${saved.getId()}` },
     );
 

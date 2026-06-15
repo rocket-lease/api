@@ -91,6 +91,7 @@ model User {
   disputesResponsible   DisputeResolution[]       @relation("dispute_responsible")
   reputation            Reputation?
   penalties             Penalty[]
+  notifications         Notification[]
 
   @@map("users")
 }
@@ -547,6 +548,22 @@ model PushSubscription {
 
   @@index([userId])
   @@map("push_subscriptions")
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  title     String
+  body      String    @db.Text
+  url       String?
+  readAt    DateTime? @map("read_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt, id])
+  @@map("notifications")
 }
 
 model Review {
