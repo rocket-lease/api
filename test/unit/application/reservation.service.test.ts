@@ -1823,10 +1823,10 @@ describe('ReservationService', () => {
         repo, vehicleRepo, userRepo, ruleSetRepo, clock,
         voucherProvider, notificationProvider, paymentGateway,
         emailProvider,
-        undefined as any,
-        undefined as any,
-        undefined as any,
-        undefined as any,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         loyaltyMock,
       );
 

@@ -30,7 +30,7 @@ describe('LoyaltyService', () => {
       findTransactionsByProfileId: jest.fn(),
       saveTransaction: jest.fn(),
       findTransactionByReservationId: jest.fn(),
-    } as any;
+    };
 
     userRepoMock = {
       save: jest.fn(),
@@ -48,7 +48,7 @@ describe('LoyaltyService', () => {
       updateAutoAccept: jest.fn(),
       applyReputationPenalty: jest.fn(),
       updateLevel: jest.fn(),
-    } as any;
+    };
 
     notificationMock = {
       notify: jest.fn(),
@@ -70,11 +70,11 @@ describe('LoyaltyService', () => {
       expect(repoMock.findByConductorId).toHaveBeenCalledWith(conductorId);
       expect(repoMock.save).toHaveBeenCalledTimes(2);
       // 1ra save: findOrCreateProfile crea el perfil. 2da: registerPendingReservation actualiza pendingXp.
-      const savedProfile = repoMock.save.mock.calls[1][0] as LoyaltyProfile;
+      const savedProfile = repoMock.save.mock.calls[1][0];
       expect(savedProfile.getPendingXp()).toBe(10);
       expect(savedProfile.getTotalXp()).toBe(0);
 
-      const savedTx = repoMock.saveTransaction.mock.calls[0][0] as ExperienceTransaction;
+      const savedTx = repoMock.saveTransaction.mock.calls[0][0];
       expect(savedTx.getAmount()).toBe(10);
       expect(savedTx.getStatus()).toBe('pending');
       expect(savedTx.getReservationId()).toBe(reservationId);
@@ -89,7 +89,7 @@ describe('LoyaltyService', () => {
       await service.registerPendingReservation(conductorId, reservationId, 'Toyota Corolla', vehicleId, startAt, endAt);
 
       expect(repoMock.save).toHaveBeenCalledTimes(1);
-      const savedProfile = repoMock.save.mock.calls[0][0] as LoyaltyProfile;
+      const savedProfile = repoMock.save.mock.calls[0][0];
       expect(savedProfile.getPendingXp()).toBe(15);
     });
   });

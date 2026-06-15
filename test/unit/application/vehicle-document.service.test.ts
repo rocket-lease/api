@@ -332,7 +332,7 @@ describe('VehicleDocumentService', () => {
       expect(notificationProviderMock.notify).toHaveBeenCalledWith(
         rentadorId,
         'Documentación aprobada',
-        'La documentación de tu vehículo ha sido aprobada. Ya puede alquilarse en la plataforma.',
+        'Aprobamos la documentación de tu Toyota Corolla. Ya podés ponerlo a alquilar.',
         { url: '/perfil' },
       );
     });
@@ -366,7 +366,7 @@ describe('VehicleDocumentService', () => {
       expect(notificationProviderMock.notify).toHaveBeenCalledWith(
         rentadorId,
         'Documentación rechazada',
-        'La documentación de tu vehículo ha sido rechazada: Document is blurry. Por favor, sube documentos válidos.',
+        'Rechazamos la documentación de tu vehículo: Document is blurry. Subí documentos válidos para reintentar.',
         { url: '/perfil' },
       );
     });

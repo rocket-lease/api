@@ -37,6 +37,7 @@ Marketplace mobile-first de alquiler de vehículos que conecta **rentadoras** co
 | **Dashboard rentadora** | `RentadoraDashboard` | Vista para rentador: ocupación, ingresos, rentabilidad, cancelaciones, tendencias. |
 | **Mapa interactivo** | `Map` | Vista geográfica de rentadoras cercanas, sus vehículos y precios. |
 | **Re-reserva** | `rebook` | Acción del conductor de reservar nuevamente un vehículo (o de un rentador) usado previamente. Acceso desde historial. |
+| **Notificación** / **Centro de notificaciones** | `Notification` | Aviso de un evento relevante (cambios de estado de reserva, documentación, mensajes de soporte). Se persiste siempre en el centro in-app y, si el usuario tiene push habilitado, se envía además como web push. El push es best-effort: aunque esté deshabilitado, el evento queda registrado in-app. |
 
 ## Personas (resumen)
 
