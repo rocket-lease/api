@@ -23,6 +23,7 @@ import {
 } from '@/application/helpers/pricing';
 import { PRICE_QUOTE_TTL_MS } from './config/dynamic-pricing.config';
 import { latLonToH3 } from '@/application/helpers/h3';
+import { LoyaltyService } from '@/application/loyalty.service';
 
 export interface InternalQuoteResult {
   quote: PriceQuoteEntity;
@@ -47,6 +48,8 @@ export class PricingService {
     private readonly clock: Clock,
     @Inject(DynamicPricingService)
     private readonly dynamicPricingService: DynamicPricingService,
+    @Inject(LoyaltyService)
+    private readonly loyaltyService: LoyaltyService,
   ) {}
 
   /**
@@ -89,7 +92,7 @@ export class PricingService {
     withHomeReturn: boolean;
     conductorId: string | null;
   }): Promise<InternalQuoteResult> {
-    const { vehicle, startAt, endAt, withHomeDelivery, withHomeReturn } = input;
+    const { vehicle, startAt, endAt, withHomeDelivery, withHomeReturn, conductorId } = input;
     const now = this.clock.now();
     const multiplier = await this.dynamicPricingService.computeMultiplier({
       vehicle,
@@ -101,6 +104,9 @@ export class PricingService {
     const discountTiers = vehicle.getDiscountTiers();
     const appliedTier = selectAppliedDiscountTier(durationDays, discountTiers);
     const discountPercentage = appliedTier?.discountPercentage ?? 0;
+    const levelDiscountPercentage = conductorId
+      ? await this.loyaltyService.getDiscountPercentage(conductorId)
+      : 0;
     const deliveryFeeCents =
       (withHomeDelivery ? vehicle.getHomeDeliveryFeeCents() ?? 0 : 0) +
       (withHomeReturn ? vehicle.getHomeReturnFeeCents() ?? 0 : 0);
@@ -110,6 +116,7 @@ export class PricingService {
       endAt,
       multiplier,
       discountPercentage,
+      levelDiscountPercentage,
       deliveryFeeCents,
     });
     const h3Cell =
@@ -130,6 +137,7 @@ export class PricingService {
       h3Cell,
       createdAt: now,
       expiresAt,
+      levelDiscountPercentage: levelDiscountPercentage > 0 ? levelDiscountPercentage : undefined,
     });
     const saved = await this.priceQuoteRepository.save(quote);
 
@@ -147,6 +155,7 @@ export class PricingService {
       deliveryFeeCents,
       quoteToken: saved.getId(),
       expiresAt: expiresAt.toISOString(),
+      levelDiscountPercentage: levelDiscountPercentage > 0 ? levelDiscountPercentage : undefined,
     });
 
     return { quote: saved, response };

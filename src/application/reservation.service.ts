@@ -137,6 +137,7 @@ import { IdentityService } from '@/application/identity.service';
 import { DriverLicenseService } from '@/application/driver-license.service';
 import { WalletService } from '@/application/wallet.service';
 import { ReputationService } from '@/application/reputation.service';
+import { LoyaltyService } from '@/application/loyalty.service';
 
 @Injectable()
 export class ReservationService {
@@ -176,6 +177,10 @@ export class ReservationService {
     @Inject(ReputationService)
     private readonly reputationService: Pick<ReputationService, 'applyPenalty'> = {
       applyPenalty: async () => undefined,
+    },
+    @Inject(LoyaltyService)
+    private readonly loyaltyService: Pick<LoyaltyService, 'registerPendingReservation'> = {
+      registerPendingReservation: async (_conductorId: string, _reservationId: string, _vehicleName: string, _vehicleId: string, _startAt: Date, _endAt: Date) => undefined,
     },
     @Inject(PRICE_QUOTE_REPOSITORY)
     private readonly priceQuoteRepository: PriceQuoteRepository = {
@@ -635,6 +640,11 @@ export class ReservationService {
       `Tenés una reserva confirmada de tu ${transferLabel}.`,
       this.reservationUrl(saved.getId()),
     );
+    const conductorProfile = await this.userRepository.getProfileById(saved.getConductorId());
+    if (conductorProfile?.email) {
+      const voucherData = await this.getVoucher(saved.getId(), saved.getConductorId());
+      await this.emailProvider.sendVoucherEmail(conductorProfile.email, voucherData);
+    }
 
     return ConfirmTransferResponseSchema.parse({
       id: saved.getId(),
@@ -954,7 +964,10 @@ export class ReservationService {
     const reservation =
       await this.reservationRepository.findById(reservationId);
     if (!reservation) throw new ReservationNotFoundException(reservationId);
+    const callerProfile = await this.userRepository.getProfileById(conductorId);
+    const isAdmin = callerProfile?.isAdmin ?? false;
     if (
+      !isAdmin &&
       !reservation.isOwnedByConductor(conductorId) &&
       reservation.getRentadorId() !== conductorId
     ) {
@@ -1231,6 +1244,39 @@ export class ReservationService {
   }
 
   /**
+   * US-34 AC3: detecta reservas `in_progress` cuyo `endAt` ya pasó y notifica
+   * a conductor y rentador que el tiempo acordado venció. No realiza transición
+   * de estado ni lleva registro de notificaciones — cuando llegue la capa de
+   * notificaciones reales, agregar `overdueNotifiedAt` para idempotencia (#136).
+   */
+  public async notifyOverdueInProgress(): Promise<number> {
+    const now = this.clock.now();
+    const overdue = await this.reservationRepository.findOverdueInProgress(now);
+    for (const r of overdue) {
+      const hoursOverdue = Math.floor(
+        (now.getTime() - r.getEndAt().getTime()) / (60 * 60 * 1000),
+      );
+      const suffix =
+        hoursOverdue > 0
+          ? ` Lleva ${hoursOverdue} hora${hoursOverdue > 1 ? 's' : ''} en mora.`
+          : '';
+      await this.notificationProvider.notify(
+        r.getConductorId(),
+        'Tiempo de devolución vencido',
+        `El tiempo acordado para tu reserva ${r.getId().slice(0, 8)} venció.${suffix} Por favor devolvé el vehículo o reportá un problema.`,
+        { url: `/reservas/${r.getId()}` },
+      );
+      await this.notificationProvider.notify(
+        r.getRentadorId(),
+        'Conductor no devolvió el vehículo',
+        `El conductor no devolvió el vehículo de tu reserva ${r.getId().slice(0, 8)}.${suffix} Podés reportar el problema desde la app.`,
+        { url: `/reservas/${r.getId()}` },
+      );
+    }
+    return overdue.length;
+  }
+
+  /**
    * Cancela una reserva pendiente del conductor. Acepta tanto `pending_payment`
    * (hold de pago activo) como `pending_approval` (solicitud sin respuesta del
    * rentador — el conductor la retira) y `confirmed`/`in_progress` (cancelación
@@ -1302,9 +1348,8 @@ export class ReservationService {
       totalRefundCents += refund.refundCents;
       r.cancel(now);
     }
-    await this.reservationRepository.updateMany(toCancel);
-
-    const updatedProfile = await this.userRepository.creditBalance(
+    const { balanceInCents } = await this.reservationRepository.cancelManyAndCreditBalance(
+      toCancel,
       conductorId,
       totalRefundCents,
     );
@@ -1317,7 +1362,7 @@ export class ReservationService {
       cancelledBy: 'conductor',
       refundCents: totalRefundCents,
       reputationPenalty: 0,
-      balanceInCents: updatedProfile.balanceInCents,
+      balanceInCents,
       currency: 'ARS',
     });
   }
@@ -1368,9 +1413,8 @@ export class ReservationService {
       totalRefundCents += r.getTotalCents();
       r.cancelByRentador(now);
     }
-    await this.reservationRepository.updateMany(toCancel);
-
-    const updatedProfile = await this.userRepository.creditBalance(
+    const { balanceInCents } = await this.reservationRepository.cancelManyAndCreditBalance(
+      toCancel,
       reservation.getConductorId(),
       totalRefundCents,
     );
@@ -1421,7 +1465,7 @@ export class ReservationService {
       cancelledBy: 'owner',
       refundCents: totalRefundCents,
       reputationPenalty: -REPUTATION_PENALTY,
-      balanceInCents: updatedProfile.balanceInCents,
+      balanceInCents,
       currency: 'ARS',
     };
   }
@@ -1609,6 +1653,13 @@ export class ReservationService {
         this.reservationUrl(saved.getId()),
       );
     }
+
+    const otherPartyId = requiresApproval ? saved.getConductorId() : saved.getRentadorId();
+    const otherSubject = requiresApproval ? 'Solicitud de extensión enviada' : 'Extensión aprobada';
+    const otherMessage = requiresApproval
+      ? 'Tu solicitud de extensión fue enviada al rentador.'
+      : 'Se aprobó una extensión para tu vehículo.';
+    await this.notificationProvider.notify(otherPartyId, otherSubject, otherMessage, { url: `/reservas/${saved.getId()}` });
 
     return ExtendReservationResponseSchema.parse({
       id: saved.getId(),
@@ -1865,6 +1916,16 @@ export class ReservationService {
     reservation.confirmReturn(returnQrToken, now);
     await this.reservationRepository.update(reservation);
     await this.walletService.recordReservationPayout(reservation);
+    const vehicle = await this.vehicleRepository.findById(reservation.getVehicleId());
+    const vehicleName = vehicle ? `${vehicle.getBrand()} ${vehicle.getModel()}` : 'Vehículo';
+    await this.loyaltyService.registerPendingReservation(
+      reservation.getConductorId(),
+      reservation.getId(),
+      vehicleName,
+      reservation.getVehicleId(),
+      reservation.getStartAt(),
+      reservation.getEndAt(),
+    );
 
     const returnLabel = await this.vehicleLabel(reservation.getVehicleId());
     await this.notificationProvider.notify(
@@ -2033,6 +2094,7 @@ export class ReservationService {
           deliveryFeeCents: quote.getDeliveryFeeCents(),
           quoteToken: quote.getId(),
           expiresAt: quote.getExpiresAt().toISOString(),
+          levelDiscountPercentage: quote.getLevelDiscountPercentage(),
         };
         return { pricingSnapshot };
       }
@@ -2169,27 +2231,45 @@ export class ReservationService {
 
   private resolvePricingSnapshot(reservation: Reservation) {
     const snapshot = reservation.getPricingSnapshot();
-    if (snapshot) return snapshot;
+    if (!snapshot) {
+      const durationDays = Math.max(
+        1,
+        Math.ceil(
+          (reservation.getEndAt().getTime() - reservation.getStartAt().getTime()) /
+            DAY_MS,
+        ),
+      );
 
-    const durationDays = Math.max(
-      1,
-      Math.ceil(
-        (reservation.getEndAt().getTime() - reservation.getStartAt().getTime()) /
-          DAY_MS,
-      ),
-    );
+      return {
+        vehicleId: reservation.getVehicleId(),
+        currency: 'ARS' as const,
+        basePriceCents: reservation.getBasePriceCentsSnapshot(),
+        durationDays,
+        subtotalCents: reservation.getTotalCents(),
+        appliedDiscountTier: null,
+        appliedDiscountPercentage: 0,
+        discountCents: 0,
+        totalCents: reservation.getTotalCents(),
+      };
+    }
 
-    return {
-      vehicleId: reservation.getVehicleId(),
-      currency: 'ARS' as const,
-      basePriceCents: reservation.getBasePriceCentsSnapshot(),
-      durationDays,
-      subtotalCents: reservation.getTotalCents(),
-      appliedDiscountTier: null,
-      appliedDiscountPercentage: 0,
-      discountCents: 0,
-      totalCents: reservation.getTotalCents(),
-    };
+    // Fallback para snapshots existentes que se guardaron sin levelDiscountPercentage
+    // (previo a agregar el campo a PriceQuoteEntity). Deduce el porcentaje restando
+    // el descuento por tiers del descuento total. Asume que discountCents es solo
+    // tier + level, sin otros descuentos mixtos.
+    if (snapshot.levelDiscountPercentage == null) {
+      const appliedDiscountAmount = Math.floor(
+        snapshot.subtotalCents * ((snapshot.appliedDiscountPercentage ?? 0) / 100),
+      );
+      const levelDiscountAmount = snapshot.discountCents - appliedDiscountAmount;
+      const levelDiscountPercentage =
+        levelDiscountAmount > 0 && snapshot.subtotalCents > 0
+          ? Math.round((levelDiscountAmount / snapshot.subtotalCents) * 100)
+          : undefined;
+      return { ...snapshot, levelDiscountPercentage };
+    }
+
+    return snapshot;
   }
 
   private async getVehicleReservationRuleSet(

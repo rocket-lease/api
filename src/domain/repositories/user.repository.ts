@@ -57,6 +57,7 @@ export interface UserRepository {
    */
   updateAutoAccept(id: string, value: boolean): Promise<void>;
   applyReputationPenalty(id: string, points: number): Promise<UserProfile>;
+  updateLevel(id: string, level: string): Promise<void>;
 }
 
 export const USER_REPOSITORY = Symbol('UserRepository');

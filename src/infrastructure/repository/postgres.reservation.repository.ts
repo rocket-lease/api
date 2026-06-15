@@ -149,6 +149,16 @@ export class PostgresReservationRepository implements ReservationRepository {
     return rows.map((r) => this.toEntity(r));
   }
 
+  async findOverdueInProgress(now: Date): Promise<Reservation[]> {
+    const rows = await this.prisma.reservation.findMany({
+      where: {
+        status: 'in_progress',
+        endAt: { lte: now },
+      },
+    });
+    return rows.map((r) => this.toEntity(r));
+  }
+
   async findOverdueBalances(now: Date): Promise<Reservation[]> {
     const rows = await this.prisma.reservation.findMany({
       where: {
@@ -207,6 +217,27 @@ export class PostgresReservationRepository implements ReservationRepository {
       ),
     ];
     await this.prisma.$transaction(ops);
+  }
+
+  async cancelManyAndCreditBalance(
+    reservations: Reservation[],
+    conductorId: string,
+    refundCents: number,
+  ): Promise<{ balanceInCents: number }> {
+    return this.prisma.$transaction(async (tx) => {
+      for (const r of reservations) {
+        await tx.reservation.update({
+          where: { id: r.getId() },
+          data: this.toRow(r),
+        });
+      }
+      const user = await tx.user.update({
+        where: { id: conductorId },
+        data: { balanceInCents: { increment: refundCents } },
+        select: { balanceInCents: true },
+      });
+      return { balanceInCents: user.balanceInCents };
+    });
   }
 
   async findActiveByVehicleId(

@@ -27,6 +27,7 @@ export class PostgresPriceQuoteRepository implements PriceQuoteRepository {
         h3Cell: quote.getH3Cell(),
         createdAt: quote.getCreatedAt(),
         expiresAt: quote.getExpiresAt(),
+        levelDiscountPercentage: quote.getLevelDiscountPercentage() ?? null,
       },
     });
     return quote;
@@ -50,6 +51,7 @@ export class PostgresPriceQuoteRepository implements PriceQuoteRepository {
       h3Cell: row.h3Cell,
       createdAt: row.createdAt,
       expiresAt: row.expiresAt,
+      levelDiscountPercentage: row.levelDiscountPercentage ?? undefined,
     });
   }
 

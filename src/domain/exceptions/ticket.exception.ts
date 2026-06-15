@@ -35,3 +35,21 @@ export class TicketMessageNotAllowedException extends DomainException {
     super('messages are not allowed on a closed ticket');
   }
 }
+
+export class TicketAlreadyClosedException extends DomainException {
+  constructor() {
+    super('ticket is already resolved or closed');
+  }
+}
+
+export class TicketInvalidTransitionException extends DomainException {
+  constructor() {
+    super('ticket cannot transition to under_review from its current status');
+  }
+}
+
+export class TicketResolutionImpactException extends DomainException {
+  constructor(reason: string) {
+    super(`invalid ticket resolution impact: ${reason}`);
+  }
+}

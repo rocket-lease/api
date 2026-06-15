@@ -55,6 +55,18 @@ export class ReservationExpiryJob {
     }
   }
 
+  @Cron('0 */5 * * * *')
+  async handleOverdueInProgress(): Promise<void> {
+    try {
+      const notified = await this.reservationService.notifyOverdueInProgress();
+      if (notified > 0) {
+        this.logger.warn(`Notified ${notified} overdue in-progress reservation(s)`);
+      }
+    } catch (e) {
+      this.logger.error('Failed to notify overdue in-progress reservations', e as Error);
+    }
+  }
+
   /**
    * Método público para expirar solo transfers (usado en tests).
    */

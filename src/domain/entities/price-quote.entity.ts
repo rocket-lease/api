@@ -15,6 +15,7 @@ export interface PriceQuoteProps {
   h3Cell: string;
   createdAt: Date;
   expiresAt: Date;
+  levelDiscountPercentage?: number;
 }
 
 /**
@@ -37,6 +38,7 @@ export class PriceQuote {
   private readonly h3Cell: string;
   private readonly createdAt: Date;
   private readonly expiresAt: Date;
+  private readonly levelDiscountPercentage: number | undefined;
 
   constructor(props: PriceQuoteProps) {
     this.id = props.id ?? randomUUID();
@@ -53,6 +55,7 @@ export class PriceQuote {
     this.h3Cell = props.h3Cell;
     this.createdAt = props.createdAt;
     this.expiresAt = props.expiresAt;
+    this.levelDiscountPercentage = props.levelDiscountPercentage;
   }
 
   public getId(): string {
@@ -96,6 +99,9 @@ export class PriceQuote {
   }
   public getExpiresAt(): Date {
     return this.expiresAt;
+  }
+  public getLevelDiscountPercentage(): number | undefined {
+    return this.levelDiscountPercentage;
   }
 
   public isExpired(now: Date): boolean {

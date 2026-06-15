@@ -4,7 +4,7 @@ import type { TicketRepository } from '@/domain/repositories/ticket.repository';
 import { TicketNotFoundException } from '@/domain/exceptions/ticket.exception';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 
-const ADMIN_QUEUE_STATUSES = ['open', 'under_review', 'resolved', 'rejected'] as const;
+const ADMIN_QUEUE_STATUSES = ['open', 'under_review', 'resolved', 'closed'] as const;
 
 @Injectable()
 export class PostgresTicketRepository implements TicketRepository {
@@ -32,7 +32,7 @@ export class PostgresTicketRepository implements TicketRepository {
       type: row.type as 'vehicle_issue' | 'counterpart_report' | 'support_request',
       reportedBy: row.reportedBy as 'conductor' | 'rentador' | null,
       reporterId: row.reporterId,
-      status: row.status as 'open' | 'under_review' | 'resolved' | 'rejected',
+      status: row.status as 'open' | 'under_review' | 'resolved' | 'closed',
       subject: row.subject,
       description: row.description,
       photoUrls: row.photoUrls,

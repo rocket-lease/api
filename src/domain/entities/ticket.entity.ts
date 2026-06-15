@@ -6,7 +6,7 @@ export interface TicketProps {
   type: 'vehicle_issue' | 'counterpart_report' | 'support_request';
   reportedBy: 'conductor' | 'rentador' | null;
   reporterId: string;
-  status: 'open' | 'under_review' | 'resolved' | 'rejected';
+  status: 'open' | 'under_review' | 'resolved' | 'closed';
   subject: string;
   description: string;
   photoUrls: string[];

@@ -7,6 +7,8 @@ export const WalletTransactionTypeSchema = z.enum([
   'withdrawal_debit',
   'dispute_penalty_debit',
   'dispute_penalty_credit',
+  'ticket_resolution_credit',
+  'ticket_resolution_debit',
 ]);
 
 const walletTransactionSchema = z.object({

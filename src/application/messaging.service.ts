@@ -5,6 +5,7 @@ import {
   SendMessageResponseSchema,
   type ListMessagesResponse,
   ListMessagesResponseSchema,
+  type MarkReadBody,
 } from '@rocket-lease/contracts';
 import { Message } from '@/domain/entities/message.entity';
 import { ChatNotAllowedException } from '@/domain/exceptions/messaging.exception';
@@ -86,13 +87,12 @@ export class MessagingService {
   async listMessages(
     callerId: string,
     reservationId: string,
-    after?: Date,
   ): Promise<ListMessagesResponse> {
     await this.resolveAndAuthorize(callerId, reservationId);
-    const messages = await this.messageRepo.findByReservation(
-      reservationId,
-      after,
-    );
+    const [messages, lastSeenDate] = await Promise.all([
+      this.messageRepo.findByReservation(reservationId),
+      this.messageRepo.getLastSeen(callerId, reservationId),
+    ]);
     return ListMessagesResponseSchema.parse({
       items: messages.map((m) => ({
         id: m.id,
@@ -101,6 +101,20 @@ export class MessagingService {
         body: m.body,
         sentAt: m.sentAt.toISOString(),
       })),
+      lastSeenAt: lastSeenDate ? lastSeenDate.toISOString() : null,
     });
+  }
+
+  async markRead(
+    callerId: string,
+    reservationId: string,
+    dto: MarkReadBody,
+  ): Promise<void> {
+    await this.resolveAndAuthorize(callerId, reservationId);
+    await this.messageRepo.upsertLastSeen(
+      callerId,
+      reservationId,
+      new Date(dto.lastReadAt),
+    );
   }
 }
