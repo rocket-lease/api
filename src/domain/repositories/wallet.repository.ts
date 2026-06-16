@@ -23,20 +23,12 @@ export interface RecordWithdrawalInput {
   createdAt: Date;
 }
 
-export interface RecordDisputePenaltyInput {
-  disputeResolutionId: string | null;
-  responsibleUserId: string;
-  perjudicadoUserId: string;
-  amountCents: number;
-  currency: 'ARS';
-}
-
 export interface WalletRepository {
   getBalance(userId: string): Promise<WalletBalanceSnapshot>;
   findTransactionsByUserId(userId: string): Promise<WalletTransaction[]>;
   recordReservationPayout(reservation: Reservation): Promise<void>;
   recordWithdrawal(input: RecordWithdrawalInput): Promise<Withdrawal>;
-  recordDisputePenalty(input: RecordDisputePenaltyInput): Promise<void>;
+  applyTicketResolution(userId: string, amountCents: number, ticketId: string): Promise<void>;
 }
 
 export const WALLET_REPOSITORY = Symbol('WalletRepository');

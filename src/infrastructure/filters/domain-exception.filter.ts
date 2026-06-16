@@ -62,19 +62,16 @@ import {
 } from '@/domain/exceptions/geo.exception';
 import { ChatNotAllowedException } from '@/domain/exceptions/messaging.exception';
 import {
+  TicketAlreadyClosedException,
   TicketAlreadyExistsException,
   TicketAlreadyRatedException,
+  TicketInvalidTransitionException,
   TicketMessageNotAllowedException,
   TicketNotFoundException,
   TicketRatingNotAllowedException,
+  TicketResolutionImpactException,
   TicketReservationInvalidStatusException,
 } from '@/domain/exceptions/ticket.exception';
-import {
-  DisputeAlreadyRuledException,
-  DisputeAppealLimitReachedException,
-  DisputeInvalidPenaltyException,
-  DisputeNotFoundException,
-} from '@/domain/exceptions/dispute.exception';
 import {
   UserSuspendedException,
 } from '@/domain/exceptions/reputation.exception';
@@ -332,21 +329,17 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.UNPROCESSABLE_ENTITY;
       code = ErrorCodes.TICKET_MESSAGE_NOT_ALLOWED;
       title = 'Unprocessable Entity';
-    } else if (exception instanceof DisputeNotFoundException) {
-      status = HttpStatus.NOT_FOUND;
-      code = ErrorCodes.DISPUTE_NOT_FOUND;
-      title = 'Not Found';
-    } else if (exception instanceof DisputeAlreadyRuledException) {
+    } else if (exception instanceof TicketAlreadyClosedException) {
       status = HttpStatus.CONFLICT;
-      code = ErrorCodes.DISPUTE_ALREADY_RULED;
+      code = ErrorCodes.TICKET_ALREADY_CLOSED;
       title = 'Conflict';
-    } else if (exception instanceof DisputeAppealLimitReachedException) {
+    } else if (exception instanceof TicketInvalidTransitionException) {
       status = HttpStatus.CONFLICT;
-      code = ErrorCodes.DISPUTE_APPEAL_LIMIT_REACHED;
+      code = ErrorCodes.TICKET_INVALID_TRANSITION;
       title = 'Conflict';
-    } else if (exception instanceof DisputeInvalidPenaltyException) {
+    } else if (exception instanceof TicketResolutionImpactException) {
       status = HttpStatus.UNPROCESSABLE_ENTITY;
-      code = ErrorCodes.DISPUTE_INVALID_PENALTY;
+      code = ErrorCodes.TICKET_RESOLUTION_IMPACT;
       title = 'Unprocessable Entity';
     } else if (exception instanceof AdminAccessRequiredException) {
       status = HttpStatus.FORBIDDEN;

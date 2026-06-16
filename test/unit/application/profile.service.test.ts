@@ -30,6 +30,7 @@ describe('ProfileService', () => {
       isPhoneVerified: jest.fn().mockResolvedValue(false),
       updateAutoAccept: jest.fn(),
       applyReputationPenalty: jest.fn(),
+      updateLevel: jest.fn(),
     };
     mediaProviderMock = {
       uploadAvatar: jest.fn(),
@@ -129,6 +130,68 @@ describe('ProfileService', () => {
     await expect(service.getMyProfile('missing')).rejects.toThrow(
       InvalidEntityDataException,
     );
+  });
+
+  describe('getProfileById (perfil público)', () => {
+    beforeEach(() => {
+      userRepoMock.getProfileById.mockResolvedValue({
+        id: 'user-2',
+        name: 'Ana García',
+        email: 'ana@example.com',
+        phone: '1187654321',
+        avatarUrl: null,
+        verificationStatus: 'verified',
+        identityVerification: {
+          status: 'verified',
+          providerName: 'stub-identity-provider',
+          providerRequestId: 'req-2',
+          rejectionReason: null,
+          submittedAt: '2026-05-25T12:00:00.000Z',
+          reviewAfterAt: '2026-05-25T12:00:30.000Z',
+          reviewedAt: '2026-05-25T12:00:30.000Z',
+          verifiedAt: '2026-05-25T12:00:30.000Z',
+        },
+        driverLicenseVerification: {
+          status: 'not_started',
+          providerName: null,
+          providerRequestId: null,
+          rejectionReason: null,
+          submittedAt: null,
+          reviewAfterAt: null,
+          reviewedAt: null,
+          verifiedAt: null,
+        },
+        level: 'gold',
+        reputationScore: 4.8,
+        balanceInCents: 50000,
+        preferences: { transmission: 'automatic', accessibility: [], maxPriceDaily: null },
+        autoAccept: true,
+        isAdmin: true,
+      } as any);
+    });
+
+    it('incluye campos públicos', async () => {
+      const profile = await service.getProfileById('user-2');
+      expect(profile.id).toBe('user-2');
+      expect(profile.name).toBe('Ana García');
+      expect(profile.level).toBe('gold');
+      expect(profile.reputationScore).toBe(4.8);
+    });
+
+    it('no expone email, phone, balance, preferences ni autoAccept', async () => {
+      const profile = await service.getProfileById('user-2');
+      expect((profile as any).email).toBeUndefined();
+      expect((profile as any).phone).toBeUndefined();
+      expect((profile as any).balanceInCents).toBeUndefined();
+      expect((profile as any).preferences).toBeUndefined();
+      expect((profile as any).autoAccept).toBeUndefined();
+      expect((profile as any).isAdmin).toBeUndefined();
+    });
+
+    it('lanza InvalidEntityDataException si el usuario no existe', async () => {
+      userRepoMock.getProfileById.mockResolvedValue(null);
+      await expect(service.getProfileById('missing')).rejects.toThrow(InvalidEntityDataException);
+    });
   });
 
   it('updates and returns profile data', async () => {

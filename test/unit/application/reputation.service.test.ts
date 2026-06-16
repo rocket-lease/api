@@ -34,6 +34,7 @@ describe('ReputationService', () => {
       isPhoneVerified: jest.fn(),
       updateAutoAccept: jest.fn(),
       applyReputationPenalty: jest.fn(),
+      updateLevel: jest.fn(),
     };
 
     service = new ReputationService(reputationRepoMock, userRepoMock);

@@ -68,6 +68,7 @@ describe('PricingService', () => {
   let quoteRepoMock: jest.Mocked<PriceQuoteRepository>
   let clockMock: jest.Mocked<Clock>
   let dynamicPricingMock: { computeMultiplier: jest.Mock }
+  let loyaltyServiceMock: { getDiscountPercentage: jest.Mock }
 
   beforeEach(() => {
     vehicleRepoMock = {
@@ -95,6 +96,9 @@ describe('PricingService', () => {
     dynamicPricingMock = {
       computeMultiplier: jest.fn().mockResolvedValue(1.0),
     }
+    loyaltyServiceMock = {
+      getDiscountPercentage: jest.fn().mockResolvedValue(0),
+    }
 
     quoteRepoMock.save.mockImplementation(async (q) => q)
 
@@ -103,6 +107,7 @@ describe('PricingService', () => {
       quoteRepoMock,
       clockMock,
       dynamicPricingMock as any,
+      loyaltyServiceMock as any,
     )
   })
 
@@ -273,6 +278,56 @@ describe('PricingService', () => {
       })
 
       expect(quoteRepoMock.save).toHaveBeenCalledTimes(1)
+    })
+
+    it('con conductorId y levelDiscountPercentage > 0 → response incluye levelDiscountPercentage', async () => {
+      loyaltyServiceMock.getDiscountPercentage.mockResolvedValue(10)
+      const vehicle = makeVehicle({ basePriceCents: 10000 })
+
+      const result = await service.quoteForVehicle({
+        vehicle,
+        startAt: START_AT,
+        endAt: END_AT,
+        withHomeDelivery: false,
+        withHomeReturn: false,
+        conductorId: randomUUID(),
+      })
+
+      expect(result.response.levelDiscountPercentage).toBe(10)
+    })
+
+    it('con conductorId y levelDiscountPercentage > 0 → entidad guardada lo preserva', async () => {
+      loyaltyServiceMock.getDiscountPercentage.mockResolvedValue(5)
+      const vehicle = makeVehicle({ basePriceCents: 10000 })
+
+      await service.quoteForVehicle({
+        vehicle,
+        startAt: START_AT,
+        endAt: END_AT,
+        withHomeDelivery: false,
+        withHomeReturn: false,
+        conductorId: randomUUID(),
+      })
+
+      const savedQuote = quoteRepoMock.save.mock.calls[0][0]
+      expect(savedQuote.getLevelDiscountPercentage()).toBe(5)
+    })
+
+    it('sin conductorId → levelDiscountPercentage no está en response ni en entidad', async () => {
+      const vehicle = makeVehicle({ basePriceCents: 10000 })
+
+      const result = await service.quoteForVehicle({
+        vehicle,
+        startAt: START_AT,
+        endAt: END_AT,
+        withHomeDelivery: false,
+        withHomeReturn: false,
+        conductorId: null,
+      })
+
+      expect(result.response.levelDiscountPercentage).toBeUndefined()
+      const savedQuote = quoteRepoMock.save.mock.calls[0][0]
+      expect(savedQuote.getLevelDiscountPercentage()).toBeUndefined()
     })
   })
 })

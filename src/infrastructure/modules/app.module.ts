@@ -23,6 +23,7 @@ import { ReviewModule } from './review.module';
 import { TicketModule } from './ticket.module';
 import { DashboardModule } from './dashboard.module';
 import { ReputationModule } from './reputation.module';
+import { LoyaltyModule } from './loyalty.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { ReputationModule } from './reputation.module';
     TicketModule,
     DashboardModule,
     ReputationModule,
+    LoyaltyModule,
   ],
 })
 export class AppModule {}

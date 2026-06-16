@@ -2,6 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   GetMyProfileResponse,
   GetMyProfileResponseSchema,
+  GetPublicProfileResponse,
+  GetPublicProfileResponseSchema,
   UpdateMyProfileRequest,
   UpdateMyProfileResponse,
   UpdateMyProfileResponseSchema,
@@ -41,11 +43,7 @@ export class ProfileService {
     });
   }
 
-  /**
-   * Perfil público de cualquier usuario. A diferencia de `getMyProfile`, el
-   * flag de administración se omite: solo el propio usuario conoce su rol.
-   */
-  public async getProfileById(userId: string): Promise<GetMyProfileResponse> {
+  public async getProfileById(userId: string): Promise<GetPublicProfileResponse> {
     const profile = await this.userRepository.getProfileById(userId);
     if (!profile) {
       throw new InvalidEntityDataException('User not found');
@@ -53,9 +51,8 @@ export class ProfileService {
 
     const identityVerification = await this.identityService.getSummaryByUserId(userId);
     const driverLicenseVerification = await this.driverLicenseService.getSummaryByUserId(userId);
-    return GetMyProfileResponseSchema.parse({
+    return GetPublicProfileResponseSchema.parse({
       ...profile,
-      isAdmin: undefined,
       verificationStatus: identityVerification.status,
       identityVerification,
       driverLicenseVerification,

@@ -57,6 +57,7 @@ export function computePricingTotal(input: {
   endAt: Date;
   multiplier: number;
   discountPercentage: number;
+  levelDiscountPercentage?: number;
   deliveryFeeCents: number;
 }): { subtotalCents: number; discountCents: number; totalCents: number; durationDays: number } {
   const base = computeBaseRentalCents(
@@ -68,8 +69,13 @@ export function computePricingTotal(input: {
   const discountCents = Math.floor(
     (withMultiplier * input.discountPercentage) / 100,
   );
-  const withDiscount = withMultiplier - discountCents;
-  const totalCents = withDiscount + input.deliveryFeeCents;
+  const afterDiscount = withMultiplier - discountCents;
+  const levelDiscount = (input.levelDiscountPercentage ?? 0);
+  const levelDiscountCents = levelDiscount > 0
+    ? Math.floor((afterDiscount * levelDiscount) / 100)
+    : 0;
+  const withLevelDiscount = afterDiscount - levelDiscountCents;
+  const totalCents = withLevelDiscount + input.deliveryFeeCents;
   const ms = input.endAt.getTime() - input.startAt.getTime();
   const durationDays = Math.max(1, Math.ceil(ms / DAY_MS));
   return {

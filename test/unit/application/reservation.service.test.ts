@@ -168,6 +168,7 @@ function makeUserRepo(): jest.Mocked<UserRepository> {
     isPhoneVerified: jest.fn(),
     updateAutoAccept: jest.fn(),
     applyReputationPenalty: jest.fn(),
+    updateLevel: jest.fn(),
   };
 }
 
@@ -546,6 +547,57 @@ describe('ReservationService', () => {
     });
   });
 
+  describe('confirmTransferPayment', () => {
+    async function setupTransferReservation() {
+      const created = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      await service.initiateBankTransfer(conductorA, created.id, {});
+      return created;
+    }
+
+    it('confirma la reserva y devuelve status confirmed', async () => {
+      const created = await setupTransferReservation();
+      const res = await service.confirmTransferPayment(conductorA, created.id);
+      expect(res.status).toBe('confirmed');
+      expect(res.notified).toBe(true);
+    });
+
+    it('notifica al conductor y al rentador', async () => {
+      notificationProvider.notify.mockClear();
+      const created = await setupTransferReservation();
+      await service.confirmTransferPayment(conductorA, created.id);
+
+      const calls = notificationProvider.notify.mock.calls;
+      const conductorNotified = calls.some(([uid]) => uid === conductorA);
+      const rentadorNotified = calls.some(([uid]) => uid === vehicle.getOwnerId());
+      expect(conductorNotified).toBe(true);
+      expect(rentadorNotified).toBe(true);
+    });
+
+    it('envía email del voucher al conductor', async () => {
+      const created = await setupTransferReservation();
+      await service.confirmTransferPayment(conductorA, created.id);
+      expect(emailProvider.sendVoucherEmail).toHaveBeenCalledTimes(1);
+    });
+
+    it('lanza ReservationNotFoundException si la reserva no existe', async () => {
+      await expect(
+        service.confirmTransferPayment(conductorA, randomUUID()),
+      ).rejects.toThrow(ReservationNotFoundException);
+    });
+
+    it('lanza ReservationForbiddenException si el caller no es el conductor', async () => {
+      const created = await setupTransferReservation();
+      await expect(
+        service.confirmTransferPayment(conductorB, created.id),
+      ).rejects.toThrow(ReservationForbiddenException);
+    });
+  });
+
   describe('rules snapshot on confirmation (US-49)', () => {
     it('persists defaults when vehicle has no rule set', async () => {
       const created = await service.createReservation(conductorA, {
@@ -726,6 +778,62 @@ describe('ReservationService', () => {
         contractAccepted: true,
       });
       expect(res.status).toBe('pending_payment');
+    });
+  });
+
+  describe('notifyOverdueInProgress', () => {
+    async function makeInProgressReservation() {
+      const r = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      await service.confirmPayment(conductorA, r.id, { paymentMethod: 'credit_card' });
+      const saved = await repo.findById(r.id);
+      await service.confirmPickup(vehicle.getOwnerId(), saved!.getVoucherToken()!);
+      return r.id;
+    }
+
+    it('returns 0 and does not notify when no overdue reservations', async () => {
+      await makeInProgressReservation();
+      notificationProvider.notify.mockClear();
+      // clock is before endAt — not overdue
+      const count = await service.notifyOverdueInProgress();
+      expect(count).toBe(0);
+      expect(notificationProvider.notify).not.toHaveBeenCalled();
+    });
+
+    it('notifies conductor and rentador when in_progress past endAt', async () => {
+      const id = await makeInProgressReservation();
+      notificationProvider.notify.mockClear();
+      // Advance clock past endAt
+      clock.set(new Date('2026-06-05T10:00:00Z'));
+      const count = await service.notifyOverdueInProgress();
+      expect(count).toBe(1);
+      const calls = notificationProvider.notify.mock.calls;
+      const recipients = calls.map((c) => c[0]);
+      expect(recipients).toContain(conductorA);
+      expect(recipients).toContain(vehicle.getOwnerId());
+      // Conductor message
+      const conductorCall = calls.find((c) => c[0] === conductorA);
+      expect(conductorCall?.[1]).toContain('devolución');
+      // Rentador message
+      const rentadorCall = calls.find((c) => c[0] === vehicle.getOwnerId());
+      expect(rentadorCall?.[1]).toContain('devolvió');
+      // Both messages include reservation id (first 8 chars) and url hint
+      const reservationEntity = await repo.findById(id);
+      expect(conductorCall?.[2]).toContain(reservationEntity!.getId().slice(0, 8));
+    });
+
+    it('does not pick up completed reservations past their endAt', async () => {
+      const id = await makeInProgressReservation();
+      const saved = await repo.findById(id);
+      await service.confirmReturn(conductorA, saved!.getReturnQrToken()!);
+      notificationProvider.notify.mockClear();
+      clock.set(new Date('2026-06-05T10:00:00Z'));
+      const count = await service.notifyOverdueInProgress();
+      expect(count).toBe(0);
     });
   });
 
@@ -1709,6 +1817,34 @@ describe('ReservationService', () => {
       ).rejects.toThrow(ReservationForbiddenException);
     });
 
+    it('registra experiencia al conductor al confirmar devolución', async () => {
+      const loyaltyMock = { registerPendingReservation: jest.fn().mockResolvedValue(undefined) };
+      const localService = new ReservationService(
+        repo, vehicleRepo, userRepo, ruleSetRepo, clock,
+        voucherProvider, notificationProvider, paymentGateway,
+        emailProvider,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        loyaltyMock,
+      );
+
+      const id = await makeInProgressReservation();
+      const saved = await repo.findById(id);
+      await localService.confirmReturn(conductorA, saved!.getReturnQrToken()!);
+
+      expect(loyaltyMock.registerPendingReservation).toHaveBeenCalledTimes(1);
+      expect(loyaltyMock.registerPendingReservation).toHaveBeenCalledWith(
+        conductorA,
+        id,
+        expect.stringContaining('Ford'),
+        expect.any(String),
+        expect.any(Date),
+        expect.any(Date),
+      );
+    });
+
     it('completa en cascada todas las piezas del chain al confirmar devolución', async () => {
       // A (parent): in_progress
       const parentId = await makeInProgressReservation();
@@ -1729,6 +1865,73 @@ describe('ReservationService', () => {
       const childFinal = await repo.findById(childId);
       expect(parentFinal!.getStatus()).toBe('completed');
       expect(childFinal!.getStatus()).toBe('completed');
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // resolvePricingSnapshot — levelDiscountPercentage
+  // ─────────────────────────────────────────────
+  describe('resolvePricingSnapshot', () => {
+    it('computa levelDiscountPercentage cuando el snapshot almacenado no lo tiene y hay level discount en discountCents', async () => {
+      const r = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+
+      const stored = await repo.findById(r.id);
+      jest.spyOn(stored!, 'getPricingSnapshot').mockReturnValue({
+        vehicleId: vehicle.getId(),
+        currency: 'ARS' as const,
+        basePriceCents: 24000,
+        durationDays: 3,
+        subtotalCents: 72000,
+        appliedDiscountTier: null,
+        appliedDiscountPercentage: 0,
+        discountCents: 3600,
+        totalCents: 68400,
+      });
+
+      const res = await service.getById(conductorA, r.id);
+      expect(res.pricingSnapshot.levelDiscountPercentage).toBe(5);
+    });
+
+    it('no incluye levelDiscountPercentage cuando discountCents == appliedDiscountAmount', async () => {
+      const r = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+
+      const res = await service.getById(conductorA, r.id);
+      expect(res.pricingSnapshot.levelDiscountPercentage).toBeUndefined();
+    });
+
+    it('computa levelDiscountPercentage correctamente cuando co-existe con appliedDiscountPercentage', async () => {
+      const r = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+
+      const stored = await repo.findById(r.id);
+      jest.spyOn(stored!, 'getPricingSnapshot').mockReturnValue({
+        vehicleId: vehicle.getId(),
+        currency: 'ARS' as const,
+        basePriceCents: 24000,
+        durationDays: 3,
+        subtotalCents: 72000,
+        appliedDiscountTier: { minimumDays: 3, discountPercentage: 15 },
+        appliedDiscountPercentage: 15,
+        discountCents: 14400,
+        totalCents: 57600,
+      });
+
+      const res = await service.getById(conductorA, r.id);
+      expect(res.pricingSnapshot.levelDiscountPercentage).toBe(5);
     });
   });
 
@@ -2078,12 +2281,10 @@ describe('ReservationService', () => {
       const savedExtension = await repo.findById(extension.id);
       await service.confirmPickup(discountedVehicle.getOwnerId(), savedExtension!.getVoucherToken()!);
 
-      (userRepo.creditBalance as jest.Mock).mockClear();
-
       const res = await service.cancelReservation(conductorA, parentId);
 
       expect(res.refundCents).toBe(112800);
-      expect(userRepo.creditBalance).toHaveBeenCalledWith(conductorA, 112800);
+      expect(res.balanceInCents).toBe(112800);
       const parent = await repo.findById(parentId);
       const child = await repo.findById(extension.id);
       expect(parent?.getStatus()).toBe('cancelled');
@@ -2126,19 +2327,18 @@ describe('ReservationService', () => {
       await service.confirmPayment(conductorA, r.id, { paymentMethod: 'credit_card' });
 
       (notificationProvider.notify as jest.Mock).mockClear();
-      (userRepo.creditBalance as jest.Mock).mockClear();
       (userRepo.applyReputationPenalty as jest.Mock).mockClear();
-      
+
       const res = await service.cancelReservationByRentador(vehicle.getOwnerId(), r.id);
 
       expect(res.status).toBe('cancelled');
       expect(res.cancelledBy).toBe('owner');
       expect(res.reputationPenalty).toBe(-5);
-      
+      expect(res.balanceInCents).toBe(r.totalCents);
+
       const saved = await repo.findById(r.id);
       expect(saved?.getStatus()).toBe('cancelled');
 
-      expect(userRepo.creditBalance).toHaveBeenCalledWith(conductorA, r.totalCents);
       expect(reputationService.applyPenalty).toHaveBeenCalledWith(expect.objectContaining({
         userId: vehicle.getOwnerId(),
         role: 'rentador',
@@ -2396,7 +2596,7 @@ describe('ReservationService', () => {
         const totalConDescuento = res.pricingSnapshot.totalCents;
         expect(cancelRes.refundCents).toBe(totalConDescuento);
         expect(cancelRes.status).toBe('cancelled');
-        expect(userRepo.creditBalance).toHaveBeenCalledWith(conductorA, totalConDescuento);
+        expect(cancelRes.balanceInCents).toBe(totalConDescuento);
       });
     });
   });

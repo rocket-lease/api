@@ -27,7 +27,7 @@ function makeWalletRepository(): jest.Mocked<WalletRepository> {
     findTransactionsByUserId: jest.fn(),
     recordReservationPayout: jest.fn(),
     recordWithdrawal: jest.fn(),
-    recordDisputePenalty: jest.fn(),
+    applyTicketResolution: jest.fn(),
   };
 }
 

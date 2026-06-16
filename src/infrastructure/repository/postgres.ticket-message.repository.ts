@@ -55,4 +55,8 @@ export class PostgresTicketMessageRepository implements TicketMessageRepository 
     });
     return rows.map((r) => this.reconstitute(r));
   }
+
+  async countByTicketId(ticketId: string): Promise<number> {
+    return this.prisma.ticketMessage.count({ where: { ticketId } });
+  }
 }
