@@ -36,6 +36,8 @@ import type { UserRepository } from '@/domain/repositories/user.repository';
 import { USER_REPOSITORY } from '@/domain/repositories/user.repository';
 import type { NotificationProvider } from '@/domain/providers/notification.provider';
 import { NOTIFICATION_PROVIDER } from '@/domain/providers/notification.provider';
+import type { TransactionManager } from '@/domain/providers/transaction.manager';
+import { TRANSACTION_MANAGER } from '@/domain/providers/transaction.manager';
 import { WalletService } from '@/application/wallet.service';
 import { ReputationService } from '@/application/reputation.service';
 
@@ -57,6 +59,8 @@ export class TicketService {
     private readonly walletService: WalletService,
     @Inject(ReputationService)
     private readonly reputationService: ReputationService,
+    @Inject(TRANSACTION_MANAGER)
+    private readonly txManager: TransactionManager,
   ) {}
 
   private async assertAdmin(callerId: string): Promise<void> {
@@ -244,13 +248,16 @@ export class TicketService {
       ? await this.reservationRepo.findById(ticket.getReservationId() as string)
       : null;
 
-    await this.applyPartyImpact(dto.primary, reservation, ticketId);
-    if (dto.counterpart) {
-      await this.applyPartyImpact(dto.counterpart, reservation, ticketId);
-    }
-
-    const updated = ticket.withStatus('resolved');
-    const saved = await this.ticketRepo.save(updated);
+    // Todo el fallo (impacto económico + reputacional de ambas partes y el cambio
+    // de estado del ticket) se aplica atómicamente: si algo falla, no queda una
+    // parte penalizada y la otra no, ni el ticket a medio resolver.
+    const saved = await this.txManager.run(async (tx) => {
+      await this.applyPartyImpact(dto.primary, reservation, ticketId, tx);
+      if (dto.counterpart) {
+        await this.applyPartyImpact(dto.counterpart, reservation, ticketId, tx);
+      }
+      return this.ticketRepo.save(ticket.withStatus('resolved'), tx);
+    });
     void this.notificationProvider.notify(
       saved.getReporterId(),
       'Tu ticket fue resuelto',
@@ -264,6 +271,7 @@ export class TicketService {
     impact: TicketPartyImpact,
     reservation: Reservation | null,
     ticketId: string,
+    tx?: unknown,
   ): Promise<void> {
     if (impact.economic) {
       let amountCents: number;
@@ -275,17 +283,20 @@ export class TicketService {
         }
         amountCents = Math.round(reservation.getTotalCents() * impact.economic.percentage / 100);
       }
-      await this.walletService.applyTicketResolution(impact.userId, amountCents, ticketId);
+      await this.walletService.applyTicketResolution(impact.userId, amountCents, ticketId, tx);
     }
 
     if (impact.reputation) {
-      await this.reputationService.applyPenalty({
-        userId: impact.userId,
-        role: impact.role,
-        reason: `Fallo emitido por admin en ticket ${ticketId}`,
-        scoreDeduction: impact.reputation.scoreDeduction,
-        ticketId,
-      });
+      await this.reputationService.applyPenalty(
+        {
+          userId: impact.userId,
+          role: impact.role,
+          reason: `Fallo emitido por admin en ticket ${ticketId}`,
+          scoreDeduction: impact.reputation.scoreDeduction,
+          ticketId,
+        },
+        tx,
+      );
     }
   }
 

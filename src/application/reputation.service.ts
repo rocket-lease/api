@@ -74,14 +74,23 @@ export class ReputationService {
     });
   }
 
-  async applyPenalty(dto: {
-    userId: string;
-    role: PenaltyRole;
-    reason: string;
-    scoreDeduction: number;
-    ticketId: string;
-  }): Promise<void> {
-    const existingPenalty = await this.reputationRepository.findPenaltyByTicketId(dto.ticketId);
+  async applyPenalty(
+    dto: {
+      userId: string;
+      role: PenaltyRole;
+      reason: string;
+      scoreDeduction: number;
+      ticketId: string;
+    },
+    tx?: unknown,
+  ): Promise<void> {
+    // Dedup por (ticket, usuario): un mismo fallo puede penalizar a ambas partes,
+    // pero nunca dos veces al mismo usuario por el mismo ticket.
+    const existingPenalty = await this.reputationRepository.findPenaltyByTicketAndUser(
+      dto.ticketId,
+      dto.userId,
+      tx,
+    );
     if (existingPenalty) {
       throw new PenaltyAlreadyAppliedException(dto.ticketId);
     }
@@ -94,9 +103,9 @@ export class ReputationService {
       scoreDeduction: dto.scoreDeduction,
     });
 
-    await this.reputationRepository.savePenalty(penalty);
+    await this.reputationRepository.savePenalty(penalty, tx);
 
-    const repData = await this.reputationRepository.getReputationData(dto.userId);
+    const repData = await this.reputationRepository.getReputationData(dto.userId, tx);
     const currentScore = dto.role === 'conductor' ? repData.scoreAsDriver : repData.scoreAsRenter;
     const currentPenaltyCount = dto.role === 'conductor' ? repData.penaltyCountAsDriver : repData.penaltyCountAsRenter;
     const currentReviewCount = dto.role === 'conductor' ? repData.reviewCountAsDriver : repData.reviewCountAsRenter;
@@ -110,6 +119,7 @@ export class ReputationService {
       dto.role,
       newScore,
       currentReviewCount,
+      tx,
     );
 
     await this.reputationRepository.updatePenaltyCountAndSuspension(
@@ -117,10 +127,11 @@ export class ReputationService {
       dto.role,
       newPenaltyCount,
       isSuspended,
+      tx,
     );
 
     if (dto.role === 'rentador') {
-      await this.reputationRepository.updateVehicleOwnerReputationScore(dto.userId, newScore);
+      await this.reputationRepository.updateVehicleOwnerReputationScore(dto.userId, newScore, tx);
     }
   }
 }
