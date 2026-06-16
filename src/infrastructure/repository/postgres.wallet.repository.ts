@@ -151,39 +151,61 @@ export class PostgresWalletRepository implements WalletRepository {
     return this.toWithdrawalEntity(row);
   }
 
-  async applyTicketResolution(userId: string, amountCents: number, ticketId: string): Promise<void> {
-    const movementType = amountCents >= 0 ? 'ticket_resolution_credit' : 'ticket_resolution_debit';
-    await this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.findUnique({
-        where: { id: userId },
-        select: { balanceInCents: true },
-      });
-      if (!user) throw new InsufficientBalanceException();
+  async applyTicketResolution(
+    userId: string,
+    amountCents: number,
+    ticketId: string,
+    tx?: unknown,
+  ): Promise<void> {
+    const run = (client: Prisma.TransactionClient) =>
+      this.applyTicketResolutionOn(client, userId, amountCents, ticketId);
 
-      const balanceAfterCents = user.balanceInCents + amountCents;
-      await tx.user.update({
-        where: { id: userId },
-        data: { balanceInCents: { increment: amountCents } },
-      });
-      await tx.walletMovement.create({
-        data: {
-          id: randomUUID(),
-          userId,
-          type: movementType,
-          amountCents: Math.abs(amountCents),
-          currency: 'ARS',
-          reservationId: null,
-          withdrawalId: null,
-          providerTransactionId: null,
-          bankAccountId: null,
-          bankAccountAlias: null,
-          bankAccountMaskedCbu: null,
-          providerStatus: null,
-          ticketId,
-          balanceAfterCents,
-          createdAt: new Date(),
-        },
-      });
+    // Si la resolución del ticket nos pasa una transacción externa, encolamos
+    // las escrituras ahí (atomicidad con el resto del fallo); si no, abrimos la
+    // nuestra para mantener el saldo y el movimiento consistentes entre sí.
+    if (tx) {
+      await run(tx as Prisma.TransactionClient);
+    } else {
+      await this.prisma.$transaction(run);
+    }
+  }
+
+  private async applyTicketResolutionOn(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    amountCents: number,
+    ticketId: string,
+  ): Promise<void> {
+    const movementType = amountCents >= 0 ? 'ticket_resolution_credit' : 'ticket_resolution_debit';
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: { balanceInCents: true },
+    });
+    if (!user) throw new InsufficientBalanceException();
+
+    const balanceAfterCents = user.balanceInCents + amountCents;
+    await tx.user.update({
+      where: { id: userId },
+      data: { balanceInCents: { increment: amountCents } },
+    });
+    await tx.walletMovement.create({
+      data: {
+        id: randomUUID(),
+        userId,
+        type: movementType,
+        amountCents: Math.abs(amountCents),
+        currency: 'ARS',
+        reservationId: null,
+        withdrawalId: null,
+        providerTransactionId: null,
+        bankAccountId: null,
+        bankAccountAlias: null,
+        bankAccountMaskedCbu: null,
+        providerStatus: null,
+        ticketId,
+        balanceAfterCents,
+        createdAt: new Date(),
+      },
     });
   }
 

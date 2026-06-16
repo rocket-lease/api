@@ -1,7 +1,7 @@
 import type { Ticket } from '@/domain/entities/ticket.entity';
 
 export abstract class TicketRepository {
-  abstract save(ticket: Ticket): Promise<Ticket>;
+  abstract save(ticket: Ticket, tx?: unknown): Promise<Ticket>;
   abstract findByReservationAndReporter(
     reservationId: string,
     reportedBy: 'conductor' | 'rentador',

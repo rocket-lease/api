@@ -804,13 +804,16 @@ model Penalty {
   id             String   @id @default(uuid())
   userId         String   @map("user_id")
   role           String   // 'conductor' | 'rentador'
-  ticketId       String   @unique @map("ticket_id")
+  ticketId       String   @map("ticket_id")
   reason         String   @db.Text
   scoreDeduction Float    @map("score_deduction")
   appliedAt      DateTime @default(now()) @map("applied_at") @db.Timestamptz(6)
 
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Una penalización es única por (ticket, usuario): un mismo fallo puede
+  // penalizar a ambas partes de la reserva, pero nunca dos veces al mismo usuario.
+  @@unique([ticketId, userId])
   @@index([userId])
   @@map("penalties")
 }

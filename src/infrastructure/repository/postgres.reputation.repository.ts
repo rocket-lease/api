@@ -1,4 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 import { Penalty, type PenaltyRole } from '@/domain/entities/penalty.entity';
 import type {
@@ -6,12 +7,20 @@ import type {
   ReputationData,
 } from '@/domain/repositories/reputation.repository';
 
+/** Cliente Prisma con los delegates de modelo, sea el base o uno transaccional. */
+type PrismaModelClient = PrismaService | Prisma.TransactionClient;
+
 @Injectable()
 export class PostgresReputationRepository implements ReputationRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  async getReputationData(userId: string): Promise<ReputationData> {
-    const row = await this.prisma.reputation.upsert({
+  /** Usa el cliente transaccional si vino, o el cliente por defecto. */
+  private client(tx?: unknown): PrismaModelClient {
+    return (tx as Prisma.TransactionClient) ?? this.prisma;
+  }
+
+  async getReputationData(userId: string, tx?: unknown): Promise<ReputationData> {
+    const row = await this.client(tx).reputation.upsert({
       where: { userId },
       update: {},
       create: { userId },
@@ -30,8 +39,8 @@ export class PostgresReputationRepository implements ReputationRepository {
     };
   }
 
-  async savePenalty(penalty: Penalty): Promise<Penalty> {
-    const row = await this.prisma.penalty.create({
+  async savePenalty(penalty: Penalty, tx?: unknown): Promise<Penalty> {
+    const row = await this.client(tx).penalty.create({
       data: {
         id: penalty.getId(),
         userId: penalty.getUserId(),
@@ -53,9 +62,13 @@ export class PostgresReputationRepository implements ReputationRepository {
     });
   }
 
-  async findPenaltyByTicketId(ticketId: string): Promise<Penalty | null> {
-    const row = await this.prisma.penalty.findUnique({
-      where: { ticketId },
+  async findPenaltyByTicketAndUser(
+    ticketId: string,
+    userId: string,
+    tx?: unknown,
+  ): Promise<Penalty | null> {
+    const row = await this.client(tx).penalty.findUnique({
+      where: { ticketId_userId: { ticketId, userId } },
     });
     if (!row) return null;
     return new Penalty({
@@ -74,13 +87,14 @@ export class PostgresReputationRepository implements ReputationRepository {
     role: PenaltyRole,
     score: number,
     reviewCount: number,
+    tx?: unknown,
   ): Promise<void> {
     const updateData =
       role === 'conductor'
         ? { scoreAsDriver: score, reviewCountAsDriver: reviewCount }
         : { scoreAsRenter: score, reviewCountAsRenter: reviewCount };
 
-    await this.prisma.reputation.upsert({
+    await this.client(tx).reputation.upsert({
       where: { userId },
       update: updateData,
       create: {
@@ -95,13 +109,14 @@ export class PostgresReputationRepository implements ReputationRepository {
     role: PenaltyRole,
     penaltyCount: number,
     suspended: boolean,
+    tx?: unknown,
   ): Promise<void> {
     const updateData =
       role === 'conductor'
         ? { penaltyCountAsDriver: penaltyCount, suspendedAsDriver: suspended }
         : { penaltyCountAsRenter: penaltyCount, suspendedAsRenter: suspended };
 
-    await this.prisma.reputation.upsert({
+    await this.client(tx).reputation.upsert({
       where: { userId },
       update: updateData,
       create: {
@@ -114,8 +129,9 @@ export class PostgresReputationRepository implements ReputationRepository {
   async updateVehicleOwnerReputationScore(
     ownerId: string,
     score: number,
+    tx?: unknown,
   ): Promise<void> {
-    await this.prisma.vehicle.updateMany({
+    await this.client(tx).vehicle.updateMany({
       where: { ownerId },
       data: { ownerReputationScore: score },
     });

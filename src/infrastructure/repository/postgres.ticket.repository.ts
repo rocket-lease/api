@@ -1,4 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { Ticket } from '@/domain/entities/ticket.entity';
 import type { TicketRepository } from '@/domain/repositories/ticket.repository';
 import { TicketNotFoundException } from '@/domain/exceptions/ticket.exception';
@@ -42,8 +43,9 @@ export class PostgresTicketRepository implements TicketRepository {
     });
   }
 
-  async save(ticket: Ticket): Promise<Ticket> {
-    const row = await this.prisma.ticket.upsert({
+  async save(ticket: Ticket, tx?: unknown): Promise<Ticket> {
+    const db = (tx as Prisma.TransactionClient) ?? this.prisma;
+    const row = await db.ticket.upsert({
       where: { id: ticket.getId() },
       create: {
         id: ticket.getId(),
