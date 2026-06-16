@@ -75,7 +75,6 @@ model User {
   driverLicenseVerification DriverLicenseVerification?
   pushSubscriptions     PushSubscription[]
   reviewsWritten        Review[]                  @relation("Reviewer")
-  reviewsReceived       Review[]                  @relation("Reviewed")
   ticketMessages        TicketMessage[]           @relation("ticket_message_sender")
   reputation            Reputation?
   penalties             Penalty[]
@@ -614,7 +613,9 @@ model Review {
 
   reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
   reviewer      User        @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
-  reviewed      User        @relation("Reviewed", fields: [reviewedId], references: [id], onDelete: Cascade)
+  // `reviewedId` es polimórfico: apunta a users.id para reseñas de conductor/rentador
+  // y a vehicles.id para reseñas de vehículo, por lo que no lleva FK. La distinción
+  // se hace por `targetType`.
 
   @@unique([reservationId, reviewerId, targetType])
   @@index([targetType, reviewedId])
