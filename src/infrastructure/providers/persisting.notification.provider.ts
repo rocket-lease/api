@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { NotificationProvider } from '@/domain/providers/notification.provider';
+import type { NotificationProvider, NotifyOptions } from '@/domain/providers/notification.provider';
 import {
   NOTIFICATION_REPOSITORY,
   type NotificationRepository,
@@ -31,7 +31,7 @@ export class PersistingNotificationProvider implements NotificationProvider {
     userId: string,
     title: string,
     message: string,
-    options?: { url?: string },
+    options?: NotifyOptions,
   ): Promise<void> {
     try {
       await this.repository.save({

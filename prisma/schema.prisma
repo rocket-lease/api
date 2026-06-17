@@ -377,6 +377,7 @@ model Reservation {
   depositPaidAt         DateTime? @map("deposit_paid_at") @db.Timestamptz(6)
   balanceDueAt          DateTime? @map("balance_due_at") @db.Timestamptz(6)
   balanceReminderSentAt DateTime? @map("balance_reminder_sent_at") @db.Timestamptz(6)
+  overdueNotifiedAt     DateTime? @map("overdue_notified_at") @db.Timestamptz(6)
   transferPaymentMode   String?   @map("transfer_payment_mode")
   parentReservationId String?            @map("parent_reservation_id")
   parentReservation   Reservation?       @relation("ReservationExtensions", fields: [parentReservationId], references: [id])

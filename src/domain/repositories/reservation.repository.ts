@@ -5,6 +5,12 @@ import {
 
 export type ReservationRole = 'conductor' | 'owner';
 
+/**
+ * Intervalo mínimo entre avisos de devolución vencida para una misma reserva.
+ * El job re-notifica a lo sumo una vez por este período mientras siga vencida.
+ */
+export const OVERDUE_RENOTIFY_MS = 24 * 60 * 60 * 1000;
+
 export interface ReservationListFilters {
   status?: ReservationStatus[];
   from?: Date;
@@ -104,13 +110,15 @@ export interface ReservationRepository {
   findExpiredTransfers(now: Date): Promise<Reservation[]>;
 
   /**
-   * Devuelve reservas `in_progress` cuyo `endAt <= now`. Las recoge el job de
-   * detección de devoluciones vencidas para notificar a ambas partes (US-34 AC3).
+   * Devuelve reservas `in_progress` con el tiempo acordado vencido (`endAt <= now`)
+   * que aún deben avisarse: nunca notificadas (`overdueNotifiedAt IS NULL`) o cuyo
+   * último aviso ya superó {@link OVERDUE_RENOTIFY_MS}. El job notifica a ambas
+   * partes y marca el aviso, evitando el spam y reescalando cada 24h.
    *
    * @param now - Instante actual del clock inyectado.
-   * @returns Lista de reservas `in_progress` con tiempo acordado vencido.
+   * @returns Lista de reservas vencidas pendientes de (re)notificación.
    */
-  findOverdueInProgress(now: Date): Promise<Reservation[]>;
+  findOverdueNotificationCandidates(now: Date): Promise<Reservation[]>;
 
   /**
    * Devuelve las reservas señadas (`pending_balance`) cuyo `balanceDueAt <= now`.

@@ -827,6 +827,28 @@ describe('ReservationService', () => {
       expect(conductorCall?.[2]).not.toContain(reservationEntity!.getId().slice(0, 8));
     });
 
+    it('does not re-notify on a second run within the 24h window', async () => {
+      await makeInProgressReservation();
+      clock.set(new Date('2026-06-05T10:00:00Z'));
+      expect(await service.notifyOverdueInProgress()).toBe(1);
+      notificationProvider.notify.mockClear();
+      // A few minutes later the same reservation is still overdue but already notified
+      clock.set(new Date('2026-06-05T10:05:00Z'));
+      expect(await service.notifyOverdueInProgress()).toBe(0);
+      expect(notificationProvider.notify).not.toHaveBeenCalled();
+    });
+
+    it('re-notifies once the 24h escalation window elapses', async () => {
+      await makeInProgressReservation();
+      clock.set(new Date('2026-06-05T10:00:00Z'));
+      await service.notifyOverdueInProgress();
+      notificationProvider.notify.mockClear();
+      // More than 24h after the last notice, still not returned → re-escalates once
+      clock.set(new Date('2026-06-06T11:00:00Z'));
+      expect(await service.notifyOverdueInProgress()).toBe(1);
+      expect(notificationProvider.notify).toHaveBeenCalled();
+    });
+
     it('does not pick up completed reservations past their endAt', async () => {
       const id = await makeInProgressReservation();
       const saved = await repo.findById(id);

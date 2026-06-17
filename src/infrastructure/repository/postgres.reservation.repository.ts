@@ -15,6 +15,7 @@ import {
   ReservationListFilters,
   ReservationListResult,
   ReservationRole,
+  OVERDUE_RENOTIFY_MS,
 } from '@/domain/repositories/reservation.repository';
 import { PrismaService } from '../database/prisma.service';
 
@@ -46,6 +47,7 @@ type Row = {
   depositPaidAt: Date | null;
   balanceDueAt: Date | null;
   balanceReminderSentAt: Date | null;
+  overdueNotifiedAt: Date | null;
   depositPercentageSnapshot: number | null;
   basePriceCentsSnapshot: number;
   pricingSnapshot: any;
@@ -149,11 +151,16 @@ export class PostgresReservationRepository implements ReservationRepository {
     return rows.map((r) => this.toEntity(r));
   }
 
-  async findOverdueInProgress(now: Date): Promise<Reservation[]> {
+  async findOverdueNotificationCandidates(now: Date): Promise<Reservation[]> {
+    const renotifyBefore = new Date(now.getTime() - OVERDUE_RENOTIFY_MS);
     const rows = await this.prisma.reservation.findMany({
       where: {
         status: 'in_progress',
         endAt: { lte: now },
+        OR: [
+          { overdueNotifiedAt: null },
+          { overdueNotifiedAt: { lte: renotifyBefore } },
+        ],
       },
     });
     return rows.map((r) => this.toEntity(r));
@@ -433,6 +440,7 @@ export class PostgresReservationRepository implements ReservationRepository {
       depositPaidAt: r.getDepositPaidAt(),
       balanceDueAt: r.getBalanceDueAt(),
       balanceReminderSentAt: r.getBalanceReminderSentAt(),
+      overdueNotifiedAt: r.getOverdueNotifiedAt(),
       depositPercentageSnapshot: r.getDepositPercentageSnapshot(),
       basePriceCentsSnapshot: r.getBasePriceCentsSnapshot(),
       pricingSnapshot: r.getPricingSnapshot() ?? Prisma.DbNull,
@@ -503,6 +511,7 @@ export class PostgresReservationRepository implements ReservationRepository {
       depositPaidAt: row.depositPaidAt,
       balanceDueAt: row.balanceDueAt,
       balanceReminderSentAt: row.balanceReminderSentAt,
+      overdueNotifiedAt: row.overdueNotifiedAt,
       depositPercentageSnapshot: row.depositPercentageSnapshot,
       basePriceCentsSnapshot: row.basePriceCentsSnapshot,
       pricingSnapshot: row.pricingSnapshot,
