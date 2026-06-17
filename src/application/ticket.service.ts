@@ -261,7 +261,7 @@ export class TicketService {
     void this.notificationProvider.notify(
       saved.getReporterId(),
       'Tu ticket fue resuelto',
-      `Tu ticket "${saved.getSubject()}" fue resuelto con fallo emitido.`,
+      `Tu ticket "${saved.getSubject()}" fue resuelto. Entrá para ver la decisión.`,
       { url: `/soporte/tickets/${saved.getId()}` },
     );
     return this.toResponse(saved);
