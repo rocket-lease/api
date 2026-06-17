@@ -427,13 +427,13 @@ export class ReservationService {
       await this.notificationProvider.notify(
         savedDeposit.getConductorId(),
         'Seña confirmada',
-        `Señaste el ${depositLabel}. Tenés hasta el ${depositBalanceDue} para pagar el saldo y confirmar la reserva.`,
+        `Señaste el ${depositLabel}. Pagá el saldo antes del ${depositBalanceDue} para confirmar.`,
         this.reservationUrl(savedDeposit.getId()),
       );
       await this.notificationProvider.notify(
         savedDeposit.getRentadorId(),
         'Reserva señada',
-        `Un conductor señó tu ${depositLabel}. Te avisamos cuando complete el pago del saldo.`,
+        `Un conductor señó tu ${depositLabel}. Te avisamos cuando pague el saldo.`,
         this.reservationUrl(savedDeposit.getId()),
       );
 
@@ -610,7 +610,7 @@ export class ReservationService {
       await this.notificationProvider.notify(
         savedDeposit.getRentadorId(),
         'Reserva señada',
-        `Un conductor señó tu ${transferDepositLabel}. Te avisamos cuando complete el pago del saldo.`,
+        `Un conductor señó tu ${transferDepositLabel}. Te avisamos cuando pague el saldo.`,
         this.reservationUrl(savedDeposit.getId()),
       );
 
@@ -1260,16 +1260,17 @@ export class ReservationService {
         hoursOverdue > 0
           ? ` Lleva ${hoursOverdue} hora${hoursOverdue > 1 ? 's' : ''} en mora.`
           : '';
+      const label = await this.vehicleLabel(r.getVehicleId());
       await this.notificationProvider.notify(
         r.getConductorId(),
         'Tiempo de devolución vencido',
-        `El tiempo acordado para tu reserva ${r.getId().slice(0, 8)} venció.${suffix} Por favor devolvé el vehículo o reportá un problema.`,
+        `Venció el plazo de devolución del ${label}.${suffix} Devolvelo cuanto antes o reportá un problema.`,
         { url: `/reservas/${r.getId()}` },
       );
       await this.notificationProvider.notify(
         r.getRentadorId(),
         'Conductor no devolvió el vehículo',
-        `El conductor no devolvió el vehículo de tu reserva ${r.getId().slice(0, 8)}.${suffix} Podés reportar el problema desde la app.`,
+        `El conductor todavía no devolvió tu ${label}.${suffix}`,
         { url: `/reservas/${r.getId()}` },
       );
     }
@@ -1639,7 +1640,7 @@ export class ReservationService {
       await this.notificationProvider.notify(
         saved.getRentadorId(),
         'Solicitud de extensión recibida',
-        `Tenés una solicitud de extensión del ${extensionLabel} pendiente de aprobación.`,
+        `El conductor quiere extender el alquiler de tu ${extensionLabel}. Aprobá o rechazá la extensión.`,
         this.reservationUrl(saved.getId()),
       );
     } else {
@@ -1814,7 +1815,7 @@ export class ReservationService {
       await this.notificationProvider.notify(
         saved.getRentadorId(),
         'Solicitud de extensión actualizada',
-        `Se actualizó una solicitud de extensión del ${modifyLabel} pendiente de aprobación.`,
+        `El conductor modificó su solicitud de extensión de tu ${modifyLabel}. Revisala de nuevo.`,
         this.reservationUrl(saved.getId()),
       );
     } else {
@@ -1931,7 +1932,7 @@ export class ReservationService {
     await this.notificationProvider.notify(
       reservation.getConductorId(),
       'Alquiler finalizado',
-      `Devolviste el ${returnLabel}. ¡Gracias por usar Rocket Lease! Ya podés calificar tu experiencia.`,
+      `Devolviste el ${returnLabel}. Contanos cómo te fue: ya podés dejar tu calificación.`,
       this.reservationUrl(reservation.getId()),
     );
     await this.notificationProvider.notify(
@@ -1973,7 +1974,7 @@ export class ReservationService {
       await this.notificationProvider.notify(
         r.getConductorId(),
         'Transferencia vencida',
-        `Venció el plazo para acreditar la transferencia de tu reserva del ${await this.vehicleLabel(r.getVehicleId())}. La reserva se liberó.`,
+        `No se acreditó la transferencia a tiempo, así que se liberó tu reserva del ${await this.vehicleLabel(r.getVehicleId())}.`,
         this.reservationUrl(r.getId()),
       );
     }

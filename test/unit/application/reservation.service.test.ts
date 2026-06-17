@@ -821,9 +821,10 @@ describe('ReservationService', () => {
       // Rentador message
       const rentadorCall = calls.find((c) => c[0] === vehicle.getOwnerId());
       expect(rentadorCall?.[1]).toContain('devolvió');
-      // Both messages include reservation id (first 8 chars) and url hint
+      // Both messages name the vehicle, never the raw reservation id
       const reservationEntity = await repo.findById(id);
-      expect(conductorCall?.[2]).toContain(reservationEntity!.getId().slice(0, 8));
+      expect(conductorCall?.[2]).toContain(vehicle.getBrand());
+      expect(conductorCall?.[2]).not.toContain(reservationEntity!.getId().slice(0, 8));
     });
 
     it('does not pick up completed reservations past their endAt', async () => {
