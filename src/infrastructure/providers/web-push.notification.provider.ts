@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import webpush from 'web-push';
-import type { NotificationProvider } from '@/domain/providers/notification.provider';
+import type { NotificationProvider, NotifyOptions } from '@/domain/providers/notification.provider';
 import type { PushSubscriptionRepository } from '@/domain/repositories/push-subscription.repository';
 import { PUSH_SUBSCRIPTION_REPOSITORY } from '@/domain/repositories/push-subscription.repository';
 
@@ -26,7 +26,7 @@ export class WebPushNotificationProvider implements NotificationProvider, OnModu
     webpush.setVapidDetails(subject, publicKey, privateKey);
   }
 
-  async notify(userId: string, title: string, message: string, options?: { url?: string }): Promise<void> {
+  async notify(userId: string, title: string, message: string, options?: NotifyOptions): Promise<void> {
     if (!process.env.VAPID_PUBLIC_KEY) return;
 
     const subs = await this.subscriptions.findByUserId(userId);
@@ -37,6 +37,8 @@ export class WebPushNotificationProvider implements NotificationProvider, OnModu
       body: message,
       icon: '/icons/icon-192.png',
       badge: '/icons/badge-72.png',
+      tag: options?.tag,
+      requireInteraction: options?.requireInteraction ?? false,
       data: { url: options?.url ?? '/' },
     });
 

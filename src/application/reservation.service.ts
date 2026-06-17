@@ -1244,15 +1244,16 @@ export class ReservationService {
   }
 
   /**
-   * US-34 AC3: detecta reservas `in_progress` cuyo `endAt` ya pasó y notifica
-   * a conductor y rentador que el tiempo acordado venció. No realiza transición
-   * de estado ni lleva registro de notificaciones — cuando llegue la capa de
-   * notificaciones reales, agregar `overdueNotifiedAt` para idempotencia (#136).
+   * Detecta reservas `in_progress` cuyo `endAt` ya pasó y notifica a conductor y
+   * rentador que el tiempo acordado venció. Idempotente y con escalado vía
+   * `overdueNotifiedAt`: avisa una vez al vencer y, si sigue sin devolverse,
+   * reescala como mucho una vez por día en lugar de repetir en cada corrida.
    */
   public async notifyOverdueInProgress(): Promise<number> {
     const now = this.clock.now();
-    const overdue = await this.reservationRepository.findOverdueInProgress(now);
-    for (const r of overdue) {
+    const candidates =
+      await this.reservationRepository.findOverdueNotificationCandidates(now);
+    for (const r of candidates) {
       const hoursOverdue = Math.floor(
         (now.getTime() - r.getEndAt().getTime()) / (60 * 60 * 1000),
       );
@@ -1261,20 +1262,27 @@ export class ReservationService {
           ? ` Lleva ${hoursOverdue} hora${hoursOverdue > 1 ? 's' : ''} en mora.`
           : '';
       const label = await this.vehicleLabel(r.getVehicleId());
+      const overdueOptions = {
+        url: `/reservas/${r.getId()}`,
+        tag: `overdue-${r.getId()}`,
+        requireInteraction: true,
+      };
       await this.notificationProvider.notify(
         r.getConductorId(),
         'Tiempo de devolución vencido',
         `Venció el plazo de devolución del ${label}.${suffix} Devolvelo cuanto antes o reportá un problema.`,
-        { url: `/reservas/${r.getId()}` },
+        overdueOptions,
       );
       await this.notificationProvider.notify(
         r.getRentadorId(),
         'Conductor no devolvió el vehículo',
         `El conductor todavía no devolvió tu ${label}.${suffix}`,
-        { url: `/reservas/${r.getId()}` },
+        overdueOptions,
       );
+      r.markOverdueNotified(now);
+      await this.reservationRepository.update(r);
     }
-    return overdue.length;
+    return candidates.length;
   }
 
   /**

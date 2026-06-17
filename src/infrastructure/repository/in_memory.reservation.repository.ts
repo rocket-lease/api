@@ -9,6 +9,7 @@ import {
   ReservationListFilters,
   ReservationListResult,
   ReservationRole,
+  OVERDUE_RENOTIFY_MS,
 } from '@/domain/repositories/reservation.repository';
 
 @Injectable()
@@ -141,9 +142,14 @@ export class InMemoryReservationRepository implements ReservationRepository {
     );
   }
 
-  async findOverdueInProgress(now: Date): Promise<Reservation[]> {
+  async findOverdueNotificationCandidates(now: Date): Promise<Reservation[]> {
+    const renotifyBefore = now.getTime() - OVERDUE_RENOTIFY_MS;
     return Array.from(this.store.values()).filter(
-      (r) => r.getStatus() === 'in_progress' && r.getEndAt().getTime() <= now.getTime(),
+      (r) =>
+        r.getStatus() === 'in_progress' &&
+        r.getEndAt().getTime() <= now.getTime() &&
+        (r.getOverdueNotifiedAt() === null ||
+          r.getOverdueNotifiedAt()!.getTime() <= renotifyBefore),
     );
   }
 

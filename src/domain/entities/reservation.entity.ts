@@ -69,6 +69,7 @@ const reservationSchema = z.object({
   depositPaidAt: z.date().nullable(),
   balanceDueAt: z.date().nullable(),
   balanceReminderSentAt: z.date().nullable(),
+  overdueNotifiedAt: z.date().nullable(),
   depositPercentageSnapshot: DepositPercentageSchema,
   basePriceCentsSnapshot: z.number().int().nonnegative(),
   pricingSnapshot: PricingQuoteSchema.nullable(),
@@ -170,6 +171,7 @@ export interface ReservationProps {
   depositPaidAt?: Date | null;
   balanceDueAt?: Date | null;
   balanceReminderSentAt?: Date | null;
+  overdueNotifiedAt?: Date | null;
   depositPercentageSnapshot?: number | null;
   basePriceCentsSnapshot?: number;
   pricingSnapshot?: PricingQuote | null;
@@ -215,6 +217,7 @@ export class Reservation {
   private depositPaidAt: Date | null;
   private balanceDueAt: Date | null;
   private balanceReminderSentAt: Date | null;
+  private overdueNotifiedAt: Date | null;
   private depositPercentageSnapshot: number | null;
   private basePriceCentsSnapshot: number;
   private pricingSnapshot: PricingQuote | null;
@@ -310,6 +313,7 @@ export class Reservation {
     this.depositPaidAt = props.depositPaidAt ?? null;
     this.balanceDueAt = props.balanceDueAt ?? null;
     this.balanceReminderSentAt = props.balanceReminderSentAt ?? null;
+    this.overdueNotifiedAt = props.overdueNotifiedAt ?? null;
     this.depositPercentageSnapshot =
       props.depositPercentageSnapshot ?? RESERVATION_RULES_DEFAULTS.depositPercentage;
     this.basePriceCentsSnapshot = props.basePriceCentsSnapshot ?? 0;
@@ -385,6 +389,9 @@ export class Reservation {
   }
   public getStartedAt() {
     return this.startedAt;
+  }
+  public getOverdueNotifiedAt() {
+    return this.overdueNotifiedAt;
   }
   public getCompletedAt() {
     return this.completedAt;
@@ -838,6 +845,12 @@ export class Reservation {
     this.updatedAt = now;
   }
 
+  /** Marca el último aviso de devolución vencida (idempotencia + escalado del job). */
+  public markOverdueNotified(now: Date): void {
+    this.overdueNotifiedAt = now;
+    this.updatedAt = now;
+  }
+
   /**
    * Expira una transferencia no acreditada.
    * Transita de pending_approval → cancelled.
@@ -1016,6 +1029,7 @@ export class Reservation {
       depositPaidAt: this.depositPaidAt,
       balanceDueAt: this.balanceDueAt,
       balanceReminderSentAt: this.balanceReminderSentAt,
+      overdueNotifiedAt: this.overdueNotifiedAt,
       depositPercentageSnapshot: this.depositPercentageSnapshot,
       basePriceCentsSnapshot: this.basePriceCentsSnapshot,
       pricingSnapshot: this.pricingSnapshot,
