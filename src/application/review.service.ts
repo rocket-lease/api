@@ -136,6 +136,7 @@ export class ReviewService {
     const response = CreateReviewResponseSchema.parse({
       id: saved.getId(),
       reservationId: saved.getReservationId(),
+      reviewerId,
       reviewerName: reviewerProfile?.name ?? '',
       targetType: saved.getTargetType(),
       rating: saved.getRating(),
@@ -182,6 +183,7 @@ export class ReviewService {
     return allReviews.map((review) => ({
       id: review.getId(),
       reservationId: review.getReservationId(),
+      reviewerId: review.getReviewerId(),
       reviewerName: nameByReviewerId.get(review.getReviewerId()) ?? '',
       targetType: review.getTargetType(),
       rating: review.getRating(),
@@ -216,6 +218,7 @@ export class ReviewService {
     return reviews.map((review) => ({
       id: review.getId(),
       reservationId: review.getReservationId(),
+      reviewerId: review.getReviewerId(),
       reviewerName: nameByReviewerId.get(review.getReviewerId()) ?? '',
       targetType: review.getTargetType(),
       rating: review.getRating(),
@@ -249,6 +252,7 @@ export class ReviewService {
     return reviews.map((review) => ({
       id: review.getId(),
       reservationId: review.getReservationId(),
+      reviewerId: review.getReviewerId(),
       reviewerName: nameByReviewerId.get(review.getReviewerId()) ?? '',
       targetType: review.getTargetType(),
       rating: review.getRating(),
@@ -279,6 +283,7 @@ export class ReviewService {
     return reviews.map((review) => ({
       id: review.getId(),
       reservationId: review.getReservationId(),
+      reviewerId: review.getReviewerId(),
       reviewerName: nameByReviewerId.get(review.getReviewerId()) ?? '',
       targetType: review.getTargetType(),
       rating: review.getRating(),
@@ -308,6 +313,7 @@ export class ReviewService {
     return reviews.map((review) => ({
       id: review.getId(),
       reservationId: review.getReservationId(),
+      reviewerId: review.getReviewerId(),
       reviewerName: nameByReviewerId.get(review.getReviewerId()) ?? '',
       targetType: review.getTargetType(),
       rating: review.getRating(),
