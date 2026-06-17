@@ -14,22 +14,32 @@ export interface ReputationData {
 }
 
 export interface ReputationRepository {
-  getReputationData(userId: string): Promise<ReputationData>;
-  savePenalty(penalty: Penalty): Promise<Penalty>;
-  findPenaltyByTicketId(ticketId: string): Promise<Penalty | null>;
+  getReputationData(userId: string, tx?: unknown): Promise<ReputationData>;
+  savePenalty(penalty: Penalty, tx?: unknown): Promise<Penalty>;
+  findPenaltyByTicketAndUser(
+    ticketId: string,
+    userId: string,
+    tx?: unknown,
+  ): Promise<Penalty | null>;
   updateScoreAndCounts(
     userId: string,
     role: PenaltyRole,
     score: number,
     reviewCount: number,
+    tx?: unknown,
   ): Promise<void>;
   updatePenaltyCountAndSuspension(
     userId: string,
     role: PenaltyRole,
     penaltyCount: number,
     suspended: boolean,
+    tx?: unknown,
   ): Promise<void>;
-  updateVehicleOwnerReputationScore(ownerId: string, score: number): Promise<void>;
+  updateVehicleOwnerReputationScore(
+    ownerId: string,
+    score: number,
+    tx?: unknown,
+  ): Promise<void>;
   getAverageRatingAsTarget(
     userId: string,
     targetType: PenaltyRole,

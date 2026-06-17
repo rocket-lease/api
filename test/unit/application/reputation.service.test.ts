@@ -13,7 +13,7 @@ describe('ReputationService', () => {
     reputationRepoMock = {
       getReputationData: jest.fn(),
       savePenalty: jest.fn(),
-      findPenaltyByTicketId: jest.fn(),
+      findPenaltyByTicketAndUser: jest.fn(),
       updateScoreAndCounts: jest.fn(),
       updatePenaltyCountAndSuspension: jest.fn(),
       updateVehicleOwnerReputationScore: jest.fn(),
@@ -107,7 +107,7 @@ describe('ReputationService', () => {
 
   describe('applyPenalty', () => {
     it('applies penalty, deducts score, and checks suspension', async () => {
-      reputationRepoMock.findPenaltyByTicketId.mockResolvedValue(null);
+      reputationRepoMock.findPenaltyByTicketAndUser.mockResolvedValue(null);
       reputationRepoMock.getReputationData.mockResolvedValue({
         id: '123',
         userId: '123e4567-e89b-12d3-a456-426614174000',
@@ -130,12 +130,12 @@ describe('ReputationService', () => {
       });
 
       expect(reputationRepoMock.savePenalty).toHaveBeenCalled();
-      expect(reputationRepoMock.updateScoreAndCounts).toHaveBeenCalledWith('123e4567-e89b-12d3-a456-426614174000', 'conductor', 4.0, 10);
-      expect(reputationRepoMock.updatePenaltyCountAndSuspension).toHaveBeenCalledWith('123e4567-e89b-12d3-a456-426614174000', 'conductor', 3, true);
+      expect(reputationRepoMock.updateScoreAndCounts).toHaveBeenCalledWith('123e4567-e89b-12d3-a456-426614174000', 'conductor', 4.0, 10, undefined);
+      expect(reputationRepoMock.updatePenaltyCountAndSuspension).toHaveBeenCalledWith('123e4567-e89b-12d3-a456-426614174000', 'conductor', 3, true, undefined);
     });
 
     it('throws if penalty already exists', async () => {
-      reputationRepoMock.findPenaltyByTicketId.mockResolvedValue({} as any);
+      reputationRepoMock.findPenaltyByTicketAndUser.mockResolvedValue({} as any);
 
       await expect(
         service.applyPenalty({
@@ -146,6 +146,28 @@ describe('ReputationService', () => {
           ticketId: '9e3cb198-d7b3-4f9e-bc43-2f8832a87a2a',
         })
       ).rejects.toThrow(PenaltyAlreadyAppliedException);
+    });
+
+    it('deduplicates per (ticket, user), so both parties can be penalized on the same ticket', async () => {
+      const ticketId = '9e3cb198-d7b3-4f9e-bc43-2f8832a87a2a';
+      // No existe penalización previa para ninguno de los dos usuarios.
+      reputationRepoMock.findPenaltyByTicketAndUser.mockResolvedValue(null);
+      reputationRepoMock.getReputationData.mockResolvedValue({
+        id: '1', userId: 'x', scoreAsDriver: 5, scoreAsRenter: 5,
+        reviewCountAsDriver: 0, reviewCountAsRenter: 0,
+        penaltyCountAsDriver: 0, penaltyCountAsRenter: 0,
+        suspendedAsDriver: false, suspendedAsRenter: false,
+      });
+
+      const conductorId = '11111111-1111-4111-8111-111111111111';
+      const rentadorId = '22222222-2222-4222-8222-222222222222';
+      await service.applyPenalty({ userId: conductorId, role: 'conductor', reason: 'fallo de prueba', scoreDeduction: 1, ticketId });
+      await service.applyPenalty({ userId: rentadorId, role: 'rentador', reason: 'fallo de prueba', scoreDeduction: 1, ticketId });
+
+      // La dedup consulta por (ticketId, userId), no solo por ticketId.
+      expect(reputationRepoMock.findPenaltyByTicketAndUser).toHaveBeenCalledWith(ticketId, conductorId, undefined);
+      expect(reputationRepoMock.findPenaltyByTicketAndUser).toHaveBeenCalledWith(ticketId, rentadorId, undefined);
+      expect(reputationRepoMock.savePenalty).toHaveBeenCalledTimes(2);
     });
   });
 });

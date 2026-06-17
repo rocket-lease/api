@@ -127,7 +127,7 @@ export class WalletService {
     });
   }
 
-  public async applyTicketResolution(userId: string, amountCents: number, ticketId: string): Promise<void> {
-    await this.walletRepository.applyTicketResolution(userId, amountCents, ticketId);
+  public async applyTicketResolution(userId: string, amountCents: number, ticketId: string, tx?: unknown): Promise<void> {
+    await this.walletRepository.applyTicketResolution(userId, amountCents, ticketId, tx);
   }
 }
