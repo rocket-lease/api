@@ -17,6 +17,7 @@ export class PostgresNotificationRepository implements NotificationRepository {
         title: data.title,
         body: data.body,
         url: data.url,
+        imageUrl: data.imageUrl,
       },
     });
     return this.toData(row);
@@ -55,6 +56,7 @@ export class PostgresNotificationRepository implements NotificationRepository {
     title: string;
     body: string;
     url: string | null;
+    imageUrl: string | null;
     readAt: Date | null;
     createdAt: Date;
   }): NotificationData {
@@ -64,6 +66,7 @@ export class PostgresNotificationRepository implements NotificationRepository {
       title: row.title,
       body: row.body,
       url: row.url,
+      imageUrl: row.imageUrl,
       readAt: row.readAt,
       createdAt: row.createdAt,
     };

@@ -9,9 +9,10 @@ import { PrismaService } from '@/infrastructure/database/prisma.service';
 import { AuthModule } from './auth.module';
 import { ReputationModule } from './reputation.module';
 import { LoyaltyModule } from './loyalty.module';
+import { PushSubscriptionModule } from './push-subscription.module';
 
 @Module({
-  imports: [AuthModule, ReputationModule, LoyaltyModule],
+  imports: [AuthModule, ReputationModule, LoyaltyModule, PushSubscriptionModule],
   controllers: [ReviewController],
   providers: [
     ReviewService,
