@@ -24,6 +24,8 @@ import { EntityNotFoundException } from '@/domain/exceptions/domain.exception';
 import { InvalidEntityDataException } from '@/domain/exceptions/domain.exception';
 import { ReputationService } from '@/application/reputation.service';
 import { LoyaltyService } from '@/application/loyalty.service';
+import type { NotificationProvider } from '@/domain/providers/notification.provider';
+import { NOTIFICATION_PROVIDER } from '@/domain/providers/notification.provider';
 
 @Injectable()
 export class ReviewService {
@@ -38,6 +40,8 @@ export class ReviewService {
     private readonly reputationService: ReputationService,
     @Inject(LoyaltyService)
     private readonly loyaltyService: LoyaltyService,
+    @Inject(NOTIFICATION_PROVIDER)
+    private readonly notificationProvider: NotificationProvider,
   ) {}
 
   /**
@@ -123,6 +127,21 @@ export class ReviewService {
     });
 
     const saved = await this.reviewRepository.save(review);
+
+    const recipientId =
+      dto.targetType === 'conductor'
+        ? reservation.getConductorId()
+        : reservation.getRentadorId();
+    if (recipientId !== reviewerId) {
+      const reviewerName = reviewerProfile?.name ?? 'Alguien';
+      const body =
+        dto.targetType === 'vehicle'
+          ? `${reviewerName} reseñó tu vehículo (${dto.rating}★).`
+          : `${reviewerName} te dejó una reseña (${dto.rating}★).`;
+      void this.notificationProvider.notify(recipientId, 'Nueva reseña', body, {
+        url: `/reservas/${reservationId}`,
+      });
+    }
 
     let levelUp: LevelUpInfo | null = null;
     if (dto.targetType === 'conductor' || dto.targetType === 'vehicle') {

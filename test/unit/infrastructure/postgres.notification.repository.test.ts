@@ -24,16 +24,23 @@ describe('PostgresNotificationRepository', () => {
       title: 'Aviso',
       body: 'Cuerpo',
       url: '/reservas/x',
+      imageUrl: null,
       readAt: null,
       createdAt: new Date(),
     };
     (prisma.notification.create as jest.Mock).mockResolvedValue(row);
     const repo = new PostgresNotificationRepository(prisma);
 
-    const result = await repo.save({ userId, title: 'Aviso', body: 'Cuerpo', url: '/reservas/x' });
+    const result = await repo.save({
+      userId,
+      title: 'Aviso',
+      body: 'Cuerpo',
+      url: '/reservas/x',
+      imageUrl: null,
+    });
 
     expect(prisma.notification.create).toHaveBeenCalledWith({
-      data: { userId, title: 'Aviso', body: 'Cuerpo', url: '/reservas/x' },
+      data: { userId, title: 'Aviso', body: 'Cuerpo', url: '/reservas/x', imageUrl: null },
     });
     expect(result).toEqual(row);
   });

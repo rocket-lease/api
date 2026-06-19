@@ -39,6 +39,7 @@ export class WebPushNotificationProvider implements NotificationProvider, OnModu
       badge: '/icons/badge-72.png',
       tag: options?.tag,
       requireInteraction: options?.requireInteraction ?? false,
+      unreadCount: options?.unreadCount,
       data: { url: options?.url ?? '/' },
     });
 

@@ -4,6 +4,7 @@ export interface NotificationData {
   title: string;
   body: string;
   url: string | null;
+  imageUrl: string | null;
   readAt: Date | null;
   createdAt: Date;
 }
@@ -13,6 +14,7 @@ export interface NewNotification {
   title: string;
   body: string;
   url: string | null;
+  imageUrl: string | null;
 }
 
 export interface NotificationRepository {

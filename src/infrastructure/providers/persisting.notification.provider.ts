@@ -39,6 +39,7 @@ export class PersistingNotificationProvider implements NotificationProvider {
         title,
         body: message,
         url: options?.url ?? null,
+        imageUrl: options?.imageUrl ?? null,
       });
     } catch (err) {
       this.logger.error(
@@ -46,8 +47,11 @@ export class PersistingNotificationProvider implements NotificationProvider {
       );
     }
 
+    if (options?.inAppOnly) return;
+
     try {
-      await this.webPush.notify(userId, title, message, options);
+      const unreadCount = await this.repository.countUnread(userId);
+      await this.webPush.notify(userId, title, message, { ...options, unreadCount });
     } catch (err) {
       this.logger.warn(`Failed to dispatch web push for user ${userId}: ${String(err)}`);
     }
