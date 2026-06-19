@@ -118,6 +118,7 @@ import {
 import {
   NOTIFICATION_PROVIDER,
   type NotificationProvider,
+  type NotifyOptions,
 } from '@/domain/providers/notification.provider';
 import { formatArs, formatNotificationDate } from './notification.format';
 import {
@@ -343,7 +344,7 @@ export class ReservationService {
         saved.getRentadorId(),
         'Nueva solicitud de reserva',
         `Un conductor quiere reservar tu ${vehicle.getBrand()} ${vehicle.getModel()}.${deadlineText}`,
-        this.reservationUrl(saved.getId()),
+        this.reservationNotif(saved.getId(), vehicle.getPhotos()[0] ?? null),
       );
     }
 
@@ -422,19 +423,21 @@ export class ReservationService {
       );
       const savedDeposit = await this.reservationRepository.update(reservation);
 
-      const depositLabel = await this.vehicleLabel(savedDeposit.getVehicleId());
+      const { label: depositLabel, photo: depositPhoto } = await this.vehicleInfo(
+        savedDeposit.getVehicleId(),
+      );
       const depositBalanceDue = formatNotificationDate(savedDeposit.getBalanceDueAt()!);
       await this.notificationProvider.notify(
         savedDeposit.getConductorId(),
         'Seña confirmada',
         `Señaste el ${depositLabel}. Pagá el saldo antes del ${depositBalanceDue} para confirmar.`,
-        this.reservationUrl(savedDeposit.getId()),
+        this.reservationNotif(savedDeposit.getId(), depositPhoto, { inAppOnly: true }),
       );
       await this.notificationProvider.notify(
         savedDeposit.getRentadorId(),
         'Reserva señada',
         `Un conductor señó tu ${depositLabel}. Te avisamos cuando pague el saldo.`,
-        this.reservationUrl(savedDeposit.getId()),
+        this.reservationNotif(savedDeposit.getId(), depositPhoto),
       );
 
       return ConfirmReservationPaymentResponseSchema.parse({
@@ -457,19 +460,21 @@ export class ReservationService {
 
     await this.voucherProvider.generateVoucher(saved.getId());
 
-    const confirmedLabel = await this.vehicleLabel(saved.getVehicleId());
+    const { label: confirmedLabel, photo: confirmedPhoto } = await this.vehicleInfo(
+      saved.getVehicleId(),
+    );
     const confirmedFrom = formatNotificationDate(saved.getStartAt());
     await this.notificationProvider.notify(
       saved.getConductorId(),
       'Reserva confirmada',
       `Tu reserva del ${confirmedLabel} está confirmada. El alquiler arranca el ${confirmedFrom}.`,
-      this.reservationUrl(saved.getId()),
+      this.reservationNotif(saved.getId(), confirmedPhoto, { inAppOnly: true }),
     );
     await this.notificationProvider.notify(
       saved.getRentadorId(),
       'Nueva reserva confirmada',
       `Tenés una reserva confirmada de tu ${confirmedLabel} a partir del ${confirmedFrom}.`,
-      this.reservationUrl(saved.getId()),
+      this.reservationNotif(saved.getId(), confirmedPhoto),
     );
     const conductorProfile = await this.userRepository.getProfileById(conductorId);
     if (conductorProfile?.email) {
@@ -599,19 +604,20 @@ export class ReservationService {
       reservation.confirmTransferAsDeposit(depositCents, now);
       const savedDeposit = await this.reservationRepository.update(reservation);
 
-      const transferDepositLabel = await this.vehicleLabel(savedDeposit.getVehicleId());
+      const { label: transferDepositLabel, photo: transferDepositPhoto } =
+        await this.vehicleInfo(savedDeposit.getVehicleId());
       const transferBalanceDue = formatNotificationDate(savedDeposit.getBalanceDueAt()!);
       await this.notificationProvider.notify(
         savedDeposit.getConductorId(),
         'Seña acreditada',
         `Tu seña por el ${transferDepositLabel} fue acreditada. Tenés hasta el ${transferBalanceDue} para pagar el saldo.`,
-        this.reservationUrl(savedDeposit.getId()),
+        this.reservationNotif(savedDeposit.getId(), transferDepositPhoto),
       );
       await this.notificationProvider.notify(
         savedDeposit.getRentadorId(),
         'Reserva señada',
         `Un conductor señó tu ${transferDepositLabel}. Te avisamos cuando pague el saldo.`,
-        this.reservationUrl(savedDeposit.getId()),
+        this.reservationNotif(savedDeposit.getId(), transferDepositPhoto),
       );
 
       return ConfirmTransferResponseSchema.parse({
@@ -627,18 +633,20 @@ export class ReservationService {
 
     const voucher = await this.voucherProvider.generateVoucher(saved.getId());
 
-    const transferLabel = await this.vehicleLabel(saved.getVehicleId());
+    const { label: transferLabel, photo: transferPhoto } = await this.vehicleInfo(
+      saved.getVehicleId(),
+    );
     await this.notificationProvider.notify(
       saved.getConductorId(),
       'Transferencia acreditada',
       `Tu transferencia fue acreditada. La reserva del ${transferLabel} está confirmada.`,
-      this.reservationUrl(saved.getId()),
+      this.reservationNotif(saved.getId(), transferPhoto),
     );
     await this.notificationProvider.notify(
       saved.getRentadorId(),
       'Nueva reserva confirmada',
       `Tenés una reserva confirmada de tu ${transferLabel}.`,
-      this.reservationUrl(saved.getId()),
+      this.reservationNotif(saved.getId(), transferPhoto),
     );
     const conductorProfile = await this.userRepository.getProfileById(saved.getConductorId());
     if (conductorProfile?.email) {
@@ -691,18 +699,20 @@ export class ReservationService {
 
     await this.voucherProvider.generateVoucher(saved.getId());
 
-    const paidLabel = await this.vehicleLabel(saved.getVehicleId());
+    const { label: paidLabel, photo: paidPhoto } = await this.vehicleInfo(
+      saved.getVehicleId(),
+    );
     await this.notificationProvider.notify(
       saved.getConductorId(),
       'Reserva pagada',
       `Completaste el pago del ${paidLabel}. Tu reserva ya está confirmada.`,
-      this.reservationUrl(saved.getId()),
+      this.reservationNotif(saved.getId(), paidPhoto, { inAppOnly: true }),
     );
     await this.notificationProvider.notify(
       saved.getRentadorId(),
       'Saldo acreditado',
       `El conductor completó el pago de tu ${paidLabel}. La reserva está confirmada.`,
-      this.reservationUrl(saved.getId()),
+      this.reservationNotif(saved.getId(), paidPhoto),
     );
     const conductorProfile = await this.userRepository.getProfileById(conductorId);
     if (conductorProfile?.email) {
@@ -796,18 +806,20 @@ export class ReservationService {
 
     const voucher = await this.voucherProvider.generateVoucher(saved.getId());
 
-    const balanceLabel = await this.vehicleLabel(saved.getVehicleId());
+    const { label: balanceLabel, photo: balancePhoto } = await this.vehicleInfo(
+      saved.getVehicleId(),
+    );
     await this.notificationProvider.notify(
       saved.getConductorId(),
       'Reserva pagada',
       `Tu transferencia por el ${balanceLabel} fue acreditada. La reserva está confirmada.`,
-      this.reservationUrl(saved.getId()),
+      this.reservationNotif(saved.getId(), balancePhoto),
     );
     await this.notificationProvider.notify(
       saved.getRentadorId(),
       'Saldo acreditado',
       `El conductor completó el pago de tu ${balanceLabel}. La reserva está confirmada.`,
-      this.reservationUrl(saved.getId()),
+      this.reservationNotif(saved.getId(), balancePhoto),
     );
 
     return ConfirmBalanceTransferResponseSchema.parse({
@@ -877,13 +889,15 @@ export class ReservationService {
       }
     }
 
-    const approvedLabel = await this.vehicleLabel(reservation.getVehicleId());
+    const { label: approvedLabel, photo: approvedPhoto } = await this.vehicleInfo(
+      reservation.getVehicleId(),
+    );
     if (reservation.getStatus() === RESERVATION_STATUS.confirmed) {
       await this.notificationProvider.notify(
         reservation.getConductorId(),
         'Extensión confirmada',
         `El rentador aprobó tu extensión del ${approvedLabel} y cobramos el pago automáticamente.`,
-        this.reservationUrl(reservation.getId()),
+        this.reservationNotif(reservation.getId(), approvedPhoto),
       );
     } else {
       const approvalDeadline = reservation.getHoldExpiresAt();
@@ -894,7 +908,7 @@ export class ReservationService {
         reservation.getConductorId(),
         'Solicitud aprobada',
         `El rentador aprobó tu reserva del ${approvedLabel}.${approvalDeadlineText}`,
-        this.reservationUrl(reservation.getId()),
+        this.reservationNotif(reservation.getId(), approvedPhoto),
       );
     }
     for (const rejected of overlapping) {
@@ -902,7 +916,7 @@ export class ReservationService {
         rejected.getConductorId(),
         'Solicitud no disponible',
         `El ${approvedLabel} se reservó para esas fechas, así que tu solicitud no pudo confirmarse.`,
-        this.reservationUrl(rejected.getId()),
+        this.reservationNotif(rejected.getId(), approvedPhoto),
       );
     }
 
@@ -940,14 +954,16 @@ export class ReservationService {
     reservation.reject(reason && reason.length > 0 ? reason : null, now);
     const saved = await this.reservationRepository.update(reservation);
 
-    const rejectedLabel = await this.vehicleLabel(saved.getVehicleId());
+    const { label: rejectedLabel, photo: rejectedPhoto } = await this.vehicleInfo(
+      saved.getVehicleId(),
+    );
     const rejectionReason = saved.getRejectionReason();
     const reasonText = rejectionReason ? ` Motivo: ${rejectionReason}.` : '';
     await this.notificationProvider.notify(
       saved.getConductorId(),
       'Solicitud rechazada',
       `El rentador rechazó tu solicitud para el ${rejectedLabel}.${reasonText}`,
-      this.reservationUrl(saved.getId()),
+      this.reservationNotif(saved.getId(), rejectedPhoto),
     );
 
     return RejectReservationResponseSchema.parse({
@@ -1139,11 +1155,13 @@ export class ReservationService {
     for (const r of expiredHolds) {
       r.markExpired(now);
       await this.reservationRepository.update(r);
+      const { label: expiredHoldLabel, photo: expiredHoldPhoto } =
+        await this.vehicleInfo(r.getVehicleId());
       await this.notificationProvider.notify(
         r.getConductorId(),
         'Reserva expirada',
-        `Se liberó tu reserva del ${await this.vehicleLabel(r.getVehicleId())} porque no se completó el pago a tiempo.`,
-        this.reservationUrl(r.getId()),
+        `Se liberó tu reserva del ${expiredHoldLabel} porque no se completó el pago a tiempo.`,
+        this.reservationNotif(r.getId(), expiredHoldPhoto),
       );
     }
 
@@ -1153,11 +1171,13 @@ export class ReservationService {
     for (const r of expiredApprovals) {
       r.markApprovalExpired(now);
       await this.reservationRepository.update(r);
+      const { label: approvalExpiredLabel, photo: approvalExpiredPhoto } =
+        await this.vehicleInfo(r.getVehicleId());
       await this.notificationProvider.notify(
         r.getConductorId(),
         'Solicitud vencida',
-        `El rentador no respondió tu solicitud del ${await this.vehicleLabel(r.getVehicleId())} a tiempo. Probá con otras fechas u otro vehículo.`,
-        this.reservationUrl(r.getId()),
+        `El rentador no respondió tu solicitud del ${approvalExpiredLabel} a tiempo. Probá con otras fechas u otro vehículo.`,
+        this.reservationNotif(r.getId(), approvalExpiredPhoto),
       );
     }
 
@@ -1192,7 +1212,9 @@ export class ReservationService {
             refund.refundCents,
           );
         }
-        const expiredLabel = await this.vehicleLabel(r.getVehicleId());
+        const { label: expiredLabel, photo: expiredPhoto } = await this.vehicleInfo(
+          r.getVehicleId(),
+        );
         const refundText =
           refund.refundCents > 0
             ? ` Te reembolsamos la seña: ${formatArs(refund.refundCents)}.`
@@ -1201,13 +1223,13 @@ export class ReservationService {
           r.getConductorId(),
           'Reserva cancelada por falta de pago',
           `Tu reserva del ${expiredLabel} se canceló porque no se pagó el saldo a tiempo.${refundText}`,
-          this.reservationUrl(r.getId()),
+          this.reservationNotif(r.getId(), expiredPhoto),
         );
         await this.notificationProvider.notify(
           r.getRentadorId(),
           'Reserva señada cancelada',
           `Una reserva señada de tu ${expiredLabel} se canceló por falta de pago del saldo. El vehículo vuelve a estar disponible.`,
-          this.reservationUrl(r.getId()),
+          this.reservationNotif(r.getId(), expiredPhoto),
         );
         processed += 1;
       } catch (e) {
@@ -1229,13 +1251,15 @@ export class ReservationService {
     const candidates =
       await this.reservationRepository.findBalanceReminderCandidates(now);
     for (const r of candidates) {
-      const reminderLabel = await this.vehicleLabel(r.getVehicleId());
+      const { label: reminderLabel, photo: reminderPhoto } = await this.vehicleInfo(
+        r.getVehicleId(),
+      );
       const reminderDue = formatNotificationDate(r.getBalanceDueAt()!);
       await this.notificationProvider.notify(
         r.getConductorId(),
         'Recordatorio: pago de saldo pendiente',
         `El saldo de tu reserva del ${reminderLabel} vence el ${reminderDue}. Completá el pago para no perderla.`,
-        this.reservationUrl(r.getId()),
+        this.reservationNotif(r.getId(), reminderPhoto),
       );
       r.markBalanceReminderSent(now);
       await this.reservationRepository.update(r);
@@ -1261,12 +1285,11 @@ export class ReservationService {
         hoursOverdue > 0
           ? ` Lleva ${hoursOverdue} hora${hoursOverdue > 1 ? 's' : ''} en mora.`
           : '';
-      const label = await this.vehicleLabel(r.getVehicleId());
-      const overdueOptions = {
-        url: `/reservas/${r.getId()}`,
+      const { label, photo } = await this.vehicleInfo(r.getVehicleId());
+      const overdueOptions = this.reservationNotif(r.getId(), photo, {
         tag: `overdue-${r.getId()}`,
         requireInteraction: true,
-      };
+      });
       await this.notificationProvider.notify(
         r.getConductorId(),
         'Tiempo de devolución vencido',
@@ -1400,11 +1423,14 @@ export class ReservationService {
       reservation.cancelByRentador(now);
       const saved = await this.reservationRepository.update(reservation);
       const profile = await this.userRepository.getProfileById(reservation.getConductorId());
+      const { label: freedLabel, photo: freedPhoto } = await this.vehicleInfo(
+        reservation.getVehicleId(),
+      );
       await this.notificationProvider.notify(
         reservation.getConductorId(),
         'Reserva cancelada por el rentador',
-        `El rentador canceló tu reserva del ${await this.vehicleLabel(reservation.getVehicleId())}.`,
-        this.reservationUrl(reservation.getId()),
+        `El rentador canceló tu reserva del ${freedLabel}.`,
+        this.reservationNotif(reservation.getId(), freedPhoto),
       );
       return {
         id: saved.getId(),
@@ -1437,12 +1463,14 @@ export class ReservationService {
       ticketId: reservationId, // Use the reservation ID as the ticket for uniqueness
     });
 
-    const cancelledLabel = await this.vehicleLabel(reservation.getVehicleId());
+    const { label: cancelledLabel, photo: cancelledPhoto } = await this.vehicleInfo(
+      reservation.getVehicleId(),
+    );
     await this.notificationProvider.notify(
       reservation.getConductorId(),
       'Reserva cancelada por el rentador',
       `El rentador canceló tu reserva del ${cancelledLabel}. Te reembolsamos ${formatArs(totalRefundCents)}.`,
-      this.reservationUrl(reservation.getId()),
+      this.reservationNotif(reservation.getId(), cancelledPhoto),
     );
     const conductorProfile = await this.userRepository.getProfileById(reservation.getConductorId());
     if (conductorProfile?.email) {
@@ -1457,7 +1485,7 @@ export class ReservationService {
       rentadorId,
       'Reserva cancelada',
       `Cancelaste la reserva de tu ${cancelledLabel}. Se aplicó una penalización a tu reputación.`,
-      this.reservationUrl(reservationId),
+      this.reservationNotif(reservationId, cancelledPhoto, { inAppOnly: true }),
     );
     const rentadorProfile = await this.userRepository.getProfileById(rentadorId);
     if (rentadorProfile?.email) {
@@ -1643,13 +1671,15 @@ export class ReservationService {
       await this.attemptAutoChargeExtension(saved, parentRequest);
     }
 
-    const extensionLabel = await this.vehicleLabel(saved.getVehicleId());
+    const { label: extensionLabel, photo: extensionPhoto } = await this.vehicleInfo(
+      saved.getVehicleId(),
+    );
     if (requiresApproval) {
       await this.notificationProvider.notify(
         saved.getRentadorId(),
         'Solicitud de extensión recibida',
         `El conductor quiere extender el alquiler de tu ${extensionLabel}. Aprobá o rechazá la extensión.`,
-        this.reservationUrl(saved.getId()),
+        this.reservationNotif(saved.getId(), extensionPhoto),
       );
     } else {
       const autoCharged = saved.getStatus() === RESERVATION_STATUS.confirmed;
@@ -1659,7 +1689,7 @@ export class ReservationService {
         autoCharged
           ? `Extendiste tu alquiler del ${extensionLabel} y cobramos el pago automáticamente.`
           : `Extendiste tu alquiler del ${extensionLabel}. Completá el pago para confirmar.`,
-        this.reservationUrl(saved.getId()),
+        this.reservationNotif(saved.getId(), extensionPhoto, { inAppOnly: true }),
       );
     }
 
@@ -1668,7 +1698,12 @@ export class ReservationService {
     const otherMessage = requiresApproval
       ? 'Tu solicitud de extensión fue enviada al rentador.'
       : 'Se aprobó una extensión para tu vehículo.';
-    await this.notificationProvider.notify(otherPartyId, otherSubject, otherMessage, { url: `/reservas/${saved.getId()}` });
+    await this.notificationProvider.notify(
+      otherPartyId,
+      otherSubject,
+      otherMessage,
+      this.reservationNotif(saved.getId(), extensionPhoto, { inAppOnly: requiresApproval }),
+    );
 
     return ExtendReservationResponseSchema.parse({
       id: saved.getId(),
@@ -1818,13 +1853,15 @@ export class ReservationService {
       await this.attemptAutoChargeExtension(saved, parent);
     }
 
-    const modifyLabel = await this.vehicleLabel(saved.getVehicleId());
+    const { label: modifyLabel, photo: modifyPhoto } = await this.vehicleInfo(
+      saved.getVehicleId(),
+    );
     if (requiresApproval) {
       await this.notificationProvider.notify(
         saved.getRentadorId(),
         'Solicitud de extensión actualizada',
         `El conductor modificó su solicitud de extensión de tu ${modifyLabel}. Revisala de nuevo.`,
-        this.reservationUrl(saved.getId()),
+        this.reservationNotif(saved.getId(), modifyPhoto),
       );
     } else {
       const autoCharged = saved.getStatus() === RESERVATION_STATUS.confirmed;
@@ -1834,7 +1871,7 @@ export class ReservationService {
         autoCharged
           ? `Se actualizó tu extensión del ${modifyLabel} y cobramos el pago automáticamente.`
           : `Se actualizó tu extensión del ${modifyLabel}. Completá el pago para confirmar.`,
-        this.reservationUrl(saved.getId()),
+        this.reservationNotif(saved.getId(), modifyPhoto, { inAppOnly: true }),
       );
     }
 
@@ -1896,11 +1933,14 @@ export class ReservationService {
     }
     reservation.confirmPickup(this.clock.now());
     const saved = await this.reservationRepository.update(reservation);
+    const { label: pickupLabel, photo: pickupPhoto } = await this.vehicleInfo(
+      saved.getVehicleId(),
+    );
     await this.notificationProvider.notify(
       saved.getConductorId(),
       'Alquiler iniciado',
-      `Retiraste el ${await this.vehicleLabel(saved.getVehicleId())}. ¡Buen viaje! Acordate de devolverlo el ${formatNotificationDate(saved.getEndAt())}.`,
-      this.reservationUrl(saved.getId()),
+      `Retiraste el ${pickupLabel}. ¡Buen viaje! Acordate de devolverlo el ${formatNotificationDate(saved.getEndAt())}.`,
+      this.reservationNotif(saved.getId(), pickupPhoto),
     );
     return ConfirmPickupResponseSchema.parse({
       reservationId: saved.getId(),
@@ -1936,18 +1976,19 @@ export class ReservationService {
       reservation.getEndAt(),
     );
 
-    const returnLabel = await this.vehicleLabel(reservation.getVehicleId());
+    const returnLabel = vehicle ? vehicleName : 'el vehículo';
+    const returnPhoto = vehicle ? vehicle.getPhotos()[0] ?? null : null;
     await this.notificationProvider.notify(
       reservation.getConductorId(),
       'Alquiler finalizado',
       `Devolviste el ${returnLabel}. Contanos cómo te fue: ya podés dejar tu calificación.`,
-      this.reservationUrl(reservation.getId()),
+      this.reservationNotif(reservation.getId(), returnPhoto, { inAppOnly: true }),
     );
     await this.notificationProvider.notify(
       reservation.getRentadorId(),
       'Vehículo devuelto',
       `El conductor devolvió tu ${returnLabel} y se acreditó tu pago. Ya podés dejar tu reseña.`,
-      this.reservationUrl(reservation.getId()),
+      this.reservationNotif(reservation.getId(), returnPhoto),
     );
 
     // Cascade completion to every other chain member that has been confirmed or
@@ -1979,11 +2020,13 @@ export class ReservationService {
     for (const r of expired) {
       r.expireTransfer(now);
       await this.reservationRepository.update(r);
+      const { label: transferExpiredLabel, photo: transferExpiredPhoto } =
+        await this.vehicleInfo(r.getVehicleId());
       await this.notificationProvider.notify(
         r.getConductorId(),
         'Transferencia vencida',
-        `No se acreditó la transferencia a tiempo, así que se liberó tu reserva del ${await this.vehicleLabel(r.getVehicleId())}.`,
-        this.reservationUrl(r.getId()),
+        `No se acreditó la transferencia a tiempo, así que se liberó tu reserva del ${transferExpiredLabel}.`,
+        this.reservationNotif(r.getId(), transferExpiredPhoto),
       );
     }
     return expired.length;
@@ -2005,7 +2048,7 @@ export class ReservationService {
       [RESERVATION_STATUS.pending_payment, RESERVATION_STATUS.pending_approval],
     );
     if (pending.length === 0) return 0;
-    const label = await this.vehicleLabel(vehicleId);
+    const { label, photo } = await this.vehicleInfo(vehicleId);
     for (const r of pending) {
       r.cancel(now);
       await this.reservationRepository.update(r);
@@ -2013,7 +2056,7 @@ export class ReservationService {
         r.getConductorId(),
         'Reserva cancelada',
         `El ${label} ya no está disponible, así que se canceló tu reserva pendiente. Buscá otro vehículo para esas fechas.`,
-        this.reservationUrl(r.getId()),
+        this.reservationNotif(r.getId(), photo),
       );
     }
     return pending.length;
@@ -2348,17 +2391,42 @@ export class ReservationService {
     return { url: `/reservas/${reservationId}` };
   }
 
-  private async vehicleLabel(vehicleId: string): Promise<string> {
+  /**
+   * Opciones de notificación para un evento de reserva: deep-link, miniatura del
+   * vehículo y, opcionalmente, `inAppOnly` para eventos que el propio usuario
+   * acaba de provocar dentro de la app (el push sería redundante).
+   */
+  private reservationNotif(
+    reservationId: string,
+    photo: string | null,
+    extra?: Pick<NotifyOptions, 'inAppOnly' | 'tag' | 'requireInteraction'>,
+  ): NotifyOptions {
+    return { url: `/reservas/${reservationId}`, imageUrl: photo, ...extra };
+  }
+
+  /**
+   * Resuelve la etiqueta legible del vehículo y su foto principal para adjuntar a
+   * las notificaciones (la foto se muestra como miniatura en el centro in-app).
+   */
+  private async vehicleInfo(
+    vehicleId: string,
+  ): Promise<{ label: string; photo: string | null }> {
     const vehicle = await this.vehicleRepository.findById(vehicleId);
-    return vehicle ? `${vehicle.getBrand()} ${vehicle.getModel()}` : 'el vehículo';
+    if (!vehicle) return { label: 'el vehículo', photo: null };
+    const photos = vehicle.getPhotos();
+    return {
+      label: `${vehicle.getBrand()} ${vehicle.getModel()}`,
+      photo: photos.length > 0 ? photos[0] : null,
+    };
   }
 
   private async notifyRentadorReservationFreed(reservation: Reservation): Promise<void> {
+    const { label, photo } = await this.vehicleInfo(reservation.getVehicleId());
     await this.notificationProvider.notify(
       reservation.getRentadorId(),
       'Reserva cancelada',
-      `El conductor canceló su reserva de tu ${await this.vehicleLabel(reservation.getVehicleId())}. Las fechas vuelven a estar disponibles.`,
-      this.reservationUrl(reservation.getId()),
+      `El conductor canceló su reserva de tu ${label}. Las fechas vuelven a estar disponibles.`,
+      this.reservationNotif(reservation.getId(), photo),
     );
   }
 

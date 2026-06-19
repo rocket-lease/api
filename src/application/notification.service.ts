@@ -54,6 +54,7 @@ function toDto(row: NotificationData): InAppNotification {
     title: row.title,
     body: row.body,
     url: row.url,
+    imageUrl: row.imageUrl,
     readAt: row.readAt ? row.readAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
   };

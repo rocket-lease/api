@@ -29,9 +29,12 @@ describe('PersistingNotificationProvider', () => {
     );
   });
 
-  it('persists the in-app record and then dispatches the push', async () => {
+  it('persists the in-app record and then dispatches the push with the unread count', async () => {
+    repo.countUnread.mockResolvedValue(3);
+
     await provider.notify(userId, 'Reserva confirmada', 'Tu reserva está lista.', {
       url: '/reservas/abc',
+      imageUrl: 'https://cdn/car.jpg',
     });
 
     expect(repo.save).toHaveBeenCalledWith({
@@ -39,16 +42,17 @@ describe('PersistingNotificationProvider', () => {
       title: 'Reserva confirmada',
       body: 'Tu reserva está lista.',
       url: '/reservas/abc',
+      imageUrl: 'https://cdn/car.jpg',
     });
     expect(webPush.notify).toHaveBeenCalledWith(
       userId,
       'Reserva confirmada',
       'Tu reserva está lista.',
-      { url: '/reservas/abc' },
+      { url: '/reservas/abc', imageUrl: 'https://cdn/car.jpg', unreadCount: 3 },
     );
   });
 
-  it('persists with a null url when no deep-link is provided', async () => {
+  it('persists with a null url and image when none are provided', async () => {
     await provider.notify(userId, 'Aviso', 'Cuerpo');
 
     expect(repo.save).toHaveBeenCalledWith({
@@ -56,7 +60,18 @@ describe('PersistingNotificationProvider', () => {
       title: 'Aviso',
       body: 'Cuerpo',
       url: null,
+      imageUrl: null,
     });
+  });
+
+  it('persists but skips the push when inAppOnly is set', async () => {
+    await provider.notify(userId, 'Reserva pagada', 'Completaste el pago.', {
+      url: '/reservas/abc',
+      inAppOnly: true,
+    });
+
+    expect(repo.save).toHaveBeenCalledTimes(1);
+    expect(webPush.notify).not.toHaveBeenCalled();
   });
 
   it('swallows a persistence failure but still attempts the push (best-effort)', async () => {
