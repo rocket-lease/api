@@ -23,6 +23,7 @@ export interface NotificationRepository {
   countUnread(userId: string): Promise<number>;
   markRead(userId: string, notificationId: string): Promise<void>;
   markAllRead(userId: string): Promise<void>;
+  delete(userId: string, notificationId: string): Promise<void>;
 }
 
 export const NOTIFICATION_REPOSITORY = Symbol('NotificationRepository');

@@ -11,6 +11,7 @@ function makePrisma() {
       findMany: jest.fn(),
       count: jest.fn(),
       updateMany: jest.fn(),
+      deleteMany: jest.fn(),
     },
   } as unknown as PrismaService;
 }
@@ -92,6 +93,19 @@ describe('PostgresNotificationRepository', () => {
     expect(prisma.notification.updateMany).toHaveBeenCalledWith({
       where: { userId, readAt: null },
       data: { readAt: expect.any(Date) },
+    });
+  });
+
+  it('deletes a notification scoped to the owner', async () => {
+    const prisma = makePrisma();
+    (prisma.notification.deleteMany as jest.Mock).mockResolvedValue({ count: 1 });
+    const repo = new PostgresNotificationRepository(prisma);
+    const id = randomUUID();
+
+    await repo.delete(userId, id);
+
+    expect(prisma.notification.deleteMany).toHaveBeenCalledWith({
+      where: { id, userId },
     });
   });
 });
