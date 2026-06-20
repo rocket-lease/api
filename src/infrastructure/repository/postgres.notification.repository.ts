@@ -50,6 +50,12 @@ export class PostgresNotificationRepository implements NotificationRepository {
     });
   }
 
+  async delete(userId: string, notificationId: string): Promise<void> {
+    await this.prisma.notification.deleteMany({
+      where: { id: notificationId, userId },
+    });
+  }
+
   private toData(row: {
     id: string;
     userId: string;

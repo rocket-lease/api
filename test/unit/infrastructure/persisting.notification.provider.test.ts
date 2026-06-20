@@ -21,6 +21,7 @@ describe('PersistingNotificationProvider', () => {
       countUnread: jest.fn(),
       markRead: jest.fn(),
       markAllRead: jest.fn(),
+      delete: jest.fn(),
     };
     webPush = { notify: jest.fn().mockResolvedValue(undefined) };
     provider = new PersistingNotificationProvider(

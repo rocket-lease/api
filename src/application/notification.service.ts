@@ -46,6 +46,11 @@ export class NotificationService {
     await this.repository.markAllRead(userId);
     return UnreadCountResponseSchema.parse({ unreadCount: 0 });
   }
+
+  async delete(userId: string, notificationId: string): Promise<UnreadCountResponse> {
+    await this.repository.delete(userId, notificationId);
+    return this.unreadCount(userId);
+  }
 }
 
 function toDto(row: NotificationData): InAppNotification {

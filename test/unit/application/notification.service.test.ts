@@ -32,6 +32,7 @@ describe('NotificationService', () => {
       countUnread: jest.fn(),
       markRead: jest.fn(),
       markAllRead: jest.fn(),
+      delete: jest.fn(),
     };
     service = new NotificationService(repo);
   });
@@ -79,5 +80,15 @@ describe('NotificationService', () => {
     expect(repo.markAllRead).toHaveBeenCalledWith(userId);
     expect(repo.countUnread).not.toHaveBeenCalled();
     expect(result).toEqual({ unreadCount: 0 });
+  });
+
+  it('deletes one and returns the recomputed unread count', async () => {
+    repo.countUnread.mockResolvedValue(7);
+    const id = randomUUID();
+
+    const result = await service.delete(userId, id);
+
+    expect(repo.delete).toHaveBeenCalledWith(userId, id);
+    expect(result).toEqual({ unreadCount: 7 });
   });
 });
