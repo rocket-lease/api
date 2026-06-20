@@ -1,5 +1,6 @@
 import {
   Controller,
+  Delete,
   Get,
   Headers,
   HttpCode,
@@ -66,5 +67,15 @@ export class NotificationController {
   ): Promise<UnreadCountResponse> {
     const userId = await this.resolveUserId(authorization);
     return this.notificationService.markRead(userId, id);
+  }
+
+  @Delete(':id')
+  @HttpCode(200)
+  async delete(
+    @Headers('authorization') authorization: string | undefined,
+    @Param('id') id: string,
+  ): Promise<UnreadCountResponse> {
+    const userId = await this.resolveUserId(authorization);
+    return this.notificationService.delete(userId, id);
   }
 }
