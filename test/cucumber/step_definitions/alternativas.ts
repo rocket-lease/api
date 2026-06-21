@@ -1,4 +1,4 @@
-import { Given, When, Then, DataTable } from '@cucumber/cucumber';
+import { When, Then, DataTable } from '@cucumber/cucumber';
 import { MyWorld } from '../support/world';
 import { api } from '../support/http-client';
 import { expect } from 'expect';

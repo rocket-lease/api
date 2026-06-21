@@ -103,7 +103,7 @@ export class RecommendationService {
           transmission: vehicle.getTransmission(),
           province: vehicle.getProvince(),
           passengers: vehicle.getPassengers(),
-          characteristics: vehicle.getCharacteristics() as string[],
+          characteristics: vehicle.getCharacteristics(),
         });
         previouslyRentedVehicleIds.push(vehicle.getId());
       }
@@ -186,7 +186,7 @@ export class RecommendationService {
    * cuando hay nueva disponibilidad.
    * Este método es llamado por el suscriptor de eventos.
    */
-  async notifyFavoriteAvailability(vehicleId: string): Promise<void> {
+  async notifyFavoriteAvailability(_vehicleId: string): Promise<void> {
     // Buscar todos los favoritos que contengan este vehículo
     // La notificación se delega al NotificationProvider
     // (implementado como evento en la capa de infraestructura)
@@ -204,8 +204,16 @@ export class RecommendationService {
       passengers: vehicle.getPassengers(),
       isAccessible: vehicle.getIsAccessible(),
       basePriceCents: vehicle.getBasePriceCents(),
-      characteristics: vehicle.getCharacteristics() as string[],
+      characteristics: vehicle.getCharacteristics(),
       enabled: vehicle.isEnabled(),
+      photos: vehicle.getPhotos(),
+      year: vehicle.getYear(),
+      mileage: vehicle.getMileage(),
+      color: vehicle.getColor(),
+      trunkLiters: vehicle.getTrunkLiters(),
+      isPromoted: false,
+      autoAccept: vehicle.getAutoAccept(),
+      demandMultiplier: 1,
     };
   }
 }

@@ -22,6 +22,7 @@ import {
   type RejectReservationResponse,
   RejectReservationResponseSchema,
   type ReservationChainItem,
+  type PricingQuote,
   type VehicleBusyRangesResponse,
   VehicleBusyRangesResponseSchema,
   type ReservationListItem,
@@ -231,8 +232,19 @@ export class ReservationService {
     const effectiveAutoAccept =
       vehicle.getAutoAccept() ?? ownerProfile?.autoAccept ?? false;
 
+    const basePriceCents = vehicle.getBasePriceCents();
+    const ruleSetId = vehicle.getReservationRuleSetId();
+    const ruleSet = ruleSetId
+      ? await this.reservationRuleSetRepository.findById(ruleSetId)
+      : null;
+
+    const depositPercentageSnapshot = ruleSet?.getDepositPercentage() ?? RESERVATION_RULES_DEFAULTS.depositPercentage;
+    const cancellationPolicySnapshot = ruleSet?.getCancellationPolicy() ?? RESERVATION_RULES_DEFAULTS.cancellationPolicy;
+    const maxKilometrageSnapshot = ruleSet?.getMaxKilometrage() ?? RESERVATION_RULES_DEFAULTS.maxKilometrage;
+    const rentalTimeConstraintsSnapshot = ruleSet?.getRentalTimeConstraints() ?? RESERVATION_RULES_DEFAULTS.rentalTimeConstraints;
+
     const totalCents = computeReservationTotalCents(
-      vehicle.getBasePriceCents(),
+      basePriceCents,
       startAt,
       endAt,
       homeDeliveryFeeCentsSnapshot,
@@ -261,6 +273,11 @@ export class ReservationService {
       withHomeReturn,
       homeReturnFeeCentsSnapshot,
       returnAddress: dto.returnAddress ?? null,
+      depositPercentageSnapshot,
+      basePriceCentsSnapshot: basePriceCents,
+      cancellationPolicySnapshot,
+      maxKilometrageSnapshot,
+      rentalTimeConstraintsSnapshot,
       createdAt: now,
       updatedAt: now,
     });
@@ -281,6 +298,7 @@ export class ReservationService {
       holdExpiresAt: saved.getHoldExpiresAt()!.toISOString(),
       totalCents: saved.getTotalCents(),
       currency: 'ARS',
+      pricingSnapshot: this.buildPricingQuote(saved),
     });
   }
 
@@ -869,6 +887,7 @@ export class ReservationService {
       currency: reservation.getCurrency(),
       paymentMethod: reservation.getPaymentMethod()!,
       paidAt: reservation.getPaidAt()!.toISOString(),
+      pricingSnapshot: this.buildPricingQuote(reservation),
     });
   }
 
@@ -1731,6 +1750,7 @@ export class ReservationService {
             endAt: item.getEndAt().toISOString(),
             totalCents: item.getTotalCents(),
             parentReservationId: item.getParentReservationId(),
+            pricingSnapshot: this.buildPricingQuote(item),
           }))
         : undefined;
 
@@ -1774,6 +1794,7 @@ export class ReservationService {
       transferPaymentMode: r.getTransferPaymentMode(),
       depositPercentageSnapshot: r.getDepositPercentageSnapshot(),
       basePriceCentsSnapshot: r.getBasePriceCentsSnapshot(),
+      pricingSnapshot: this.buildPricingQuote(r),
       cancellationPolicySnapshot: r.getCancellationPolicySnapshot(),
       maxKilometrageSnapshot: r.getMaxKilometrageSnapshot(),
       rentalTimeConstraintsSnapshot: r.getRentalTimeConstraintsSnapshot(),
@@ -1787,6 +1808,7 @@ export class ReservationService {
       chain: chainPayload,
       createdAt: r.getCreatedAt().toISOString(),
       updatedAt: r.getUpdatedAt().toISOString(),
+      reviews: [],
       vehicle: this.vehicleSummary(vehicle, r.getVehicleId(), reservationRuleSet),
       rentador: {
         id: r.getRentadorId(),
@@ -1867,6 +1889,7 @@ export class ReservationService {
     if (!vehicle) {
       return {
         id: vehicleId,
+        plate: '—',
         brand: '—',
         model: '—',
         year: 0,
@@ -1877,11 +1900,37 @@ export class ReservationService {
     const photos = vehicle.getPhotos();
     return {
       id: vehicle.getId(),
+      plate: vehicle.getPlate(),
       brand: vehicle.getBrand(),
       model: vehicle.getModel(),
       year: vehicle.getYear(),
       photo: photos.length > 0 ? photos[0] : null,
       reservationRuleSet,
+    };
+  }
+
+  private buildPricingQuote(r: Reservation): PricingQuote {
+    const startAt = r.getStartAt();
+    const endAt = r.getEndAt();
+    const durationMs = endAt.getTime() - startAt.getTime();
+    const durationDays = Math.ceil(durationMs / DAY_MS);
+    const basePriceCents = r.getBasePriceCentsSnapshot();
+    const subtotalCents = basePriceCents * durationDays;
+    const deliveryFeeCents = r.getWithHomeDelivery()
+      ? r.getHomeDeliveryFeeCentsSnapshot()
+      : null;
+
+    return {
+      vehicleId: r.getVehicleId(),
+      currency: 'ARS',
+      basePriceCents,
+      durationDays,
+      subtotalCents,
+      appliedDiscountTier: null,
+      appliedDiscountPercentage: 0,
+      discountCents: 0,
+      totalCents: r.getTotalCents(),
+      ...(deliveryFeeCents != null ? { deliveryFeeCents } : {}),
     };
   }
 }

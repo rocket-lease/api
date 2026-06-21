@@ -16,10 +16,11 @@ Característica: Recomendaciones personalizadas
   #      ENTONCES veo una sección "Sugerido para vos" con vehículos
   #             basados en mi historial y preferencias.
 
-  Escenario: Conductor con reservas confirmadas ve sugerencias personalizadas en el inicio
+  Escenario: Conductor con reservas completadas ve sugerencias personalizadas en el inicio
     Dado que soy un conductor "A" autenticado
     Y que el conductor "A" reservó el vehículo "REC-001" desde "2026-07-01T10:00:00Z" hasta "2026-07-03T10:00:00Z" firmando el contrato
     Y el conductor "A" confirma el pago con "credit_card"
+    Y el conductor completa el viaje
     Cuando accedo al inicio de la app
     Entonces veo una sección "Sugerido para vos"
     Y la sección contiene vehículos recomendados basados en mi historial y preferencias
@@ -31,10 +32,11 @@ Característica: Recomendaciones personalizadas
 
   Escenario: Sugerencias se personalizan según preferencias del conductor
     Dado que soy un conductor "C" autenticado
-    Y tiene preferencias de vehículo guardadas con transmisión "automatic", accesibilidad "rampa" y precio máximo diario 50000
+    Y tiene preferencias de vehículo guardadas con transmisión "manual", accesibilidad "" y precio máximo diario 5000000
     Y que existe un vehículo publicado con patente "REC-002" y precio base 35000
     Y que el conductor "C" reservó el vehículo "REC-002" desde "2026-08-01T10:00:00Z" hasta "2026-08-03T10:00:00Z" firmando el contrato
     Y el conductor "C" confirma el pago con "credit_card"
+    Y el conductor completa el viaje
     Cuando accedo al inicio de la app
     Entonces veo una sección "Sugerido para vos"
     Y los vehículos sugeridos cumplen con mis preferencias de transmisión, accesibilidad y precio
@@ -43,6 +45,7 @@ Característica: Recomendaciones personalizadas
     Dado que soy un conductor "D" autenticado
     Y que el conductor "D" reservó el vehículo "REC-001" desde "2026-09-01T10:00:00Z" hasta "2026-09-03T10:00:00Z" firmando el contrato
     Y el conductor "D" confirma el pago con "debit_card"
+    Y el conductor completa el viaje
     Cuando accedo al inicio de la app
     Entonces veo una sección "Sugerido para vos"
     Y los vehículos sugeridos son del mismo tipo que los reservados anteriormente

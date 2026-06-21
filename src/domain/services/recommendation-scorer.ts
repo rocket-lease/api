@@ -36,6 +36,15 @@ export interface VehicleForScoring {
   basePriceCents: number;
   characteristics: string[];
   enabled: boolean;
+  // Campos para display en frontend
+  photos: string[];
+  year: number;
+  mileage: number;
+  color: string;
+  trunkLiters: number;
+  isPromoted: boolean;
+  autoAccept: boolean | null;
+  demandMultiplier: number;
 }
 
 export interface ScoredVehicle {

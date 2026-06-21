@@ -2,6 +2,7 @@ import { Given, When, Then } from '@cucumber/cucumber';
 import { MyWorld } from '../support/world';
 import { api } from '../support/http-client';
 import { expect } from 'expect';
+import { useAlias } from './auth';
 
 Given(
   'no tengo preferencias de vehículo guardadas',
@@ -13,9 +14,35 @@ Given(
       name: meResponse.body.name,
       phone: meResponse.body.phone,
       avatarUrl: meResponse.body.avatarUrl,
-      preferences: null,
+      preferences: { transmission: null, accessibility: [], maxPriceDaily: null },
     });
     expect(updateResponse.status).toBe(200);
+  },
+);
+
+When(
+  'el conductor completa el viaje',
+  { timeout: 10_000 },
+  async function (this: MyWorld) {
+    const conductorToken = this.world.access_token;
+
+    const reservationId = this.world.reservation_response?.body?.id;
+    if (!reservationId) throw new Error('No reservation to complete');
+
+    const detail = await api(this).get(`/reservations/${reservationId}`);
+    expect(detail.status).toBe(200);
+    const voucherToken = detail.body.voucherToken;
+    expect(voucherToken).toBeDefined();
+
+    useAlias(this, '__owner__');
+    const pickupRes = await api(this).post('/reservations/pickup', { voucherToken });
+    expect(pickupRes.status).toBe(200);
+    const returnQrToken = pickupRes.body.returnQrToken;
+    expect(returnQrToken).toBeDefined();
+
+    this.world.access_token = conductorToken;
+    const returnRes = await api(this).post('/reservations/return', { returnQrToken });
+    expect(returnRes.status).toBe(200);
   },
 );
 
@@ -108,7 +135,7 @@ Then(
     expect(response.body.vehicles.length).toBeGreaterThan(0);
 
     // Retrieve previously reserved vehicles via plate map
-    const vehiclePlateIds = Object.values(this.world.vehicle_by_plate ?? {}) as string[];
+    const vehiclePlateIds = Object.values(this.world.vehicle_by_plate ?? {});
     expect(vehiclePlateIds.length).toBeGreaterThan(0);
 
     // Fetch the first previously reserved vehicle for type comparison

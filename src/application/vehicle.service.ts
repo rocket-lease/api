@@ -327,6 +327,7 @@ export class VehicleService {
       homeDeliveryFeeCents: vehicle.getHomeDeliveryFeeCents(),
       homeReturnEnabled: vehicle.getHomeReturnEnabled(),
       homeReturnFeeCents: vehicle.getHomeReturnFeeCents(),
+      discountTiers: [],
       reservationRuleSet: reservationRuleSet,
       owner,
       documentStatus,
