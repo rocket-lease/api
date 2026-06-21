@@ -12,6 +12,7 @@ const CORS_REGEXES = [
   /^https?:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+$/,
   /^https?:\/\/172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}:\d+$/,
   /^https?:\/\/.*\.ngrok-free\.dev$/,
+  /^https:\/\/web-[a-z0-9-]+-flopeztancredi\.vercel\.app$/,
 ];
 
 const DEFAULT_CORS_ORIGINS = [
