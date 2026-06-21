@@ -67,37 +67,30 @@ async function setVehicleAvailable(
 }
 
 /**
- * Check pre-conditions and trigger availability for a given vehicle,
- * setting this.world._notification_expected based on business rules.
+ * Check whether a notification for the given vehicle exists
+ * by querying the real /notifications endpoint.
  */
-async function triggerAvailability(
+async function notificationExistsForVehicle(
   world: MyWorld,
   vehicleId: string,
-): Promise<void> {
-  // Check pre-conditions: is this vehicle in the current user's favorites?
-  const favListRes = await api(world).get('/favorites');
-  expect(favListRes.status).toBe(200);
-  const favoriteIds: string[] = (favListRes.body.items ?? []).map(
-    (f: any) => f.vehicleId,
-  );
-  const wasFavorite = favoriteIds.includes(vehicleId);
+): Promise<boolean> {
+  const res = await api(world).get('/notifications');
+  expect(res.status).toBe(200);
+  const body = res.body as { notifications: Array<{ title: string; body: string; url: string | null }> };
+  const vehicleUrl = `/vehiculos/${vehicleId}`;
+  return body.notifications.some((n) => n.url === vehicleUrl);
+}
 
-  // Check pre-conditions: was the vehicle unavailable before the change?
-  const vehicleRes = await api(world).get(`/vehicle/${vehicleId}`);
-  expect(vehicleRes.status).toBe(200);
-  const vehicle = vehicleRes.body;
-  const wasUnavailable =
-    vehicle.enabled === false ||
-    (vehicle.availableFrom &&
-      new Date(vehicle.availableFrom) > world.clock.now());
+function setAvailabilityTarget(world: MyWorld, vehicleId: string): void {
+  world.world._availability_target_id = vehicleId;
+}
 
-  // Make the vehicle available now
-  await setVehicleAvailable(world, vehicleId);
-
-  // Determine whether a notification should have been generated:
-  // a notification is expected only when the vehicle is a favorite AND
-  // it was previously unavailable.
-  world.world._notification_expected = wasFavorite && wasUnavailable;
+function getAvailabilityTarget(world: MyWorld): string {
+  const id = world.world._availability_target_id;
+  if (!id) {
+    throw new Error('No hay vehículo con disponibilidad modificada — asegurate de haber ejecutado un When');
+  }
+  return id;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -117,7 +110,6 @@ Given(
   async function (this: MyWorld) {
     const vehicleId = getFavoriteVehicleId(this);
 
-    // Ensure the vehicle is available (no-op if already available)
     const vehicleRes = await api(this).get(`/vehicle/${vehicleId}`);
     expect(vehicleRes.status).toBe(200);
     const vehicle = vehicleRes.body;
@@ -136,7 +128,6 @@ Given(
 Given(
   'el vehículo no está disponible actualmente',
   async function (this: MyWorld) {
-    // Uses the current Background vehicle (create_vehicle_response)
     const vehicleId = this.world.create_vehicle_response?.body?.id;
     if (!vehicleId) {
       throw new Error('No hay vehículo creado en el contexto actual');
@@ -153,7 +144,8 @@ When(
   'hay nueva disponibilidad del vehículo favorito',
   async function (this: MyWorld) {
     const vehicleId = getFavoriteVehicleId(this);
-    await triggerAvailability(this, vehicleId);
+    setAvailabilityTarget(this, vehicleId);
+    await setVehicleAvailable(this, vehicleId);
   },
 );
 
@@ -164,7 +156,8 @@ When(
     if (!vehicleId) {
       throw new Error(`No se encontró el vehículo con patente "${plate}"`);
     }
-    await triggerAvailability(this, vehicleId);
+    setAvailabilityTarget(this, vehicleId);
+    await setVehicleAvailable(this, vehicleId);
   },
 );
 
@@ -175,7 +168,8 @@ When(
     if (!vehicleId) {
       throw new Error(`No se encontró el vehículo con patente "${plate}"`);
     }
-    await triggerAvailability(this, vehicleId);
+    setAvailabilityTarget(this, vehicleId);
+    await setVehicleAvailable(this, vehicleId);
   },
 );
 
@@ -185,15 +179,18 @@ When(
 
 Then(
   'recibo una notificación de disponibilidad',
-  function (this: MyWorld) {
-    expect(this.world._notification_expected).toBe(true);
+  async function (this: MyWorld) {
+    const vehicleId = getAvailabilityTarget(this);
+    const exists = await notificationExistsForVehicle(this, vehicleId);
+    expect(exists).toBe(true);
   },
 );
 
 Then(
   'no recibo una notificación de disponibilidad',
-  function (this: MyWorld) {
-    // Notification is not expected when pre-conditions are not met
-    expect(this.world._notification_expected).toBe(false);
+  async function (this: MyWorld) {
+    const vehicleId = getAvailabilityTarget(this);
+    const exists = await notificationExistsForVehicle(this, vehicleId);
+    expect(exists).toBe(false);
   },
 );

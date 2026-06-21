@@ -38,6 +38,8 @@ import {
 import { ZoneDemandPricer } from '@/application/pricing/zone-demand-pricer';
 import { latLonToH3 } from '@/application/helpers/h3';
 import { DYNAMIC_PRICING_NEUTRAL } from '@/application/pricing/config/dynamic-pricing.config';
+import { FAVORITE_REPOSITORY, type FavoriteRepository } from '@/domain/repositories/favorite.repository';
+import { NOTIFICATION_PROVIDER, type NotificationProvider } from '@/domain/providers/notification.provider';
 
 @Injectable()
 export class VehicleService {
@@ -56,6 +58,10 @@ export class VehicleService {
     private readonly vehicleDocumentRepository: VehicleDocumentRepository,
     @Inject(ZoneDemandPricer)
     private readonly zoneDemandPricer: ZoneDemandPricer,
+    @Inject(FAVORITE_REPOSITORY)
+    private readonly favoriteRepository: FavoriteRepository,
+    @Inject(NOTIFICATION_PROVIDER)
+    private readonly notificationProvider: NotificationProvider,
   ) {}
 
   public async createVehicle(
@@ -163,12 +169,28 @@ export class VehicleService {
       throw new EntityNotFoundException('vehicle', vehicleId);
     }
     const wasEnabled = vehicle.isEnabled();
+    const prevAvailableFrom = vehicle.getAvailableFrom();
     try {
       const parsed = UpdateVehicleRequestSchema.parse(data);
       vehicle.update(parsed);
       await this.vehicleRepository.save(vehicle);
       if (wasEnabled && !vehicle.isEnabled()) {
         await this.reservationService.cancelPendingByVehicle(vehicle.getId());
+      }
+      const now = this.clock.now().toISOString().split('T')[0];
+      const wasUnavailable = !!prevAvailableFrom && prevAvailableFrom > now;
+      const isNowAvailable = !vehicle.getAvailableFrom() || vehicle.getAvailableFrom() <= now;
+      if (wasUnavailable && isNowAvailable) {
+        const favorites = await this.favoriteRepository.findByVehicle(vehicle.getId());
+        await Promise.all(
+          favorites.map((f) =>
+            this.notificationProvider.notify(f.conductorId, '¡Vehiculo disponible!', `El ${vehicle.getBrand()} ${vehicle.getModel()} que guardaste ya está disponible.`, {
+              url: `/vehiculos/${vehicle.getId()}`,
+              tag: `fav-available-${vehicle.getId()}`,
+              imageUrl: vehicle.getPhotos()[0],
+            }),
+          ),
+        );
       }
     } catch (e: any) {
       const field = e?.issues?.[0]?.keys?.[0] ?? 'desconocido';

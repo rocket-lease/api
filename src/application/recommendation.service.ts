@@ -22,24 +22,22 @@ import {
   type ReservationHistoryItem,
   type UserPreferences,
 } from '@/domain/services/recommendation-scorer';
-import { CLOCK, type Clock } from '@/domain/providers/clock.provider';
 import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { RESERVATION_STATUS } from '@/domain/entities/reservation.entity';
-
-export interface RecommendedVehiclesResponse {
-  section: string;
-  vehicles: VehicleForScoring[];
-}
-
-export interface AlternativeVehicleResponse {
-  vehicle: VehicleForScoring;
-  differences: string[];
-}
-
-export interface SearchAlternativesResponse {
-  alternatives: AlternativeVehicleResponse[];
-  message?: string;
-}
+import {
+  RecommendedVehiclesResponseSchema,
+  SearchAlternativesResponseSchema,
+  type RecommendedVehiclesResponse,
+  type SearchAlternativesResponse,
+} from '@rocket-lease/contracts';
+import {
+  PROMOTION_REPOSITORY,
+  type PromotionRepository,
+} from '@/domain/repositories/promotion.repository';
+import { ZoneDemandPricer } from '@/application/pricing/zone-demand-pricer';
+import { latLonToH3 } from '@/application/helpers/h3';
+import { DYNAMIC_PRICING_NEUTRAL } from '@/application/pricing/config/dynamic-pricing.config';
+import { CLOCK, type Clock } from '@/domain/providers/clock.provider';
 
 @Injectable()
 export class RecommendationService {
@@ -54,6 +52,10 @@ export class RecommendationService {
     private readonly favoriteRepository: FavoriteRepository,
     @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepository,
+    @Inject(PROMOTION_REPOSITORY)
+    private readonly promotionRepository: PromotionRepository,
+    @Inject(ZoneDemandPricer)
+    private readonly zoneDemandPricer: ZoneDemandPricer,
     @Inject(CLOCK)
     private readonly clock: Clock,
   ) {}
@@ -90,14 +92,18 @@ export class RecommendationService {
       },
     );
 
-    // 3. Construir historial para el scorer
+    // 3. Construir historial para el scorer (batch findByIds)
+    const vehicleIds = completedReservations.items.map((r) =>
+      r.getVehicleId(),
+    );
+    const vehicles = await this.vehicleRepository.findByIds(vehicleIds);
+    const vehicleById = new Map(vehicles.map((v) => [v.getId(), v]));
+
     const history: ReservationHistoryItem[] = [];
     const previouslyRentedVehicleIds: string[] = [];
 
     for (const reservation of completedReservations.items) {
-      const vehicle = await this.vehicleRepository.findById(
-        reservation.getVehicleId(),
-      );
+      const vehicle = vehicleById.get(reservation.getVehicleId());
       if (vehicle) {
         history.push({
           vehicleId: vehicle.getId(),
@@ -125,10 +131,8 @@ export class RecommendationService {
     // 5. Obtener vehículos disponibles
     const allVehicles = await this.vehicleRepository.findEnabledVehicles();
 
-    // 6. Mapear a VehicleForScoring
-    const availableVehicles: VehicleForScoring[] = allVehicles.map((v) =>
-      this.mapToScoringVehicle(v),
-    );
+    // 6. Mapear a VehicleForScoring con promociones y demanda reales
+    const availableVehicles = await this.mapToScoringVehicles(allVehicles);
 
     // 7. Calcular scoring
     const scored = this.scorer.score(
@@ -146,10 +150,10 @@ export class RecommendationService {
       return { section: '', vehicles: [] };
     }
 
-    return {
+    return RecommendedVehiclesResponseSchema.parse({
       section: 'Sugerido para vos',
       vehicles: scored.map((s) => s.vehicle),
-    };
+    });
   }
 
   /**
@@ -175,13 +179,11 @@ export class RecommendationService {
     };
     const exactResults = await this.vehicleRepository.fetchAll(exactFilter);
     if (exactResults.length > 0) {
-      return { alternatives: [], message: 'Ya existen resultados exactos para esta búsqueda' };
+      return SearchAlternativesResponseSchema.parse({ alternatives: [], message: 'Ya existen resultados exactos para esta búsqueda' });
     }
 
     const allVehicles = await this.vehicleRepository.findEnabledVehicles();
-    const availableVehicles: VehicleForScoring[] = allVehicles.map((v) =>
-      this.mapToScoringVehicle(v),
-    );
+    const availableVehicles = await this.mapToScoringVehicles(allVehicles);
 
     const alternatives = this.scorer.findNearAlternatives(
       availableVehicles,
@@ -195,26 +197,41 @@ export class RecommendationService {
     }));
 
     if (mapped.length === 0) {
-      return { alternatives: [], message: 'No hay alternativas cercanas disponibles' };
+      return SearchAlternativesResponseSchema.parse({ alternatives: [], message: 'No hay alternativas cercanas disponibles' });
     }
 
-    return { alternatives: mapped };
+    return SearchAlternativesResponseSchema.parse({ alternatives: mapped });
   }
 
-  /**
-   * Notifica a los conductores que tienen un vehículo en favoritos
-   * cuando hay nueva disponibilidad.
-   * Este método es llamado por el suscriptor de eventos.
-   */
-  async notifyFavoriteAvailability(_vehicleId: string): Promise<void> {
-    // Buscar todos los favoritos que contengan este vehículo
-    // La notificación se delega al NotificationProvider
-    // (implementado como evento en la capa de infraestructura)
-    // Este método existe como hook para pruebas E2E
-  }
+  private async mapToScoringVehicles(
+    vehicles: Vehicle[],
+  ): Promise<VehicleForScoring[]> {
+    const now = this.clock.now();
+    const active = await this.promotionRepository.findAllActive();
+    const promotedIds = new Set(
+      active.filter((p) => !p.isExpired(now)).map((p) => p.vehicleId),
+    );
 
-  private mapToScoringVehicle(vehicle: Vehicle): VehicleForScoring {
-    return {
+    const cellByVehicle = new Map<string, string>();
+    for (const vehicle of vehicles) {
+      if (!vehicle.getDynamicPricingEnabled()) continue;
+      const cell = latLonToH3(
+        vehicle.getLatitude(),
+        vehicle.getLongitude(),
+      );
+      if (cell) cellByVehicle.set(vehicle.getId(), cell);
+    }
+    const demandByVehicle = new Map<string, number>();
+    if (cellByVehicle.size > 0) {
+      const byCell = await this.zoneDemandPricer.multipliersForCells(
+        new Set(cellByVehicle.values()),
+      );
+      for (const [vehicleId, cell] of cellByVehicle) {
+        demandByVehicle.set(vehicleId, byCell.get(cell) ?? DYNAMIC_PRICING_NEUTRAL);
+      }
+    }
+
+    return vehicles.map((vehicle) => ({
       id: vehicle.getId(),
       brand: vehicle.getBrand(),
       model: vehicle.getModel(),
@@ -231,9 +248,9 @@ export class RecommendationService {
       mileage: vehicle.getMileage(),
       color: vehicle.getColor(),
       trunkLiters: vehicle.getTrunkLiters(),
-      isPromoted: false,
+      isPromoted: promotedIds.has(vehicle.getId()),
       autoAccept: vehicle.getAutoAccept(),
-      demandMultiplier: 1,
-    };
+      demandMultiplier: demandByVehicle.get(vehicle.getId()) ?? DYNAMIC_PRICING_NEUTRAL,
+    }));
   }
 }

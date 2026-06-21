@@ -24,6 +24,7 @@ describe('FavoriteService', () => {
       delete: jest.fn(),
       findByConductor: jest.fn(),
       findByConductorAndVehicle: jest.fn(),
+      findByVehicle: jest.fn(),
     };
     service = new FavoriteService(repoMock);
   });

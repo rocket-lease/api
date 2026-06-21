@@ -225,8 +225,8 @@ export class PostgresVehicleRepository implements VehicleRepository {
 
     if (filter?.transmission) {
       const valid = ['Manual', 'Automatico', 'Semiautomatico'] as const;
-      if (valid.includes(filter.transmission as any)) {
-        and.push({ transmission: filter.transmission as any });
+      if (valid.includes(filter.transmission as typeof valid[number])) {
+        and.push({ transmission: filter.transmission as typeof valid[number] });
       }
     }
 
