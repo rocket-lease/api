@@ -2,9 +2,11 @@ import { Module } from '@nestjs/common';
 import { VehicleController } from '@/infrastructure/controllers/vehicle.controller';
 import { VEHICLE_REPOSITORY } from '@/domain/repositories/vehicle.repository';
 import { PROMOTION_REPOSITORY } from '@/domain/repositories/promotion.repository';
+import { FAVORITE_REPOSITORY } from '@/domain/repositories/favorite.repository';
 import { CLOCK, SystemClock } from '@/domain/providers/clock.provider';
 import { VehicleService } from '@/application/vehicle.service';
 import { PostgresVehicleRepository } from '../repository/postgres.vehicle.repository';
+import { PostgresFavoriteRepository } from '../repository/postgres.favorite.repository';
 import { PrismaPromotionRepository } from '../repository/prisma.promotion.repository';
 import { PostgresVehicleDocumentRepository } from '../repository/postgres.vehicle-document.repository';
 import { VEHICLE_DOCUMENT_REPOSITORY } from '@/domain/repositories/vehicle-document.repository';
@@ -15,6 +17,7 @@ import { BankAccountModule } from './bank-account.module';
 import { IdentityModule } from './identity.module';
 import { SearchLogModule } from './search-log.module';
 import { PricingModule } from './pricing.module';
+import { PushSubscriptionModule } from './push-subscription.module';
 
 @Module({
   imports: [
@@ -25,6 +28,7 @@ import { PricingModule } from './pricing.module';
     IdentityModule,
     SearchLogModule,
     PricingModule,
+    PushSubscriptionModule,
   ],
   controllers: [VehicleController],
   providers: [
@@ -44,6 +48,10 @@ import { PricingModule } from './pricing.module';
     {
       provide: VEHICLE_DOCUMENT_REPOSITORY,
       useClass: PostgresVehicleDocumentRepository,
+    },
+    {
+      provide: FAVORITE_REPOSITORY,
+      useClass: PostgresFavoriteRepository,
     },
   ],
   exports: [VehicleService, VEHICLE_REPOSITORY, VEHICLE_DOCUMENT_REPOSITORY],

@@ -8,6 +8,7 @@ export interface FavoriteRepository {
     conductorId: string,
     vehicleId: string,
   ): Promise<Favorite | null>;
+  findByVehicle(vehicleId: string): Promise<Favorite[]>;
 }
 
 export const FAVORITE_REPOSITORY = Symbol('FavoriteRepository');

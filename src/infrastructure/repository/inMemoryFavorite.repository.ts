@@ -28,4 +28,10 @@ export class InMemoryFavoriteRepository implements FavoriteRepository {
   ): Promise<Favorite | null> {
     return this.storage.get(`${conductorId}:${vehicleId}`) ?? null;
   }
+
+  async findByVehicle(vehicleId: string): Promise<Favorite[]> {
+    return Array.from(this.storage.values()).filter(
+      (f) => f.vehicleId === vehicleId,
+    );
+  }
 }

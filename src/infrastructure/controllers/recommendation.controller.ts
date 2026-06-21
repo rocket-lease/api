@@ -11,7 +11,7 @@ import { AuthService } from '@/application/auth.service';
 import type {
   RecommendedVehiclesResponse,
   SearchAlternativesResponse,
-} from '@/application/recommendation.service';
+} from '@rocket-lease/contracts';
 
 @Controller()
 export class RecommendationController {

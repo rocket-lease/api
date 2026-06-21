@@ -62,7 +62,7 @@ interface GlobalContext {
   recommendation_response?: any;
   search_response?: any;
   alternatives_response?: any;
-  _notification_expected?: boolean;
+  _availability_target_id?: string;
 }
 
 export interface MyWorld extends World {
