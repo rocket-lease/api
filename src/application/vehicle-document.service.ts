@@ -2,11 +2,11 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   SubmitVehicleDocumentsRequest,
   SubmitVehicleDocumentsRequestSchema,
-  SubmitVehicleDocumentsResponse,
+  type SubmitVehicleDocumentsResponse,
   SubmitVehicleDocumentsResponseSchema,
-  GetVehicleDocumentStatusResponse,
+  type GetVehicleDocumentStatusResponse,
   GetVehicleDocumentStatusResponseSchema,
-  ProcessDocumentsResponse,
+  type ProcessDocumentsResponse,
   ProcessDocumentsResponseSchema,
 } from '@rocket-lease/contracts';
 import { CLOCK, type Clock } from '@/domain/providers/clock.provider';
@@ -128,11 +128,13 @@ export class VehicleDocumentService {
         requestId: vehicleId,
       });
 
+      const vehicle = await this.vehicleRepository.findById(vehicleId);
+      const vehicleLabel = vehicle ? `${vehicle.getBrand()} ${vehicle.getModel()}` : 'vehículo';
+
       if (providerResult.status === 'verified') {
         verification.markVerified(checkedAt);
         await this.vehicleDocumentRepository.save(verification);
 
-        const vehicle = await this.vehicleRepository.findById(vehicleId);
         if (vehicle) {
           vehicle.update({ enabled: true });
           await this.vehicleRepository.save(vehicle);
@@ -141,7 +143,7 @@ export class VehicleDocumentService {
         await this.notificationProvider.notify(
           verification.getRentadorId(),
           'Documentación aprobada',
-          'La documentación de tu vehículo ha sido aprobada. Ya puede alquilarse en la plataforma.',
+          `Aprobamos la documentación de tu ${vehicleLabel}. Ya podés ponerlo a alquilar.`,
           { url: '/perfil' },
         );
 
@@ -157,7 +159,7 @@ export class VehicleDocumentService {
         await this.notificationProvider.notify(
           verification.getRentadorId(),
           'Documentación rechazada',
-          `La documentación de tu vehículo ha sido rechazada: ${providerResult.rejectionReason ?? 'Motivo no especificado'}. Por favor, sube documentos válidos.`,
+          `Rechazamos la documentación de tu ${vehicleLabel}: ${providerResult.rejectionReason ?? 'motivo no especificado'}. Subí documentos válidos para reintentar.`,
           { url: '/perfil' },
         );
 

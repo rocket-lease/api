@@ -58,6 +58,8 @@ describe('MessagingService', () => {
     messageRepoMock = {
       save: jest.fn(),
       findByReservation: jest.fn(),
+      upsertLastSeen: jest.fn().mockResolvedValue(undefined),
+      getLastSeen: jest.fn().mockResolvedValue(null),
     };
     reservationRepoMock = {
       save: jest.fn(),
@@ -71,6 +73,7 @@ describe('MessagingService', () => {
       findActiveByVehicleId: jest.fn(),
       findExpiredTransfers: jest.fn(),
       findOverdueBalances: jest.fn().mockResolvedValue([]),
+      findOverdueNotificationCandidates: jest.fn().mockResolvedValue([]),
       findBalanceReminderCandidates: jest.fn().mockResolvedValue([]),
       findOverlappingPendingApproval: jest.fn(),
       approveWithCascade: jest.fn(),
@@ -79,6 +82,7 @@ describe('MessagingService', () => {
       findChain: jest.fn().mockResolvedValue([]),
       findChainTipFor: jest.fn().mockResolvedValue(null),
       updateMany: jest.fn().mockResolvedValue(undefined),
+      cancelManyAndCreditBalance: jest.fn().mockResolvedValue({ balanceInCents: 0 }),
     };
     notificationProviderMock = {
       notify: jest.fn().mockResolvedValue(undefined),
@@ -187,16 +191,29 @@ describe('MessagingService', () => {
   // ─── listMessages ─────────────────────────────────────────────────────────────
 
   describe('listMessages', () => {
-    it('retorna la lista de mensajes de la reserva', async () => {
+    it('retorna la lista de mensajes con lastSeenAt null cuando no hay registro', async () => {
       const reservation = makeReservation('confirmed');
       reservationRepoMock.findById.mockResolvedValue(reservation);
       const msg = makeMessage();
       messageRepoMock.findByReservation.mockResolvedValue([msg]);
+      messageRepoMock.getLastSeen.mockResolvedValue(null);
 
       const result = await service.listMessages(conductorId, reservationId);
 
       expect(result.items).toHaveLength(1);
       expect(result.items[0]?.senderId).toBe(conductorId);
+      expect(result.lastSeenAt).toBeNull();
+    });
+
+    it('retorna lastSeenAt como ISO string cuando hay registro', async () => {
+      reservationRepoMock.findById.mockResolvedValue(makeReservation('confirmed'));
+      messageRepoMock.findByReservation.mockResolvedValue([]);
+      const lastSeen = new Date('2026-06-10T10:00:00Z');
+      messageRepoMock.getLastSeen.mockResolvedValue(lastSeen);
+
+      const result = await service.listMessages(conductorId, reservationId);
+
+      expect(result.lastSeenAt).toBe(lastSeen.toISOString());
     });
 
     it('retorna lista vacía cuando no hay mensajes', async () => {
@@ -206,19 +223,6 @@ describe('MessagingService', () => {
       const result = await service.listMessages(conductorId, reservationId);
 
       expect(result.items).toHaveLength(0);
-    });
-
-    it('pasa el parámetro after al repository', async () => {
-      reservationRepoMock.findById.mockResolvedValue(makeReservation('in_progress'));
-      messageRepoMock.findByReservation.mockResolvedValue([]);
-      const after = new Date('2026-01-01T10:00:00Z');
-
-      await service.listMessages(conductorId, reservationId, after);
-
-      expect(messageRepoMock.findByReservation).toHaveBeenCalledWith(
-        reservationId,
-        after,
-      );
     });
 
     it('lanza ChatNotAllowedException si la reserva no está en estado activo', async () => {
@@ -234,6 +238,39 @@ describe('MessagingService', () => {
 
       await expect(
         service.listMessages(outsiderId, reservationId),
+      ).rejects.toThrow(ReservationForbiddenException);
+    });
+  });
+
+  // ─── markRead ─────────────────────────────────────────────────────────────────
+
+  describe('markRead', () => {
+    it('llama a upsertLastSeen con el userId y fecha correctos', async () => {
+      reservationRepoMock.findById.mockResolvedValue(makeReservation('confirmed'));
+      const lastReadAt = '2026-06-14T10:00:00.000Z';
+
+      await service.markRead(conductorId, reservationId, { lastReadAt });
+
+      expect(messageRepoMock.upsertLastSeen).toHaveBeenCalledWith(
+        conductorId,
+        reservationId,
+        new Date(lastReadAt),
+      );
+    });
+
+    it('lanza ChatNotAllowedException si la reserva no está en estado activo', async () => {
+      reservationRepoMock.findById.mockResolvedValue(makeReservation('pending_payment'));
+
+      await expect(
+        service.markRead(conductorId, reservationId, { lastReadAt: '2026-06-14T10:00:00.000Z' }),
+      ).rejects.toThrow(ChatNotAllowedException);
+    });
+
+    it('lanza ReservationForbiddenException si el caller no pertenece a la reserva', async () => {
+      reservationRepoMock.findById.mockResolvedValue(makeReservation('confirmed'));
+
+      await expect(
+        service.markRead(outsiderId, reservationId, { lastReadAt: '2026-06-14T10:00:00.000Z' }),
       ).rejects.toThrow(ReservationForbiddenException);
     });
   });

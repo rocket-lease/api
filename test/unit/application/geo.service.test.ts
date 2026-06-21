@@ -38,6 +38,7 @@ function profile(id: string, name: string): UserProfile {
     email: `${name}@example.com`,
     phone: '123',
     avatarUrl: null,
+    isAdmin: false,
     balanceInCents: 0,
     verificationStatus: 'verified',
     level: 'gold',

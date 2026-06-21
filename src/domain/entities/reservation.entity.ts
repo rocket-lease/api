@@ -9,6 +9,8 @@ import {
   type CancellationPolicy,
   type MaxKilometrage,
   type RentalTimeConstraints,
+  type PricingQuote,
+  PricingQuoteSchema,
   type ReservationAddress,
 } from '@rocket-lease/contracts';
 import { InvalidEntityDataException } from '../exceptions/domain.exception';
@@ -67,8 +69,10 @@ const reservationSchema = z.object({
   depositPaidAt: z.date().nullable(),
   balanceDueAt: z.date().nullable(),
   balanceReminderSentAt: z.date().nullable(),
+  overdueNotifiedAt: z.date().nullable(),
   depositPercentageSnapshot: DepositPercentageSchema,
   basePriceCentsSnapshot: z.number().int().nonnegative(),
+  pricingSnapshot: PricingQuoteSchema.nullable(),
   cancellationPolicySnapshot: CancellationPolicySchema,
   maxKilometrageSnapshot: MaxKilometrageSchema,
   rentalTimeConstraintsSnapshot: RentalTimeConstraintsSchema,
@@ -167,8 +171,10 @@ export interface ReservationProps {
   depositPaidAt?: Date | null;
   balanceDueAt?: Date | null;
   balanceReminderSentAt?: Date | null;
+  overdueNotifiedAt?: Date | null;
   depositPercentageSnapshot?: number | null;
   basePriceCentsSnapshot?: number;
+  pricingSnapshot?: PricingQuote | null;
   cancellationPolicySnapshot?: CancellationPolicy;
   maxKilometrageSnapshot?: MaxKilometrage;
   rentalTimeConstraintsSnapshot?: RentalTimeConstraints;
@@ -211,8 +217,10 @@ export class Reservation {
   private depositPaidAt: Date | null;
   private balanceDueAt: Date | null;
   private balanceReminderSentAt: Date | null;
+  private overdueNotifiedAt: Date | null;
   private depositPercentageSnapshot: number | null;
   private basePriceCentsSnapshot: number;
+  private pricingSnapshot: PricingQuote | null;
   private cancellationPolicySnapshot: CancellationPolicy;
   private maxKilometrageSnapshot: MaxKilometrage;
   private rentalTimeConstraintsSnapshot: RentalTimeConstraints;
@@ -244,6 +252,7 @@ export class Reservation {
     snapshot: {
       depositPercentage: number | null;
       basePriceCents: number;
+      pricingSnapshot: PricingQuote;
       cancellationPolicy: CancellationPolicy;
       maxKilometrage: MaxKilometrage;
       rentalTimeConstraints: RentalTimeConstraints;
@@ -266,6 +275,7 @@ export class Reservation {
       paidAt: null,
       depositPercentageSnapshot: params.snapshot.depositPercentage,
       basePriceCentsSnapshot: params.snapshot.basePriceCents,
+      pricingSnapshot: params.snapshot.pricingSnapshot,
       cancellationPolicySnapshot: params.snapshot.cancellationPolicy,
       maxKilometrageSnapshot: params.snapshot.maxKilometrage,
       rentalTimeConstraintsSnapshot: params.snapshot.rentalTimeConstraints,
@@ -303,9 +313,11 @@ export class Reservation {
     this.depositPaidAt = props.depositPaidAt ?? null;
     this.balanceDueAt = props.balanceDueAt ?? null;
     this.balanceReminderSentAt = props.balanceReminderSentAt ?? null;
+    this.overdueNotifiedAt = props.overdueNotifiedAt ?? null;
     this.depositPercentageSnapshot =
       props.depositPercentageSnapshot ?? RESERVATION_RULES_DEFAULTS.depositPercentage;
     this.basePriceCentsSnapshot = props.basePriceCentsSnapshot ?? 0;
+    this.pricingSnapshot = props.pricingSnapshot ?? null;
     this.cancellationPolicySnapshot =
       props.cancellationPolicySnapshot ?? RESERVATION_RULES_DEFAULTS.cancellationPolicy;
     this.maxKilometrageSnapshot =
@@ -378,6 +390,9 @@ export class Reservation {
   public getStartedAt() {
     return this.startedAt;
   }
+  public getOverdueNotifiedAt() {
+    return this.overdueNotifiedAt;
+  }
   public getCompletedAt() {
     return this.completedAt;
   }
@@ -420,6 +435,9 @@ export class Reservation {
   }
   public getBasePriceCentsSnapshot(): number {
     return this.basePriceCentsSnapshot;
+  }
+  public getPricingSnapshot(): PricingQuote | null {
+    return this.pricingSnapshot;
   }
   public getCancellationPolicySnapshot(): CancellationPolicy {
     return this.cancellationPolicySnapshot;
@@ -480,7 +498,9 @@ export class Reservation {
       );
     }
     this.depositPercentageSnapshot = snapshot.depositPercentage;
-    this.basePriceCentsSnapshot = snapshot.basePriceCents;
+    if (this.basePriceCentsSnapshot <= 0) {
+      this.basePriceCentsSnapshot = snapshot.basePriceCents;
+    }
     this.cancellationPolicySnapshot = snapshot.cancellationPolicy;
     this.maxKilometrageSnapshot = snapshot.maxKilometrage;
     this.rentalTimeConstraintsSnapshot = snapshot.rentalTimeConstraints;
@@ -502,6 +522,7 @@ export class Reservation {
     snapshot: {
       depositPercentage: number | null;
       basePriceCents: number;
+      pricingSnapshot: PricingQuote;
       cancellationPolicy: CancellationPolicy;
       maxKilometrage: MaxKilometrage;
       rentalTimeConstraints: RentalTimeConstraints;
@@ -525,6 +546,7 @@ export class Reservation {
     this.holdExpiresAt = params.holdExpiresAt;
     this.depositPercentageSnapshot = params.snapshot.depositPercentage;
     this.basePriceCentsSnapshot = params.snapshot.basePriceCents;
+    this.pricingSnapshot = params.snapshot.pricingSnapshot;
     this.cancellationPolicySnapshot = params.snapshot.cancellationPolicy;
     this.maxKilometrageSnapshot = params.snapshot.maxKilometrage;
     this.rentalTimeConstraintsSnapshot = params.snapshot.rentalTimeConstraints;
@@ -559,6 +581,7 @@ export class Reservation {
   public isInProgress(): boolean { return this.status === RESERVATION_STATUS.in_progress; }
   public isCancelled(): boolean { return this.status === RESERVATION_STATUS.cancelled; }
   public isExpired(): boolean { return this.status === RESERVATION_STATUS.expired; }
+  public isCompleted(): boolean { return this.status === RESERVATION_STATUS.completed; }
 
   /**
    * Confirma el pago inmediato (tarjeta crédito, débito, billetera virtual).
@@ -822,6 +845,12 @@ export class Reservation {
     this.updatedAt = now;
   }
 
+  /** Marca el último aviso de devolución vencida (idempotencia + escalado del job). */
+  public markOverdueNotified(now: Date): void {
+    this.overdueNotifiedAt = now;
+    this.updatedAt = now;
+  }
+
   /**
    * Expira una transferencia no acreditada.
    * Transita de pending_approval → cancelled.
@@ -957,6 +986,20 @@ export class Reservation {
     this.updatedAt = now;
   }
 
+  /**
+   * Completes a chain extension when the root reservation is returned. An
+   * extension can be in `confirmed` (paid but not yet handed off, since the
+   * car never left) or `in_progress`. Both are valid targets.
+   */
+  public completeFromChain(now: Date): void {
+    if (!this.isInProgress() && !this.isConfirmed()) {
+      throw new InvalidReservationTransitionException(this.status, RESERVATION_STATUS.completed);
+    }
+    this.status = RESERVATION_STATUS.completed;
+    this.completedAt = now;
+    this.updatedAt = now;
+  }
+
   private validate(): void {
     const result = reservationSchema.safeParse({
       id: this.id,
@@ -986,8 +1029,10 @@ export class Reservation {
       depositPaidAt: this.depositPaidAt,
       balanceDueAt: this.balanceDueAt,
       balanceReminderSentAt: this.balanceReminderSentAt,
+      overdueNotifiedAt: this.overdueNotifiedAt,
       depositPercentageSnapshot: this.depositPercentageSnapshot,
       basePriceCentsSnapshot: this.basePriceCentsSnapshot,
+      pricingSnapshot: this.pricingSnapshot,
       cancellationPolicySnapshot: this.cancellationPolicySnapshot,
       maxKilometrageSnapshot: this.maxKilometrageSnapshot,
       rentalTimeConstraintsSnapshot: this.rentalTimeConstraintsSnapshot,

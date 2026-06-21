@@ -35,6 +35,7 @@ describe('AuthService', () => {
       approveWithCascade: jest.fn(),
       findExpiredTransfers: jest.fn(),
       findOverdueBalances: jest.fn().mockResolvedValue([]),
+      findOverdueNotificationCandidates: jest.fn().mockResolvedValue([]),
       findBalanceReminderCandidates: jest.fn().mockResolvedValue([]),
       findActiveByVehicleId: jest.fn(),
       findByUser: jest.fn(),
@@ -43,6 +44,7 @@ describe('AuthService', () => {
       findChain: jest.fn().mockResolvedValue([]),
       findChainTipFor: jest.fn().mockResolvedValue(null),
       updateMany: jest.fn().mockResolvedValue(undefined),
+      cancelManyAndCreditBalance: jest.fn().mockResolvedValue({ balanceInCents: 0 }),
     };
     userRepoMock = {
       save: jest.fn(),
@@ -59,6 +61,7 @@ describe('AuthService', () => {
       isPhoneVerified: jest.fn().mockResolvedValue(false),
       updateAutoAccept: jest.fn(),
       applyReputationPenalty: jest.fn(),
+      updateLevel: jest.fn(),
     };
     authProviderMock = {
       signUp: jest.fn().mockResolvedValue({ userId: 'stub-id' }),

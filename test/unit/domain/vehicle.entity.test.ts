@@ -42,6 +42,7 @@ const buildVehicle = (overrides: Partial<Record<string, any>> = {}) => {
     base.color,
     base.mileage,
     base.basePriceCents,
+    [],
     base.description,
     base.province,
     base.city,

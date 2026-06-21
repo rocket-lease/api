@@ -72,7 +72,7 @@ export class VehicleDocumentController {
         { name: 'greenCard', maxCount: 1 },
       ],
       {
-        limits: { fileSize: 5 * 1024 * 1024, files: 2 },
+        limits: { fileSize: 50 * 1024 * 1024, files: 2 },
       },
     ),
   )

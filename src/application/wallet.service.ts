@@ -126,4 +126,8 @@ export class WalletService {
       processedAt: withdrawal.getProcessedAt()?.toISOString() ?? null,
     });
   }
+
+  public async applyTicketResolution(userId: string, amountCents: number, ticketId: string, tx?: unknown): Promise<void> {
+    await this.walletRepository.applyTicketResolution(userId, amountCents, ticketId, tx);
+  }
 }

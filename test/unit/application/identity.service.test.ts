@@ -31,6 +31,7 @@ describe('IdentityService', () => {
       isPhoneVerified: jest.fn(),
       updateAutoAccept: jest.fn(),
       applyReputationPenalty: jest.fn(),
+      updateLevel: jest.fn(),
     };
     repository = {
       save: jest.fn(),
@@ -57,6 +58,26 @@ describe('IdentityService', () => {
     userId = randomUUID();
 
     service = new IdentityService(userRepo, repository, provider, clock);
+  });
+
+  it('acepta archivos grandes (simulando fotos de alta resolución)', async () => {
+    repository.save.mockImplementation(async (value) => value);
+    const largeBase64 = 'Z'.repeat(25 * 1024 * 1024);
+    const largeFile = {
+      fileName: 'large-photo.heic',
+      mimeType: 'image/heic',
+      dataUrl: `data:image/heic;base64,${largeBase64}`,
+    };
+
+    const result = await service.submitMyVerification(userId, {
+      frontDni: largeFile,
+      backDni: largeFile,
+      selfie: largeFile,
+    });
+
+    expect(provider.submitVerification).toHaveBeenCalledTimes(1);
+    expect(repository.save).toHaveBeenCalledTimes(1);
+    expect(result.status).toBe('pending');
   });
 
   it('creates a pending verification request', async () => {

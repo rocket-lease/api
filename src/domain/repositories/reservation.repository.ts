@@ -5,6 +5,12 @@ import {
 
 export type ReservationRole = 'conductor' | 'owner';
 
+/**
+ * Intervalo mínimo entre avisos de devolución vencida para una misma reserva.
+ * El job re-notifica a lo sumo una vez por este período mientras siga vencida.
+ */
+export const OVERDUE_RENOTIFY_MS = 24 * 60 * 60 * 1000;
+
 export interface ReservationListFilters {
   status?: ReservationStatus[];
   from?: Date;
@@ -102,6 +108,17 @@ export interface ReservationRepository {
   ): Promise<Reservation[]>;
 
   findExpiredTransfers(now: Date): Promise<Reservation[]>;
+
+  /**
+   * Devuelve reservas `in_progress` con el tiempo acordado vencido (`endAt <= now`)
+   * que aún deben avisarse: nunca notificadas (`overdueNotifiedAt IS NULL`) o cuyo
+   * último aviso ya superó {@link OVERDUE_RENOTIFY_MS}. El job notifica a ambas
+   * partes y marca el aviso, evitando el spam y reescalando cada 24h.
+   *
+   * @param now - Instante actual del clock inyectado.
+   * @returns Lista de reservas vencidas pendientes de (re)notificación.
+   */
+  findOverdueNotificationCandidates(now: Date): Promise<Reservation[]>;
 
   /**
    * Devuelve las reservas señadas (`pending_balance`) cuyo `balanceDueAt <= now`.
@@ -219,6 +236,22 @@ export interface ReservationRepository {
    *   memoria al estado destino.
    */
   updateMany(reservations: Reservation[]): Promise<void>;
+
+  /**
+   * Cancela la lista de reservas Y acredita el reembolso en la billetera del
+   * conductor dentro de una única transacción. Garantiza que nunca ocurra una
+   * cancelación sin reembolso ni un reembolso sin cancelación efectiva.
+   *
+   * @param reservations - Entidades ya transicionadas a `cancelled` en memoria.
+   * @param conductorId  - ID del conductor que recibe el reembolso.
+   * @param refundCents  - Monto a acreditar (puede ser 0 si no hubo pago).
+   * @returns El nuevo saldo de la billetera del conductor tras el crédito.
+   */
+  cancelManyAndCreditBalance(
+    reservations: Reservation[],
+    conductorId: string,
+    refundCents: number,
+  ): Promise<{ balanceInCents: number }>;
 }
 
 export const RESERVATION_REPOSITORY = Symbol('ReservationRepository');

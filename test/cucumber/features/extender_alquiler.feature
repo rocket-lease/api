@@ -51,3 +51,11 @@ Característica: Extender alquiler (conductor)
     Y el conductor "S" extendió su alquiler hasta "2026-12-05T10:00:00Z"
     Cuando el conductor "S" consulta el detalle de su reserva
     Entonces el detalle incluye un chain con 2 eslabones
+
+  Escenario: Completar el chain confirma todos los eslabones
+    Dado un rentador con vehículo "EX800HH" en auto-aceptación para extensiones con precio 2400000
+    Y el conductor "T" tiene un alquiler en curso del vehículo "EX800HH" del "2026-12-10T10:00:00Z" al "2026-12-12T10:00:00Z"
+    Y el conductor "T" extendió su alquiler hasta "2026-12-14T10:00:00Z"
+    Cuando el conductor "T" confirma la devolución
+    Entonces la reserva original del conductor "T" queda en estado "completed"
+    Y la extensión del conductor "T" queda en estado "completed"

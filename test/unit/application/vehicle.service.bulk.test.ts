@@ -1,6 +1,7 @@
 import { VehicleRepository } from '@/domain/repositories/vehicle.repository';
 import { UserRepository } from '@/domain/repositories/user.repository';
 import { VehicleService } from '@/application/vehicle.service';
+import { ZoneDemandPricer } from '@/application/pricing/zone-demand-pricer';
 import { ReservationRuleSetService } from '@/application/reservation-rule-set.service';
 import { ReservationService } from '@/application/reservation.service';
 import { IdentityService } from '@/application/identity.service';
@@ -45,6 +46,7 @@ describe('VehicleService — bulk price operations', () => {
       isPhoneVerified: jest.fn().mockResolvedValue(false),
       updateAutoAccept: jest.fn(),
       applyReputationPenalty: jest.fn(),
+      updateLevel: jest.fn(),
       creditBalance: jest.fn(),
     };
 
@@ -89,6 +91,9 @@ describe('VehicleService — bulk price operations', () => {
       reservationRuleSetServiceMock,
       identityServiceMock as unknown as IdentityService,
       vehicleDocumentRepoMock as any,
+      {
+        multipliersForCells: jest.fn().mockResolvedValue(new Map()),
+      } as unknown as ZoneDemandPricer,
     );
   });
 

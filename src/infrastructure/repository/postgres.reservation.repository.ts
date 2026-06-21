@@ -1,4 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import {
   Reservation,
   ReservationStatus,
@@ -14,6 +15,7 @@ import {
   ReservationListFilters,
   ReservationListResult,
   ReservationRole,
+  OVERDUE_RENOTIFY_MS,
 } from '@/domain/repositories/reservation.repository';
 import { PrismaService } from '../database/prisma.service';
 
@@ -45,8 +47,10 @@ type Row = {
   depositPaidAt: Date | null;
   balanceDueAt: Date | null;
   balanceReminderSentAt: Date | null;
+  overdueNotifiedAt: Date | null;
   depositPercentageSnapshot: number | null;
   basePriceCentsSnapshot: number;
+  pricingSnapshot: any;
   cancellationPolicySnapshot: string;
   maxKilometrageTypeSnapshot: string;
   maxKilometrageValueSnapshot: number | null;
@@ -147,6 +151,21 @@ export class PostgresReservationRepository implements ReservationRepository {
     return rows.map((r) => this.toEntity(r));
   }
 
+  async findOverdueNotificationCandidates(now: Date): Promise<Reservation[]> {
+    const renotifyBefore = new Date(now.getTime() - OVERDUE_RENOTIFY_MS);
+    const rows = await this.prisma.reservation.findMany({
+      where: {
+        status: 'in_progress',
+        endAt: { lte: now },
+        OR: [
+          { overdueNotifiedAt: null },
+          { overdueNotifiedAt: { lte: renotifyBefore } },
+        ],
+      },
+    });
+    return rows.map((r) => this.toEntity(r));
+  }
+
   async findOverdueBalances(now: Date): Promise<Reservation[]> {
     const rows = await this.prisma.reservation.findMany({
       where: {
@@ -205,6 +224,27 @@ export class PostgresReservationRepository implements ReservationRepository {
       ),
     ];
     await this.prisma.$transaction(ops);
+  }
+
+  async cancelManyAndCreditBalance(
+    reservations: Reservation[],
+    conductorId: string,
+    refundCents: number,
+  ): Promise<{ balanceInCents: number }> {
+    return this.prisma.$transaction(async (tx) => {
+      for (const r of reservations) {
+        await tx.reservation.update({
+          where: { id: r.getId() },
+          data: this.toRow(r),
+        });
+      }
+      const user = await tx.user.update({
+        where: { id: conductorId },
+        data: { balanceInCents: { increment: refundCents } },
+        select: { balanceInCents: true },
+      });
+      return { balanceInCents: user.balanceInCents };
+    });
   }
 
   async findActiveByVehicleId(
@@ -309,6 +349,7 @@ export class PostgresReservationRepository implements ReservationRepository {
         transfer_expires_at   AS "transferExpiresAt",
         transfer_code         AS "transferCode",
         transfer_alias        AS "transferAlias",
+        pricing_snapshot      AS "pricingSnapshot",
         deposit_percentage_snapshot   AS "depositPercentageSnapshot",
         base_price_cents_snapshot     AS "basePriceCentsSnapshot",
         cancellation_policy_snapshot  AS "cancellationPolicySnapshot",
@@ -399,8 +440,10 @@ export class PostgresReservationRepository implements ReservationRepository {
       depositPaidAt: r.getDepositPaidAt(),
       balanceDueAt: r.getBalanceDueAt(),
       balanceReminderSentAt: r.getBalanceReminderSentAt(),
+      overdueNotifiedAt: r.getOverdueNotifiedAt(),
       depositPercentageSnapshot: r.getDepositPercentageSnapshot(),
       basePriceCentsSnapshot: r.getBasePriceCentsSnapshot(),
+      pricingSnapshot: r.getPricingSnapshot() ?? Prisma.DbNull,
       cancellationPolicySnapshot: r.getCancellationPolicySnapshot(),
       maxKilometrageTypeSnapshot: r.getMaxKilometrageSnapshot().type,
       maxKilometrageValueSnapshot:
@@ -468,8 +511,10 @@ export class PostgresReservationRepository implements ReservationRepository {
       depositPaidAt: row.depositPaidAt,
       balanceDueAt: row.balanceDueAt,
       balanceReminderSentAt: row.balanceReminderSentAt,
+      overdueNotifiedAt: row.overdueNotifiedAt,
       depositPercentageSnapshot: row.depositPercentageSnapshot,
       basePriceCentsSnapshot: row.basePriceCentsSnapshot,
+      pricingSnapshot: row.pricingSnapshot,
       cancellationPolicySnapshot: row.cancellationPolicySnapshot as CancellationPolicy,
       maxKilometrageSnapshot: maxKilometrage,
       rentalTimeConstraintsSnapshot: rentalTimeConstraints,

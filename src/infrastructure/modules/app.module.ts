@@ -17,6 +17,14 @@ import { IdentityModule } from './identity.module';
 import { WalletModule } from './wallet.module';
 import { PushSubscriptionModule } from './push-subscription.module';
 import { RecommendationModule } from './recommendation.module';
+import { PricingModule } from './pricing.module';
+import { SearchLogModule } from './search-log.module';
+import { AdminModule } from './admin.module';
+import { ReviewModule } from './review.module';
+import { TicketModule } from './ticket.module';
+import { DashboardModule } from './dashboard.module';
+import { ReputationModule } from './reputation.module';
+import { LoyaltyModule } from './loyalty.module';
 
 @Module({
   imports: [
@@ -34,10 +42,18 @@ import { RecommendationModule } from './recommendation.module';
     MessagingModule,
     BankAccountModule,
     PromotionModule,
+    PricingModule,
+    SearchLogModule,
+    AdminModule,
+    ReviewModule,
     VehicleDocumentModule,
     WalletModule,
     PushSubscriptionModule,
     RecommendationModule,
+    TicketModule,
+    DashboardModule,
+    ReputationModule,
+    LoyaltyModule,
   ],
 })
 export class AppModule {}

@@ -32,6 +32,7 @@ export class InMemoryUserRepository implements UserRepository {
         maxPriceDaily: null,
       },
       autoAccept: user.getAutoAccept(),
+      isAdmin: user.getIsAdmin(),
     });
   }
 
@@ -168,6 +169,11 @@ export class InMemoryUserRepository implements UserRepository {
 
   public async isPhoneVerified(id: string): Promise<boolean> {
     return this.phoneVerified.has(id);
+  }
+
+  public async updateLevel(id: string, level: string): Promise<void> {
+    const profile = this.profiles.get(id);
+    if (profile) this.profiles.set(id, { ...profile, level: level as UserProfile['level'] });
   }
 
   public async clean(): Promise<void> {

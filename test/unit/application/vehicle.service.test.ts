@@ -2,6 +2,7 @@ import { Vehicle } from '@/domain/entities/vehicle.entity';
 import { VehicleRepository } from '@/domain/repositories/vehicle.repository';
 import { UserRepository } from '@/domain/repositories/user.repository';
 import { VehicleService } from '@/application/vehicle.service';
+import { ZoneDemandPricer } from '@/application/pricing/zone-demand-pricer';
 import { ReservationRuleSetService } from '@/application/reservation-rule-set.service';
 import { ReservationService } from '@/application/reservation.service';
 import { IdentityService } from '@/application/identity.service';
@@ -53,6 +54,7 @@ const buildVehicle = (
     validDto.color,
     validDto.mileage,
     validDto.basePriceCents,
+    [],
     validDto.description,
     validDto.province,
     validDto.city,
@@ -95,6 +97,7 @@ describe('VehicleService', () => {
       isPhoneVerified: jest.fn().mockResolvedValue(false),
       updateAutoAccept: jest.fn(),
       applyReputationPenalty: jest.fn(),
+      updateLevel: jest.fn(),
     };
     reservationRuleSetServiceMock = {
       getRuleSetDetails: jest.fn().mockResolvedValue(null),
@@ -138,6 +141,9 @@ describe('VehicleService', () => {
       reservationRuleSetServiceMock as unknown as ReservationRuleSetService,
       identityServiceMock as unknown as IdentityService,
       vehicleDocumentRepoMock as any,
+      {
+        multipliersForCells: jest.fn().mockResolvedValue(new Map()),
+      } as unknown as ZoneDemandPricer,
     );
   });
 

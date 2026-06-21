@@ -2,12 +2,15 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   GetMyProfileResponse,
   GetMyProfileResponseSchema,
+  GetPublicProfileResponse,
+  GetPublicProfileResponseSchema,
   UpdateMyProfileRequest,
   UpdateMyProfileResponse,
   UpdateMyProfileResponseSchema,
 } from '@rocket-lease/contracts';
 import { IdentityService } from '@/application/identity.service';
 import { DriverLicenseService } from '@/application/driver-license.service';
+import { ReputationService } from '@/application/reputation.service';
 import type { MediaProvider } from '@/domain/providers/media.provider';
 import { MEDIA_PROVIDER } from '@/domain/providers/media.provider';
 import type { UserRepository } from '@/domain/repositories/user.repository';
@@ -21,6 +24,7 @@ export class ProfileService {
     @Inject(MEDIA_PROVIDER) private readonly mediaProvider: MediaProvider,
     @Inject(IdentityService) private readonly identityService: IdentityService,
     @Inject(DriverLicenseService) private readonly driverLicenseService: DriverLicenseService,
+    @Inject(ReputationService) private readonly reputationService: ReputationService,
   ) {}
 
   public async getMyProfile(userId: string): Promise<GetMyProfileResponse> {
@@ -31,7 +35,6 @@ export class ProfileService {
 
     const identityVerification = await this.identityService.getSummaryByUserId(userId);
     const driverLicenseVerification = await this.driverLicenseService.getSummaryByUserId(userId);
-
     return GetMyProfileResponseSchema.parse({
       ...profile,
       verificationStatus: identityVerification.status,
@@ -40,7 +43,7 @@ export class ProfileService {
     });
   }
 
-  public async getProfileById(userId: string): Promise<GetMyProfileResponse> {
+  public async getProfileById(userId: string): Promise<GetPublicProfileResponse> {
     const profile = await this.userRepository.getProfileById(userId);
     if (!profile) {
       throw new InvalidEntityDataException('User not found');
@@ -48,8 +51,7 @@ export class ProfileService {
 
     const identityVerification = await this.identityService.getSummaryByUserId(userId);
     const driverLicenseVerification = await this.driverLicenseService.getSummaryByUserId(userId);
-
-    return GetMyProfileResponseSchema.parse({
+    return GetPublicProfileResponseSchema.parse({
       ...profile,
       verificationStatus: identityVerification.status,
       identityVerification,
@@ -76,7 +78,6 @@ export class ProfileService {
 
     const identityVerification = await this.identityService.getSummaryByUserId(userId);
     const driverLicenseVerification = await this.driverLicenseService.getSummaryByUserId(userId);
-
     return UpdateMyProfileResponseSchema.parse({
       ...updated,
       verificationStatus: identityVerification.status,
@@ -99,7 +100,6 @@ export class ProfileService {
 
     const identityVerification = await this.identityService.getSummaryByUserId(userId);
     const driverLicenseVerification = await this.driverLicenseService.getSummaryByUserId(userId);
-
     return GetMyProfileResponseSchema.parse({
       ...updated,
       verificationStatus: identityVerification.status,

@@ -106,6 +106,7 @@ class CustomWorld extends World implements MyWorld {
     assertSafeToCleanDb();
     const prisma = this.app.get<PrismaService>(PrismaService);
     await prisma.promotionActive.deleteMany();
+    await prisma.review.deleteMany();
     await prisma.reservation.deleteMany();
     const repo = this.app.get<PostgresUserRepository>(USER_REPOSITORY);
     await prisma.vehicle.deleteMany();

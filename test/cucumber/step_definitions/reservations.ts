@@ -188,6 +188,25 @@ When(
   },
 );
 
+Given(
+  'el rentador confirma el retiro del vehículo del conductor {string}',
+  async function (this: MyWorld, alias: string) {
+    const reservationId = this.world.reservations_by_alias?.[alias];
+    if (!reservationId) throw new Error(`no reservation found for alias ${alias}`);
+    // Read voucherToken with current (conductor) token
+    const detail = await api(this).get(`/reservations/${reservationId}`);
+    expect(detail.status).toBe(200);
+    const voucherToken = detail.body.voucherToken as string;
+    expect(typeof voucherToken).toBe('string');
+    // Confirm pickup as the owner
+    const conductorToken = this.world.access_token;
+    this.world.access_token = this.world.tokens_by_alias!['__owner__'];
+    const pickupRes = await api(this).post('/reservations/pickup', { voucherToken });
+    expect(pickupRes.status).toBe(200);
+    this.world.access_token = conductorToken;
+  },
+);
+
 Then('no afecta reservas ya confirmadas', async function (this: MyWorld) {
   const prisma = this.app.get(PrismaService);
   const vehicleId = this.world.create_vehicle_response.body.id;

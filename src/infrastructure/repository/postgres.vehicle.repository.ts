@@ -9,6 +9,7 @@ import {
   BulkPriceResultInvalidException,
 } from '@/domain/exceptions/bulk-price.exception';
 import type { Prisma } from '@prisma/client';
+import { latLonToH3 } from '@/application/helpers/h3';
 
 const VEHICLE_INCLUDE = {
   // Photos no tienen columna de orden; ordenamos por URL para que las que
@@ -16,6 +17,7 @@ const VEHICLE_INCLUDE = {
   // siempre estables. Para fotos sin sufijo numérico el orden es lex de URL.
   photos: { orderBy: { url: 'asc' } },
   characteristics: true,
+  discountTiers: { orderBy: { minimumDays: 'asc' } },
 } as const satisfies Prisma.VehicleInclude;
 
 type VehicleWithRelations = Prisma.VehicleGetPayload<{
@@ -28,6 +30,8 @@ export class PostgresVehicleRepository implements VehicleRepository {
 
   async save(vehicle: Vehicle): Promise<Vehicle> {
     const characteristics = vehicle.getCharacteristics();
+    const discountTiers = vehicle.getDiscountTiers();
+    const h3Cell = latLonToH3(vehicle.getLatitude(), vehicle.getLongitude());
 
     await this.prisma.$transaction(async (tx) => {
       await tx.vehicle.upsert({
@@ -45,6 +49,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
           address: vehicle.getAddress(),
           latitude: vehicle.getLatitude(),
           longitude: vehicle.getLongitude(),
+          h3Cell,
           locationApproximate: vehicle.isLocationApproximate(),
           availableFrom: vehicle.getAvailableFrom(),
           autoAccept: vehicle.getAutoAccept(),
@@ -52,6 +57,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
           homeDeliveryFeeCents: vehicle.getHomeDeliveryFeeCents(),
           homeReturnEnabled: vehicle.getHomeReturnEnabled(),
           homeReturnFeeCents: vehicle.getHomeReturnFeeCents(),
+          dynamicPricingEnabled: vehicle.getDynamicPricingEnabled(),
           photos: {
             deleteMany: {},
             create: vehicle.getPhotos().map((url) => ({ url })),
@@ -79,6 +85,7 @@ export class PostgresVehicleRepository implements VehicleRepository {
           address: vehicle.getAddress(),
           latitude: vehicle.getLatitude(),
           longitude: vehicle.getLongitude(),
+          h3Cell,
           locationApproximate: vehicle.isLocationApproximate(),
           availableFrom: vehicle.getAvailableFrom(),
           autoAccept: vehicle.getAutoAccept(),
@@ -86,11 +93,27 @@ export class PostgresVehicleRepository implements VehicleRepository {
           homeDeliveryFeeCents: vehicle.getHomeDeliveryFeeCents(),
           homeReturnEnabled: vehicle.getHomeReturnEnabled(),
           homeReturnFeeCents: vehicle.getHomeReturnFeeCents(),
+          dynamicPricingEnabled: vehicle.getDynamicPricingEnabled(),
           photos: {
             create: vehicle.getPhotos().map((url) => ({ url })),
           },
         },
       });
+
+      await tx.vehicleDiscountTier.deleteMany({
+        where: { vehicleId: vehicle.getId() },
+      });
+
+      if (discountTiers.length > 0) {
+        await tx.vehicleDiscountTier.createMany({
+          data: discountTiers.map((tier) => ({
+            id: randomUUID(),
+            vehicleId: vehicle.getId(),
+            minimumDays: tier.minimumDays,
+            discountPercentage: tier.discountPercentage,
+          })),
+        });
+      }
 
       await tx.vehicleCharacteristic.deleteMany({
         where: { vehicleId: vehicle.getId() },
@@ -296,6 +319,10 @@ export class PostgresVehicleRepository implements VehicleRepository {
       raw.color,
       raw.mileage,
       raw.basePriceCents,
+      raw.discountTiers.map((tier) => ({
+        minimumDays: tier.minimumDays,
+        discountPercentage: tier.discountPercentage,
+      })),
       raw.description,
       raw.province,
       raw.city,
@@ -310,6 +337,8 @@ export class PostgresVehicleRepository implements VehicleRepository {
       raw.homeDeliveryFeeCents,
       raw.homeReturnEnabled,
       raw.homeReturnFeeCents,
+      raw.ownerReputationScore,
+      raw.dynamicPricingEnabled,
     );
   }
 }

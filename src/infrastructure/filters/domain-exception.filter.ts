@@ -1,4 +1,5 @@
 import {
+  AdminForbiddenException,
   DepositPercentageOutOfRangeException,
   EmailNotVerifiedException,
   EmailUnverifiedPendingException,
@@ -10,6 +11,11 @@ import {
   InvalidEntityDataException,
   IdentityVerificationRequiredException,
   DriverLicenseVerificationRequiredException,
+  PriceQuoteConductorMismatchException,
+  PriceQuoteExpiredException,
+  PriceQuoteNotFoundException,
+  PriceQuoteVehicleMismatchException,
+  AdminAccessRequiredException,
   RuleSetNotFoundForOwnerException,
   RuleSetPrivateCannotBeSharedException,
   RuleSetVehicleIdImmutableException,
@@ -41,6 +47,7 @@ import {
   VoucherNotFoundException,
   VoucherReservationCancelledException,
   InvalidQrTokenException,
+  CancelExtensionNotAllowedException,
   DepositNotAvailableException,
   BalanceNotDueException,
   BalanceOverdueException,
@@ -54,6 +61,20 @@ import {
   VehicleLocationRequiredException,
 } from '@/domain/exceptions/geo.exception';
 import { ChatNotAllowedException } from '@/domain/exceptions/messaging.exception';
+import {
+  TicketAlreadyClosedException,
+  TicketAlreadyExistsException,
+  TicketAlreadyRatedException,
+  TicketInvalidTransitionException,
+  TicketMessageNotAllowedException,
+  TicketNotFoundException,
+  TicketRatingNotAllowedException,
+  TicketResolutionImpactException,
+  TicketReservationInvalidStatusException,
+} from '@/domain/exceptions/ticket.exception';
+import {
+  UserSuspendedException,
+} from '@/domain/exceptions/reputation.exception';
 import {
   ExceptionFilter,
   Catch,
@@ -201,6 +222,9 @@ export class DomainExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof ExtensionNotPendingException) {
       status = HttpStatus.CONFLICT;
       code = ErrorCodes.RESERVATION_EXTENSION_NOT_PENDING;
+    } else if (exception instanceof CancelExtensionNotAllowedException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.RESERVATION_CANCEL_EXTENSION_NOT_ALLOWED;
     } else if (exception instanceof DepositPercentageOutOfRangeException) {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.DEPOSIT_PERCENTAGE_OUT_OF_RANGE;
@@ -261,6 +285,70 @@ export class DomainExceptionFilter implements ExceptionFilter {
       status = HttpStatus.UNPROCESSABLE_ENTITY;
       code = ErrorCodes.CHAT_NOT_ALLOWED;
       title = 'Unprocessable Entity';
+    } else if (exception instanceof TicketNotFoundException) {
+      status = HttpStatus.NOT_FOUND;
+      code = ErrorCodes.TICKET_NOT_FOUND;
+      title = 'Not Found';
+    } else if (exception instanceof TicketAlreadyExistsException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.TICKET_ALREADY_EXISTS;
+      title = 'Conflict';
+    } else if (exception instanceof TicketReservationInvalidStatusException) {
+      status = HttpStatus.UNPROCESSABLE_ENTITY;
+      code = ErrorCodes.TICKET_RESERVATION_INVALID_STATUS;
+      title = 'Unprocessable Entity';
+    } else if (exception instanceof PriceQuoteNotFoundException) {
+      status = HttpStatus.NOT_FOUND;
+      code = ErrorCodes.PRICE_QUOTE_NOT_FOUND;
+      title = 'Not Found';
+    } else if (exception instanceof PriceQuoteExpiredException) {
+      status = HttpStatus.GONE;
+      code = ErrorCodes.PRICE_QUOTE_EXPIRED;
+      title = 'Gone';
+    } else if (exception instanceof PriceQuoteVehicleMismatchException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.PRICE_QUOTE_VEHICLE_MISMATCH;
+      title = 'Conflict';
+    } else if (exception instanceof PriceQuoteConductorMismatchException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.PRICE_QUOTE_CONDUCTOR_MISMATCH;
+      title = 'Forbidden';
+    } else if (exception instanceof AdminForbiddenException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.ADMIN_FORBIDDEN;
+      title = 'Forbidden';
+    } else if (exception instanceof TicketRatingNotAllowedException) {
+      status = HttpStatus.UNPROCESSABLE_ENTITY;
+      code = ErrorCodes.TICKET_RATING_NOT_ALLOWED;
+      title = 'Unprocessable Entity';
+    } else if (exception instanceof TicketAlreadyRatedException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.TICKET_ALREADY_RATED;
+      title = 'Conflict';
+    } else if (exception instanceof TicketMessageNotAllowedException) {
+      status = HttpStatus.UNPROCESSABLE_ENTITY;
+      code = ErrorCodes.TICKET_MESSAGE_NOT_ALLOWED;
+      title = 'Unprocessable Entity';
+    } else if (exception instanceof TicketAlreadyClosedException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.TICKET_ALREADY_CLOSED;
+      title = 'Conflict';
+    } else if (exception instanceof TicketInvalidTransitionException) {
+      status = HttpStatus.CONFLICT;
+      code = ErrorCodes.TICKET_INVALID_TRANSITION;
+      title = 'Conflict';
+    } else if (exception instanceof TicketResolutionImpactException) {
+      status = HttpStatus.UNPROCESSABLE_ENTITY;
+      code = ErrorCodes.TICKET_RESOLUTION_IMPACT;
+      title = 'Unprocessable Entity';
+    } else if (exception instanceof AdminAccessRequiredException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.ADMIN_ACCESS_REQUIRED;
+      title = 'Forbidden';
+    } else if (exception instanceof UserSuspendedException) {
+      status = HttpStatus.FORBIDDEN;
+      code = ErrorCodes.USER_SUSPENDED;
+      title = 'Forbidden';
     } else if (exception instanceof InvalidEntityDataException) {
       status = HttpStatus.BAD_REQUEST;
       code = ErrorCodes.INVALID_ENTITY_DATA;

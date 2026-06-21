@@ -28,6 +28,12 @@ export interface WalletRepository {
   findTransactionsByUserId(userId: string): Promise<WalletTransaction[]>;
   recordReservationPayout(reservation: Reservation): Promise<void>;
   recordWithdrawal(input: RecordWithdrawalInput): Promise<Withdrawal>;
+  applyTicketResolution(
+    userId: string,
+    amountCents: number,
+    ticketId: string,
+    tx?: unknown,
+  ): Promise<void>;
 }
 
 export const WALLET_REPOSITORY = Symbol('WalletRepository');

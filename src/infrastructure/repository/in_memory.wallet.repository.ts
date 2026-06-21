@@ -75,4 +75,20 @@ export class InMemoryWalletRepository implements WalletRepository {
     ]);
     return withdrawal;
   }
+
+  async applyTicketResolution(userId: string, amountCents: number, _ticketId: string): Promise<void> {
+    const balance = this.balances.get(userId) ?? 0;
+    const balanceAfter = balance + amountCents;
+    this.balances.set(userId, balanceAfter);
+    this.transactions.set(userId, [
+      new WalletTransaction({
+        userId,
+        type: amountCents >= 0 ? 'ticket_resolution_credit' : 'ticket_resolution_debit',
+        amountCents: Math.abs(amountCents),
+        balanceAfterCents: balanceAfter,
+        createdAt: new Date(),
+      }),
+      ...(this.transactions.get(userId) ?? []),
+    ]);
+  }
 }

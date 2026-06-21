@@ -4,6 +4,7 @@ import { ProfileController } from '@/infrastructure/controllers/profile.controll
 import { AuthModule } from './auth.module';
 import { IdentityModule } from './identity.module';
 import { DriverLicenseModule } from './driver-license.module';
+import { ReputationModule } from './reputation.module';
 import { MEDIA_PROVIDER } from '@/domain/providers/media.provider';
 import { CloudinaryMediaProvider } from '@/infrastructure/providers/cloudinary.media.provider';
 import { PaymentMethodController } from '@/infrastructure/controllers/payment-method.controller';
@@ -13,7 +14,7 @@ import { PAYMENT_METHOD_REPOSITORY } from '@/domain/repositories/payment-method.
 
 @Module({
 
-  imports: [AuthModule, IdentityModule, DriverLicenseModule],
+  imports: [AuthModule, IdentityModule, DriverLicenseModule, ReputationModule],
   controllers: [PaymentMethodController,ProfileController],
   providers: [
     ProfileService,

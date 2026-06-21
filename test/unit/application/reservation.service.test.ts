@@ -54,6 +54,7 @@ function makeVehicle(
     enabled?: boolean;
     autoAccept?: boolean | null;
     reservationRuleSetId?: string | null;
+    discountTiers?: Array<{ minimumDays: number; discountPercentage: number }>;
   } = {},
 ): Vehicle {
   return new Vehicle(
@@ -73,6 +74,7 @@ function makeVehicle(
     'Azul',
     50000,
     24000,
+    overrides.discountTiers ?? [],
     null,
     'B',
     'CABA',
@@ -88,6 +90,7 @@ function makeProfile(id: string, autoAccept = false, balanceInCents = 0): UserPr
     name: 'Owner',
     email: 'o@e.com',
     phone: '1',
+    isAdmin: false,
     avatarUrl: null,
     verificationStatus: 'verified',
     level: 'bronze',
@@ -166,6 +169,7 @@ function makeUserRepo(): jest.Mocked<UserRepository> {
     isPhoneVerified: jest.fn(),
     updateAutoAccept: jest.fn(),
     applyReputationPenalty: jest.fn(),
+    updateLevel: jest.fn(),
   };
 }
 
@@ -209,6 +213,8 @@ describe('ReservationService', () => {
   let emailProvider: jest.Mocked<EmailProvider>;
   let identityService: jest.Mocked<Pick<IdentityService, 'assertVerified'>>;
   let driverLicenseService: jest.Mocked<Pick<DriverLicenseService, 'assertVerified'>>;
+  let walletService: any;
+  let reputationService: any;
   let vehicle: Vehicle;
   const conductorA = randomUUID();
   const conductorB = randomUUID();
@@ -232,6 +238,8 @@ describe('ReservationService', () => {
     };
     identityService = { assertVerified: jest.fn().mockResolvedValue(undefined) };
     driverLicenseService = { assertVerified: jest.fn().mockResolvedValue(undefined) };
+    walletService = { recordReservationPayout: jest.fn().mockResolvedValue(undefined) };
+    reputationService = { applyPenalty: jest.fn().mockResolvedValue(undefined) };
     service = new ReservationService(
       repo,
       vehicleRepo,
@@ -244,6 +252,8 @@ describe('ReservationService', () => {
       emailProvider,
       identityService,
       driverLicenseService,
+      walletService,
+      reputationService,
     );
   });
 
@@ -298,6 +308,8 @@ describe('ReservationService', () => {
       emailProvider,
       identityService,
       driverLicenseService,
+      walletService,
+      reputationService,
     );
     await expect(
       service.createReservation(conductorA, {
@@ -324,6 +336,8 @@ describe('ReservationService', () => {
       emailProvider,
       identityService,
       driverLicenseService,
+      walletService,
+      reputationService,
     );
     await expect(
       service.createReservation(conductorA, {
@@ -534,6 +548,57 @@ describe('ReservationService', () => {
     });
   });
 
+  describe('confirmTransferPayment', () => {
+    async function setupTransferReservation() {
+      const created = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      await service.initiateBankTransfer(conductorA, created.id, {});
+      return created;
+    }
+
+    it('confirma la reserva y devuelve status confirmed', async () => {
+      const created = await setupTransferReservation();
+      const res = await service.confirmTransferPayment(conductorA, created.id);
+      expect(res.status).toBe('confirmed');
+      expect(res.notified).toBe(true);
+    });
+
+    it('notifica al conductor y al rentador', async () => {
+      notificationProvider.notify.mockClear();
+      const created = await setupTransferReservation();
+      await service.confirmTransferPayment(conductorA, created.id);
+
+      const calls = notificationProvider.notify.mock.calls;
+      const conductorNotified = calls.some(([uid]) => uid === conductorA);
+      const rentadorNotified = calls.some(([uid]) => uid === vehicle.getOwnerId());
+      expect(conductorNotified).toBe(true);
+      expect(rentadorNotified).toBe(true);
+    });
+
+    it('envía email del voucher al conductor', async () => {
+      const created = await setupTransferReservation();
+      await service.confirmTransferPayment(conductorA, created.id);
+      expect(emailProvider.sendVoucherEmail).toHaveBeenCalledTimes(1);
+    });
+
+    it('lanza ReservationNotFoundException si la reserva no existe', async () => {
+      await expect(
+        service.confirmTransferPayment(conductorA, randomUUID()),
+      ).rejects.toThrow(ReservationNotFoundException);
+    });
+
+    it('lanza ReservationForbiddenException si el caller no es el conductor', async () => {
+      const created = await setupTransferReservation();
+      await expect(
+        service.confirmTransferPayment(conductorB, created.id),
+      ).rejects.toThrow(ReservationForbiddenException);
+    });
+  });
+
   describe('rules snapshot on confirmation (US-49)', () => {
     it('persists defaults when vehicle has no rule set', async () => {
       const created = await service.createReservation(conductorA, {
@@ -717,6 +782,85 @@ describe('ReservationService', () => {
     });
   });
 
+  describe('notifyOverdueInProgress', () => {
+    async function makeInProgressReservation() {
+      const r = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      await service.confirmPayment(conductorA, r.id, { paymentMethod: 'credit_card' });
+      const saved = await repo.findById(r.id);
+      await service.confirmPickup(vehicle.getOwnerId(), saved!.getVoucherToken()!);
+      return r.id;
+    }
+
+    it('returns 0 and does not notify when no overdue reservations', async () => {
+      await makeInProgressReservation();
+      notificationProvider.notify.mockClear();
+      // clock is before endAt — not overdue
+      const count = await service.notifyOverdueInProgress();
+      expect(count).toBe(0);
+      expect(notificationProvider.notify).not.toHaveBeenCalled();
+    });
+
+    it('notifies conductor and rentador when in_progress past endAt', async () => {
+      const id = await makeInProgressReservation();
+      notificationProvider.notify.mockClear();
+      // Advance clock past endAt
+      clock.set(new Date('2026-06-05T10:00:00Z'));
+      const count = await service.notifyOverdueInProgress();
+      expect(count).toBe(1);
+      const calls = notificationProvider.notify.mock.calls;
+      const recipients = calls.map((c) => c[0]);
+      expect(recipients).toContain(conductorA);
+      expect(recipients).toContain(vehicle.getOwnerId());
+      // Conductor message
+      const conductorCall = calls.find((c) => c[0] === conductorA);
+      expect(conductorCall?.[1]).toContain('devolución');
+      // Rentador message
+      const rentadorCall = calls.find((c) => c[0] === vehicle.getOwnerId());
+      expect(rentadorCall?.[1]).toContain('devolvió');
+      // Both messages name the vehicle, never the raw reservation id
+      const reservationEntity = await repo.findById(id);
+      expect(conductorCall?.[2]).toContain(vehicle.getBrand());
+      expect(conductorCall?.[2]).not.toContain(reservationEntity!.getId().slice(0, 8));
+    });
+
+    it('does not re-notify on a second run within the 24h window', async () => {
+      await makeInProgressReservation();
+      clock.set(new Date('2026-06-05T10:00:00Z'));
+      expect(await service.notifyOverdueInProgress()).toBe(1);
+      notificationProvider.notify.mockClear();
+      // A few minutes later the same reservation is still overdue but already notified
+      clock.set(new Date('2026-06-05T10:05:00Z'));
+      expect(await service.notifyOverdueInProgress()).toBe(0);
+      expect(notificationProvider.notify).not.toHaveBeenCalled();
+    });
+
+    it('re-notifies once the 24h escalation window elapses', async () => {
+      await makeInProgressReservation();
+      clock.set(new Date('2026-06-05T10:00:00Z'));
+      await service.notifyOverdueInProgress();
+      notificationProvider.notify.mockClear();
+      // More than 24h after the last notice, still not returned → re-escalates once
+      clock.set(new Date('2026-06-06T11:00:00Z'));
+      expect(await service.notifyOverdueInProgress()).toBe(1);
+      expect(notificationProvider.notify).toHaveBeenCalled();
+    });
+
+    it('does not pick up completed reservations past their endAt', async () => {
+      const id = await makeInProgressReservation();
+      const saved = await repo.findById(id);
+      await service.confirmReturn(conductorA, saved!.getReturnQrToken()!);
+      notificationProvider.notify.mockClear();
+      clock.set(new Date('2026-06-05T10:00:00Z'));
+      const count = await service.notifyOverdueInProgress();
+      expect(count).toBe(0);
+    });
+  });
+
   describe('cancelPendingByVehicle', () => {
     it('cancels pending holds and leaves confirmed intact', async () => {
       const a = await service.createReservation(conductorA, {
@@ -764,6 +908,7 @@ describe('ReservationService', () => {
           'Azul',
           50000,
           24000,
+          [],
           null,
           'B',
           'CABA',
@@ -1517,9 +1662,10 @@ describe('ReservationService', () => {
         holdExpiresAt: null,
         contractAcceptedAt: clock.now(),
         totalCents: 48000,
+        basePriceCentsSnapshot: 24000,
         paymentMethod: 'credit_card',
         paidAt: clock.now(),
-        voucherToken: paymentRes.voucherToken,
+        voucherToken: paymentRes.voucherToken!,
         createdAt: clock.now(),
         updatedAt: clock.now(),
       });
@@ -1629,6 +1775,58 @@ describe('ReservationService', () => {
       expect(walletService.recordReservationPayout).toHaveBeenCalledTimes(1);
     });
 
+    it('acredita al rentador el total descontado de una extensión completada', async () => {
+      const discountedVehicle = makeVehicle({
+        discountTiers: [{ minimumDays: 3, discountPercentage: 10 }],
+      });
+      vehicleRepo = makeVehicleRepo([discountedVehicle]);
+      const walletService = { recordReservationPayout: jest.fn().mockResolvedValue(undefined) } as any;
+      const localService = new ReservationService(
+        repo,
+        vehicleRepo,
+        userRepo,
+        ruleSetRepo,
+        clock,
+        voucherProvider,
+        notificationProvider,
+        paymentGateway,
+        emailProvider,
+        identityService,
+        driverLicenseService,
+        walletService,
+      );
+
+      const parent = await localService.createReservation(conductorA, {
+        vehicleId: discountedVehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+      await localService.confirmPayment(conductorA, parent.id, { paymentMethod: 'credit_card' });
+      const savedParent = await repo.findById(parent.id);
+      await localService.confirmPickup(discountedVehicle.getOwnerId(), savedParent!.getVoucherToken()!);
+
+      const extension = await localService.extendReservation(conductorA, parent.id, {
+        newEndAt: '2026-06-07T10:00:00.000Z',
+      });
+      const savedExtension = await repo.findById(extension.id);
+      await localService.confirmPickup(discountedVehicle.getOwnerId(), savedExtension!.getVoucherToken()!);
+
+      clock.set(new Date('2026-06-08T10:00:00Z'));
+      await localService.confirmReturn(conductorA, savedExtension!.getReturnQrToken()!);
+
+      expect(walletService.recordReservationPayout).toHaveBeenCalledTimes(2);
+      const payoutExtension = (walletService.recordReservationPayout as jest.Mock).mock.calls[0][0];
+      expect(payoutExtension.getId()).toBe(extension.id);
+      expect(payoutExtension.getTotalCents()).toBe(64800);
+      expect(payoutExtension.getPricingSnapshot()?.appliedDiscountTier).toEqual({
+        minimumDays: 3,
+        discountPercentage: 10,
+      });
+      const payoutParent = (walletService.recordReservationPayout as jest.Mock).mock.calls[1][0];
+      expect(payoutParent.getId()).toBe(parent.id);
+    });
+
     it('throws InvalidQrTokenException for unknown returnQrToken', async () => {
       await expect(
         service.confirmReturn(conductorA, randomUUID()),
@@ -1641,6 +1839,123 @@ describe('ReservationService', () => {
       await expect(
         service.confirmReturn(randomUUID(), saved!.getReturnQrToken()!),
       ).rejects.toThrow(ReservationForbiddenException);
+    });
+
+    it('registra experiencia al conductor al confirmar devolución', async () => {
+      const loyaltyMock = { registerPendingReservation: jest.fn().mockResolvedValue(undefined) };
+      const localService = new ReservationService(
+        repo, vehicleRepo, userRepo, ruleSetRepo, clock,
+        voucherProvider, notificationProvider, paymentGateway,
+        emailProvider,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        loyaltyMock,
+      );
+
+      const id = await makeInProgressReservation();
+      const saved = await repo.findById(id);
+      await localService.confirmReturn(conductorA, saved!.getReturnQrToken()!);
+
+      expect(loyaltyMock.registerPendingReservation).toHaveBeenCalledTimes(1);
+      expect(loyaltyMock.registerPendingReservation).toHaveBeenCalledWith(
+        conductorA,
+        id,
+        expect.stringContaining('Ford'),
+        expect.any(String),
+        expect.any(Date),
+        expect.any(Date),
+      );
+    });
+
+    it('completa en cascada todas las piezas del chain al confirmar devolución', async () => {
+      // A (parent): in_progress
+      const parentId = await makeInProgressReservation();
+
+      // B (extension): extendReservation + auto-charge lo deja en confirmed
+      const extResult = await service.extendReservation(conductorA, parentId, {
+        newEndAt: '2026-06-05T10:00:00.000Z',
+      });
+      const childId = extResult.id;
+
+      // B queda en confirmed (auto-charged); el cascade de confirmReturn lo completa sin confirmPickup
+
+      // Confirmar devolución sobre A — debe cascadear a B (confirmed → completed)
+      const parentSaved = await repo.findById(parentId);
+      await service.confirmReturn(conductorA, parentSaved!.getReturnQrToken()!);
+
+      const parentFinal = await repo.findById(parentId);
+      const childFinal = await repo.findById(childId);
+      expect(parentFinal!.getStatus()).toBe('completed');
+      expect(childFinal!.getStatus()).toBe('completed');
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // resolvePricingSnapshot — levelDiscountPercentage
+  // ─────────────────────────────────────────────
+  describe('resolvePricingSnapshot', () => {
+    it('computa levelDiscountPercentage cuando el snapshot almacenado no lo tiene y hay level discount en discountCents', async () => {
+      const r = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+
+      const stored = await repo.findById(r.id);
+      jest.spyOn(stored!, 'getPricingSnapshot').mockReturnValue({
+        vehicleId: vehicle.getId(),
+        currency: 'ARS' as const,
+        basePriceCents: 24000,
+        durationDays: 3,
+        subtotalCents: 72000,
+        appliedDiscountTier: null,
+        appliedDiscountPercentage: 0,
+        discountCents: 3600,
+        totalCents: 68400,
+      });
+
+      const res = await service.getById(conductorA, r.id);
+      expect(res.pricingSnapshot.levelDiscountPercentage).toBe(5);
+    });
+
+    it('no incluye levelDiscountPercentage cuando discountCents == appliedDiscountAmount', async () => {
+      const r = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+
+      const res = await service.getById(conductorA, r.id);
+      expect(res.pricingSnapshot.levelDiscountPercentage).toBeUndefined();
+    });
+
+    it('computa levelDiscountPercentage correctamente cuando co-existe con appliedDiscountPercentage', async () => {
+      const r = await service.createReservation(conductorA, {
+        vehicleId: vehicle.getId(),
+        startAt: start,
+        endAt: end,
+        contractAccepted: true,
+      });
+
+      const stored = await repo.findById(r.id);
+      jest.spyOn(stored!, 'getPricingSnapshot').mockReturnValue({
+        vehicleId: vehicle.getId(),
+        currency: 'ARS' as const,
+        basePriceCents: 24000,
+        durationDays: 3,
+        subtotalCents: 72000,
+        appliedDiscountTier: { minimumDays: 3, discountPercentage: 15 },
+        appliedDiscountPercentage: 15,
+        discountCents: 14400,
+        totalCents: 57600,
+      });
+
+      const res = await service.getById(conductorA, r.id);
+      expect(res.pricingSnapshot.levelDiscountPercentage).toBe(5);
     });
   });
 
@@ -1789,6 +2104,44 @@ describe('ReservationService', () => {
       expect(child?.getHoldExpiresAt()).not.toBeNull();
     });
 
+    it('aplica el descuento solo al tramo extendido y no al alquiler en curso', async () => {
+      const discountedVehicle = makeVehicle({
+        discountTiers: [{ minimumDays: 3, discountPercentage: 10 }],
+      });
+      vehicleRepo = makeVehicleRepo([discountedVehicle]);
+      service = new ReservationService(
+        repo,
+        vehicleRepo,
+        userRepo,
+        ruleSetRepo,
+        clock,
+        voucherProvider,
+        notificationProvider,
+        paymentGateway,
+        emailProvider,
+        identityService,
+        driverLicenseService,
+      );
+
+      const id = await makeInProgressFor(discountedVehicle);
+      const extension = await service.extendReservation(conductorA, id, {
+        newEndAt: '2026-06-07T10:00:00.000Z',
+      });
+
+      expect(extension.status).toBe('pending_payment');
+      expect(extension.totalCents).toBe(64800);
+      expect(extension.pricingSnapshot.appliedDiscountTier).toEqual({
+        minimumDays: 3,
+        discountPercentage: 10,
+      });
+      expect(extension.pricingSnapshot.appliedDiscountPercentage).toBe(10);
+      expect(extension.pricingSnapshot.discountCents).toBe(7200);
+
+      const parent = await repo.findById(id);
+      expect(parent?.getTotalCents()).toBe(48000);
+      expect(parent?.getPricingSnapshot()?.appliedDiscountPercentage ?? 0).toBe(0);
+    });
+
     async function setupManualInProgress(): Promise<string> {
       const manualVehicle = makeVehicle({ autoAccept: false });
       vehicleRepo = makeVehicleRepo([manualVehicle]);
@@ -1899,7 +2252,7 @@ describe('ReservationService', () => {
       expect(ext?.getStatus()).toBe('cancelled');
     });
 
-    it('cancelar un eslabón hijo NO cancela al padre comprometido', async () => {
+    it('cancelar un eslabón hijo lanza RESERVATION_CANCEL_EXTENSION_NOT_ALLOWED', async () => {
       const manualVehicle = makeVehicle({ autoAccept: false });
       vehicleRepo = makeVehicleRepo([manualVehicle]);
       service = new ReservationService(
@@ -1919,11 +2272,47 @@ describe('ReservationService', () => {
       const extension = await service.extendReservation(conductorA, parentId, {
         newEndAt: '2026-06-05T10:00:00.000Z',
       });
-      await service.cancelReservation(conductorA, extension.id);
+      await expect(
+        service.cancelReservation(conductorA, extension.id),
+      ).rejects.toThrow('extensions cannot be cancelled directly');
       const parent = await repo.findById(parentId);
-      const ext = await repo.findById(extension.id);
-      expect(ext?.getStatus()).toBe('cancelled');
       expect(parent?.getStatus()).toBe('in_progress');
+    });
+
+    it('reembolsa al conductor la suma del chain cuando cancela un tramo con descuento', async () => {
+      const discountedVehicle = makeVehicle({
+        discountTiers: [{ minimumDays: 3, discountPercentage: 10 }],
+      });
+      vehicleRepo = makeVehicleRepo([discountedVehicle]);
+      service = new ReservationService(
+        repo,
+        vehicleRepo,
+        userRepo,
+        ruleSetRepo,
+        clock,
+        voucherProvider,
+        notificationProvider,
+        paymentGateway,
+        emailProvider,
+        identityService,
+        driverLicenseService,
+      );
+
+      const parentId = await makeInProgressFor(discountedVehicle);
+      const extension = await service.extendReservation(conductorA, parentId, {
+        newEndAt: '2026-06-07T10:00:00.000Z',
+      });
+      const savedExtension = await repo.findById(extension.id);
+      await service.confirmPickup(discountedVehicle.getOwnerId(), savedExtension!.getVoucherToken()!);
+
+      const res = await service.cancelReservation(conductorA, parentId);
+
+      expect(res.refundCents).toBe(112800);
+      expect(res.balanceInCents).toBe(112800);
+      const parent = await repo.findById(parentId);
+      const child = await repo.findById(extension.id);
+      expect(parent?.getStatus()).toBe('cancelled');
+      expect(child?.getStatus()).toBe('cancelled');
     });
   });
 
@@ -1962,20 +2351,23 @@ describe('ReservationService', () => {
       await service.confirmPayment(conductorA, r.id, { paymentMethod: 'credit_card' });
 
       (notificationProvider.notify as jest.Mock).mockClear();
-      (userRepo.creditBalance as jest.Mock).mockClear();
       (userRepo.applyReputationPenalty as jest.Mock).mockClear();
-      
+
       const res = await service.cancelReservationByRentador(vehicle.getOwnerId(), r.id);
 
       expect(res.status).toBe('cancelled');
       expect(res.cancelledBy).toBe('owner');
-      expect(res.reputationPenalty).toBe(-50);
-      
+      expect(res.reputationPenalty).toBe(-5);
+      expect(res.balanceInCents).toBe(r.totalCents);
+
       const saved = await repo.findById(r.id);
       expect(saved?.getStatus()).toBe('cancelled');
 
-      expect(userRepo.creditBalance).toHaveBeenCalledWith(conductorA, r.totalCents);
-      expect(userRepo.applyReputationPenalty).toHaveBeenCalledWith(vehicle.getOwnerId(), -50);
+      expect(reputationService.applyPenalty).toHaveBeenCalledWith(expect.objectContaining({
+        userId: vehicle.getOwnerId(),
+        role: 'rentador',
+        scoreDeduction: 5,
+      }));
       expect(notificationProvider.notify).toHaveBeenCalledTimes(2);
     });
 
@@ -1990,6 +2382,246 @@ describe('ReservationService', () => {
       await expect(
         service.cancelReservationByRentador('otro-usuario', r.id),
       ).rejects.toThrow('forbidden: this reservation does not belong to the current user');
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // Discount + payment scenarios
+  // ─────────────────────────────────────────────
+  describe('descuentos por alquiler prolongado', () => {
+    function makeDiscountedVehicle() {
+      return makeVehicle({
+        discountTiers: [{ minimumDays: 3, discountPercentage: 15 }],
+      });
+    }
+
+    /** Crea un vehículo con descuento, monta el repo y el service */
+    function setupDiscountedService(extraSetup?: (v: Vehicle) => Promise<void>) {
+      return async (): Promise<Vehicle> => {
+        const v = makeDiscountedVehicle();
+        vehicleRepo = makeVehicleRepo([v]);
+        if (extraSetup) await extraSetup(v);
+        service = new ReservationService(
+          repo, vehicleRepo, userRepo, ruleSetRepo, clock,
+          voucherProvider, notificationProvider, paymentGateway,
+          emailProvider, identityService, driverLicenseService,
+        );
+        return v;
+      };
+    }
+
+    it('crea reserva con descuento aplicado correctamente', async () => {
+      const discounted = await setupDiscountedService()();
+
+      const res = await service.createReservation(conductorA, {
+        vehicleId: discounted.getId(),
+        startAt: '2026-06-01T10:00:00.000Z',
+        endAt: '2026-06-04T10:00:00.000Z',
+        contractAccepted: true,
+      });
+
+      const baseDaily = 24000;
+      const subtotal = 3 * baseDaily;
+      const discount = Math.floor((subtotal * 15) / 100);
+      const total = subtotal - discount;
+
+      expect(res.totalCents).toBe(total);
+      expect(res.pricingSnapshot.subtotalCents).toBe(subtotal);
+      expect(res.pricingSnapshot.discountCents).toBe(discount);
+      expect(res.pricingSnapshot.totalCents).toBe(total);
+      expect(res.pricingSnapshot.appliedDiscountPercentage).toBe(15);
+    });
+
+    it('confirma pago total con descuento', async () => {
+      const discounted = await setupDiscountedService()();
+
+      const res = await service.createReservation(conductorA, {
+        vehicleId: discounted.getId(),
+        startAt: '2026-06-01T10:00:00.000Z',
+        endAt: '2026-06-04T10:00:00.000Z',
+        contractAccepted: true,
+      });
+
+      const payment = await service.confirmPayment(conductorA, res.id, {
+        paymentMethod: 'credit_card',
+      });
+
+      const expectedTotal = res.pricingSnapshot.totalCents;
+      expect(payment.paidCents).toBe(expectedTotal);
+      expect(payment.status).toBe('confirmed');
+      expect(payment.balanceCents).toBe(0);
+      expect(payment.voucherToken).toBeTruthy();
+    });
+
+    // Escenario 1: Descuento + seña
+    describe('Escenario 1: descuento + seña', () => {
+      const setupDepositScenario = setupDiscountedService(async (v) => {
+        vehicleRepo.findById.mockImplementation(async (id: string) =>
+          id === v.getId() ? v : null,
+        );
+        await ruleSetRepo.save(
+          new ReservationRuleSet(
+            v.getOwnerId(), v.getId(), 'Reglas seña descuento', null,
+            'FLEXIBLE', 30, { type: 'UNLIMITED' }, {},
+          ),
+        );
+      });
+
+      it('seña calculada sobre monto con descuento', async () => {
+        const dv = await setupDepositScenario();
+
+        const creadaConDescuento = await service.createReservation(conductorA, {
+          vehicleId: dv.getId(),
+          startAt: '2026-06-01T10:00:00.000Z',
+          endAt: '2026-06-04T10:00:00.000Z',
+          contractAccepted: true,
+        });
+
+        const subtotal = 3 * 24000;
+        const descuento = Math.floor((subtotal * 15) / 100);
+        const totalConDescuento = subtotal - descuento;
+
+        expect(creadaConDescuento.pricingSnapshot.appliedDiscountTier).toEqual({
+          minimumDays: 3, discountPercentage: 15,
+        });
+        expect(creadaConDescuento.totalCents).toBe(totalConDescuento);
+
+        const sena = Math.floor((totalConDescuento * 30) / 100);
+        const saldo = totalConDescuento - sena;
+
+        const pagoSeña = await service.confirmPayment(conductorA, creadaConDescuento.id, {
+          paymentMethod: 'credit_card', paymentMode: 'deposit',
+        });
+        expect(pagoSeña.status).toBe('pending_balance');
+        expect(pagoSeña.paidCents).toBe(sena);
+        expect(pagoSeña.balanceCents).toBe(saldo);
+        expect(pagoSeña.balanceDueAt).not.toBeNull();
+
+        const pagoSaldo = await service.payBalance(conductorA, creadaConDescuento.id, {
+          paymentMethod: 'credit_card',
+        });
+        expect(pagoSaldo.status).toBe('confirmed');
+        expect(pagoSaldo.balancePaidCents).toBe(saldo);
+        expect(pagoSaldo.voucherToken).toBeTruthy();
+        expect(paymentGateway.processPayment).toHaveBeenLastCalledWith(
+          saldo, 'ARS', 'credit_card',
+        );
+      });
+    });
+
+    // Escenario 2: Extensión + descuento
+    describe('Escenario 2: extensión + descuento', () => {
+      it('extiende reserva con descuento en la extension', async () => {
+        const discounted = await setupDiscountedService()();
+
+        const parent = await service.createReservation(conductorA, {
+          vehicleId: discounted.getId(),
+          startAt: '2026-06-01T10:00:00.000Z',
+          endAt: '2026-06-03T10:00:00.000Z',
+          contractAccepted: true,
+        });
+        expect(parent.pricingSnapshot.appliedDiscountTier).toBeNull();
+
+        await service.confirmPayment(conductorA, parent.id, { paymentMethod: 'credit_card' });
+        const savedParent = await repo.findById(parent.id);
+        await service.confirmPickup(discounted.getOwnerId(), savedParent!.getVoucherToken()!);
+
+        const ext = await service.extendReservation(conductorA, parent.id, {
+          newEndAt: '2026-06-07T10:00:00.000Z',
+        });
+
+        const extSubtotal = 4 * 24000;
+        const extDiscount = Math.floor((extSubtotal * 15) / 100);
+        const extTotal = extSubtotal - extDiscount;
+
+        expect(ext.pricingSnapshot.appliedDiscountPercentage).toBe(15);
+        expect(ext.pricingSnapshot.subtotalCents).toBe(extSubtotal);
+        expect(ext.pricingSnapshot.discountCents).toBe(extDiscount);
+        expect(ext.totalCents).toBe(extTotal);
+        expect(paymentGateway.processPayment).toHaveBeenCalledWith(
+          extTotal, 'ARS', 'credit_card',
+        );
+      });
+    });
+
+    // Escenario 3: seña + extensión + descuento (combinado)
+    describe('Escenario 3: seña + extensión + descuento', () => {
+      const setupComboScenario = setupDiscountedService(async (v) => {
+        vehicleRepo.findById.mockImplementation(async (id: string) =>
+          id === v.getId() ? v : null,
+        );
+        await ruleSetRepo.save(
+          new ReservationRuleSet(
+            v.getOwnerId(), v.getId(), 'Reglas combo', null,
+            'FLEXIBLE', 30, { type: 'UNLIMITED' }, {},
+          ),
+        );
+      });
+
+      it('flujo completo: pago total + pickup + extensión + descuento', async () => {
+        const dv = await setupComboScenario();
+
+        const original = await service.createReservation(conductorA, {
+          vehicleId: dv.getId(),
+          startAt: '2026-06-01T10:00:00.000Z',
+          endAt: '2026-06-04T10:00:00.000Z',
+          contractAccepted: true,
+        });
+
+        const subtotalOrig = 3 * 24000;
+        const discountOrig = Math.floor((subtotalOrig * 15) / 100);
+        const totalOrig = subtotalOrig - discountOrig;
+        expect(original.pricingSnapshot.totalCents).toBe(totalOrig);
+
+        await service.confirmPayment(conductorA, original.id, { paymentMethod: 'credit_card' });
+        const saved = await repo.findById(original.id);
+        await service.confirmPickup(dv.getOwnerId(), saved!.getVoucherToken()!);
+
+        const ext = await service.extendReservation(conductorA, original.id, {
+          newEndAt: '2026-06-08T10:00:00.000Z',
+        });
+
+        const extSubtotal = 4 * 24000;
+        const extDiscount = Math.floor((extSubtotal * 15) / 100);
+        const extTotal = extSubtotal - extDiscount;
+
+        expect(ext.totalCents).toBe(extTotal);
+        expect(paymentGateway.processPayment).toHaveBeenLastCalledWith(
+          extTotal, 'ARS', 'credit_card',
+        );
+      });
+    });
+
+    // Refund con descuento
+    describe('reembolso con descuento', () => {
+      const setupRefundScenario = setupDiscountedService(async (v) => {
+        await ruleSetRepo.save(
+          new ReservationRuleSet(
+            v.getOwnerId(), v.getId(), 'Reglas flexibles', null,
+            'FLEXIBLE', 30, { type: 'UNLIMITED' }, {},
+          ),
+        );
+      });
+
+      it('FLEXIBLE reembolsa total con descuento (sin penalidad)', async () => {
+        const discounted = await setupRefundScenario();
+
+        const res = await service.createReservation(conductorA, {
+          vehicleId: discounted.getId(),
+          startAt: '2026-06-04T10:00:00.000Z',
+          endAt: '2026-06-07T10:00:00.000Z',
+          contractAccepted: true,
+        });
+
+        await service.confirmPayment(conductorA, res.id, { paymentMethod: 'credit_card' });
+
+        const cancelRes = await service.cancelReservation(conductorA, res.id);
+
+        const totalConDescuento = res.pricingSnapshot.totalCents;
+        expect(cancelRes.refundCents).toBe(totalConDescuento);
+        expect(cancelRes.status).toBe('cancelled');
+        expect(cancelRes.balanceInCents).toBe(totalConDescuento);
+      });
     });
   });
 });

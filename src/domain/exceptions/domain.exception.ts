@@ -77,6 +77,63 @@ export class DriverLicenseVerificationRequiredException extends DomainException 
     super('driver license verification is required to continue');
   }
 }
+
+/**
+ * El usuario autenticado no tiene rol admin. Mapea a 403 `ADMIN_FORBIDDEN`.
+ */
+export class AdminForbiddenException extends DomainException {
+  constructor() {
+    super('admin role is required to access this resource');
+  }
+}
+
+/**
+ * Se intentó usar un `quoteToken` que no existe en la base. Mapea a 404
+ * `PRICE_QUOTE_NOT_FOUND`.
+ */
+export class PriceQuoteNotFoundException extends DomainException {
+  constructor(token: string) {
+    super(`price quote ${token} not found`);
+  }
+}
+
+/**
+ * El `quoteToken` recibido corresponde a un quote ya vencido (TTL 5 min).
+ * El cliente debe recotizar. Mapea a 410 `PRICE_QUOTE_EXPIRED`.
+ */
+export class PriceQuoteExpiredException extends DomainException {
+  constructor(token: string) {
+    super(`price quote ${token} has expired`);
+  }
+}
+
+/**
+ * El `quoteToken` es válido pero corresponde a un vehículo distinto al que
+ * el cliente está intentando reservar. Mapea a 409
+ * `PRICE_QUOTE_VEHICLE_MISMATCH`.
+ */
+export class PriceQuoteVehicleMismatchException extends DomainException {
+  constructor(token: string, vehicleId: string) {
+    super(`price quote ${token} does not match vehicle ${vehicleId}`);
+  }
+}
+
+/**
+ * El `quoteToken` ya fue asociado a otro conductor al ser generado y no
+ * puede ser reutilizado por el conductor actual. Mapea a 403
+ * `PRICE_QUOTE_CONDUCTOR_MISMATCH`.
+ */
+export class PriceQuoteConductorMismatchException extends DomainException {
+  constructor(token: string) {
+    super(`price quote ${token} cannot be used by this conductor`);
+  }
+}
+
+export class AdminAccessRequiredException extends DomainException {
+  constructor() {
+    super('admin access is required to perform this action');
+  }
+}
 /**
  * El % de seña configurado en un set de reglas está fuera del rango
  * aceptado (10-50) o tiene formato inválido. Mapea a 400
