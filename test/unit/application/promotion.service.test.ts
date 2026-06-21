@@ -79,6 +79,7 @@ describe('PromotionService', () => {
       findByCharacteristics: jest.fn(),
       bulkUpdatePrices: jest.fn(),
       countActiveReservationsByVehicleIds: jest.fn(),
+      findEnabledVehicles: jest.fn(),
     };
 
     paymentGatewayMock = {

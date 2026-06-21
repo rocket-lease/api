@@ -51,4 +51,12 @@ export class PostgresFavoriteRepository implements FavoriteRepository {
     });
     return row ? this.reconstitute(row) : null;
   }
+
+  async findByVehicle(vehicleId: string): Promise<Favorite[]> {
+    const rows = await this.prisma.favorite.findMany({
+      where: { vehicleId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((r) => this.reconstitute(r));
+  }
 }

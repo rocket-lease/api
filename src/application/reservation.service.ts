@@ -22,6 +22,7 @@ import {
   type RejectReservationResponse,
   RejectReservationResponseSchema,
   type ReservationChainItem,
+  type PricingQuote,
   type VehicleBusyRangesResponse,
   VehicleBusyRangesResponseSchema,
   type ReservationListItem,
@@ -110,7 +111,6 @@ import {
   type PriceQuoteRepository,
 } from '@/domain/repositories/price-quote.repository';
 import { PricingService } from '@/application/pricing/pricing.service';
-import type { PricingQuote } from '@rocket-lease/contracts';
 import {
   VOUCHER_PROVIDER,
   type VoucherProvider,
@@ -2438,23 +2438,48 @@ export class ReservationService {
     if (!vehicle) {
       return {
         id: vehicleId,
+        plate: '—',
         brand: '—',
         model: '—',
         year: 0,
         photo: null,
-        plate: '—',
         reservationRuleSet,
       };
     }
     const photos = vehicle.getPhotos();
     return {
       id: vehicle.getId(),
+      plate: vehicle.getPlate(),
       brand: vehicle.getBrand(),
       model: vehicle.getModel(),
       year: vehicle.getYear(),
       photo: photos.length > 0 ? photos[0] : null,
-      plate: vehicle.getPlate(),
       reservationRuleSet,
+    };
+  }
+
+  private buildPricingQuote(r: Reservation): PricingQuote {
+    const startAt = r.getStartAt();
+    const endAt = r.getEndAt();
+    const durationMs = endAt.getTime() - startAt.getTime();
+    const durationDays = Math.ceil(durationMs / DAY_MS);
+    const basePriceCents = r.getBasePriceCentsSnapshot();
+    const subtotalCents = basePriceCents * durationDays;
+    const deliveryFeeCents = r.getWithHomeDelivery()
+      ? r.getHomeDeliveryFeeCentsSnapshot()
+      : null;
+
+    return {
+      vehicleId: r.getVehicleId(),
+      currency: 'ARS',
+      basePriceCents,
+      durationDays,
+      subtotalCents,
+      appliedDiscountTier: null,
+      appliedDiscountPercentage: 0,
+      discountCents: 0,
+      totalCents: r.getTotalCents(),
+      ...(deliveryFeeCents != null ? { deliveryFeeCents } : {}),
     };
   }
 }

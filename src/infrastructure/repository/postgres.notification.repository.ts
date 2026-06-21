@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
 import type {
   NewNotification,
@@ -8,7 +8,7 @@ import type {
 
 @Injectable()
 export class PostgresNotificationRepository implements NotificationRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async save(data: NewNotification): Promise<NotificationData> {
     const row = await this.prisma.notification.create({

@@ -82,6 +82,7 @@ describe('PricingService', () => {
       delete: jest.fn(),
       bulkUpdatePrices: jest.fn(),
       countActiveReservationsByVehicleIds: jest.fn(),
+      findEnabledVehicles: jest.fn(),
     }
     quoteRepoMock = {
       save: jest.fn(),

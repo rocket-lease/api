@@ -29,6 +29,7 @@ describe('VehicleService — bulk price operations', () => {
       delete: jest.fn().mockResolvedValue(undefined),
       bulkUpdatePrices: jest.fn(),
       countActiveReservationsByVehicleIds: jest.fn(),
+      findEnabledVehicles: jest.fn().mockResolvedValue([]),
     };
 
     userRepoMock = {
@@ -81,6 +82,14 @@ describe('VehicleService — bulk price operations', () => {
     };
 
     const vehicleDocumentRepoMock = { save: jest.fn(), findByVehicleId: jest.fn() };
+    const favoriteRepoMock = {
+      save: jest.fn(),
+      delete: jest.fn(),
+      findByConductor: jest.fn(),
+      findByConductorAndVehicle: jest.fn(),
+      findByVehicle: jest.fn(),
+    };
+    const notificationProviderMock = { notify: jest.fn() };
     service = new VehicleService(
       repositoryMock,
       userRepoMock,
@@ -93,6 +102,8 @@ describe('VehicleService — bulk price operations', () => {
       {
         multipliersForCells: jest.fn().mockResolvedValue(new Map()),
       } as unknown as ZoneDemandPricer,
+      favoriteRepoMock,
+      notificationProviderMock,
     );
   });
 
