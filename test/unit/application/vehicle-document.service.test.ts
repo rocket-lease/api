@@ -80,6 +80,7 @@ describe('VehicleDocumentService', () => {
       delete: jest.fn(),
       bulkUpdatePrices: jest.fn(),
       countActiveReservationsByVehicleIds: jest.fn(),
+      findEnabledVehicles: jest.fn(),
     };
 
     vehicleDocumentRepoMock = {

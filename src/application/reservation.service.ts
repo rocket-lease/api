@@ -111,7 +111,6 @@ import {
   type PriceQuoteRepository,
 } from '@/domain/repositories/price-quote.repository';
 import { PricingService } from '@/application/pricing/pricing.service';
-import type { PricingQuote } from '@rocket-lease/contracts';
 import {
   VOUCHER_PROVIDER,
   type VoucherProvider,
@@ -322,11 +321,6 @@ export class ReservationService {
       withHomeReturn,
       homeReturnFeeCentsSnapshot,
       returnAddress: dto.returnAddress ?? null,
-      depositPercentageSnapshot,
-      basePriceCentsSnapshot: basePriceCents,
-      cancellationPolicySnapshot,
-      maxKilometrageSnapshot,
-      rentalTimeConstraintsSnapshot,
       createdAt: now,
       updatedAt: now,
     });
@@ -2449,7 +2443,6 @@ export class ReservationService {
         model: '—',
         year: 0,
         photo: null,
-        plate: '—',
         reservationRuleSet,
       };
     }
@@ -2461,7 +2454,6 @@ export class ReservationService {
       model: vehicle.getModel(),
       year: vehicle.getYear(),
       photo: photos.length > 0 ? photos[0] : null,
-      plate: vehicle.getPlate(),
       reservationRuleSet,
     };
   }
