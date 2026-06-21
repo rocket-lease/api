@@ -14,6 +14,8 @@ Característica: Alternativas de búsqueda
 
   Escenario: No hay resultados exactos y se muestran alternativas cercanas
     Dado que soy un conductor "A" autenticado
+    Y que existe un vehículo publicado con patente "ALT-101" y precio base 25000
+    Y que existe un vehículo publicado con patente "ALT-102" y precio base 45000
     Cuando busco vehículos con los siguientes criterios:
       | marca  | modelo  | año  | precio máximo | transmisión |
       | Toyota | Corolla | 2024 | 50000         | Automatic   |

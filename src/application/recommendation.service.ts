@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   VEHICLE_REPOSITORY,
   type VehicleRepository,
+  type VehicleFilter,
 } from '@/domain/repositories/vehicle.repository';
 import {
   RESERVATION_REPOSITORY,
@@ -37,6 +38,7 @@ export interface AlternativeVehicleResponse {
 
 export interface SearchAlternativesResponse {
   alternatives: AlternativeVehicleResponse[];
+  message?: string;
 }
 
 @Injectable()
@@ -156,12 +158,26 @@ export class RecommendationService {
   async getSearchAlternatives(filters: {
     brand?: string;
     model?: string;
+    year?: number;
     transmission?: string;
     maxPriceCents?: number;
     city?: string;
     province?: string;
     characteristics?: string[];
   }): Promise<SearchAlternativesResponse> {
+    const exactFilter: VehicleFilter = {
+      brand: filters.brand,
+      model: filters.model,
+      year: filters.year,
+      transmission: filters.transmission,
+      maxPriceCents: filters.maxPriceCents,
+      city: filters.city,
+    };
+    const exactResults = await this.vehicleRepository.fetchAll(exactFilter);
+    if (exactResults.length > 0) {
+      return { alternatives: [], message: 'Ya existen resultados exactos para esta búsqueda' };
+    }
+
     const allVehicles = await this.vehicleRepository.findEnabledVehicles();
     const availableVehicles: VehicleForScoring[] = allVehicles.map((v) =>
       this.mapToScoringVehicle(v),
@@ -173,12 +189,16 @@ export class RecommendationService {
       5,
     );
 
-    return {
-      alternatives: alternatives.map((a) => ({
-        vehicle: a.vehicle,
-        differences: a.differences,
-      })),
-    };
+    const mapped = alternatives.map((a) => ({
+      vehicle: a.vehicle,
+      differences: a.differences,
+    }));
+
+    if (mapped.length === 0) {
+      return { alternatives: [], message: 'No hay alternativas cercanas disponibles' };
+    }
+
+    return { alternatives: mapped };
   }
 
   /**

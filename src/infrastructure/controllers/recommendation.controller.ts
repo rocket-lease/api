@@ -59,6 +59,7 @@ export class RecommendationController {
   async getSearchAlternatives(
     @Query('brand') brand?: string,
     @Query('model') model?: string,
+    @Query('year') year?: string,
     @Query('transmission') transmission?: string,
     @Query('maxPrice') maxPrice?: string,
     @Query('city') city?: string,
@@ -68,6 +69,7 @@ export class RecommendationController {
     return this.recommendationService.getSearchAlternatives({
       brand,
       model,
+      year: year ? parseInt(year, 10) : undefined,
       transmission,
       maxPriceCents: maxPrice ? parseInt(maxPrice, 10) : undefined,
       city,

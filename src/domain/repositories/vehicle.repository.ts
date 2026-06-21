@@ -5,6 +5,11 @@ export interface VehicleFilter {
   city?: string;
   from?: string;
   to?: string;
+  brand?: string;
+  model?: string;
+  year?: number;
+  maxPriceCents?: number;
+  transmission?: string;
 }
 
 /**

@@ -20,13 +20,34 @@ function getFavoriteVehicleId(world: MyWorld): string {
 }
 
 /**
+ * Try a PATCH request; if it fails with 401/403/404 and an owner token is
+ * available, retry as the owner.  Returns the successful response (or the
+ * first failure if the owner retry also fails).
+ */
+async function patchAsOwner(
+  world: MyWorld,
+  url: string,
+  body: Record<string, unknown>,
+) {
+  let res = await api(world).patch(url, body);
+  if (![401, 403, 404].includes(res.status)) return res;
+  const ownerToken = world.world.tokens_by_alias?.['__owner__'];
+  if (!ownerToken) return res;
+  const prev = world.world.access_token;
+  world.world.access_token = ownerToken;
+  res = await api(world).patch(url, body);
+  world.world.access_token = prev;
+  return res;
+}
+
+/**
  * Helper: mark a vehicle as unavailable by setting a far-future availableFrom date.
  */
 async function setVehicleUnavailable(
   world: MyWorld,
   vehicleId: string,
 ): Promise<void> {
-  const res = await api(world).patch(`/vehicle/${vehicleId}`, {
+  const res = await patchAsOwner(world, `/vehicle/${vehicleId}`, {
     availableFrom: '2099-12-31',
   });
   expect(res.status).toBe(200);
@@ -39,7 +60,7 @@ async function setVehicleAvailable(
   world: MyWorld,
   vehicleId: string,
 ): Promise<void> {
-  const res = await api(world).patch(`/vehicle/${vehicleId}`, {
+  const res = await patchAsOwner(world, `/vehicle/${vehicleId}`, {
     availableFrom: '2026-01-01',
   });
   expect(res.status).toBe(200);
