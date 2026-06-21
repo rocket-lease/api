@@ -21,6 +21,7 @@ import * as Contracts from '@rocket-lease/contracts';
 import type { Request } from 'express';
 import { z } from 'zod';
 import { SearchLogService } from '@/application/search-log.service';
+import { type VehicleFilter } from '@/domain/repositories/vehicle.repository';
 
 @Controller('vehicle')
 export class VehicleController {
@@ -69,6 +70,11 @@ export class VehicleController {
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('promoted') promoted?: string,
+    @Query('brand') brand?: string,
+    @Query('model') model?: string,
+    @Query('year') year?: string,
+    @Query('maxPrice') maxPrice?: string,
+    @Query('transmission') transmission?: string,
     @Headers('x-session-id') sessionId?: string,
     @Headers('authorization') authHeader?: string,
   ): Promise<Array<Contracts.GetVehicleResponse>> {
@@ -102,7 +108,16 @@ export class VehicleController {
     if (to   && !ISO_DATE.test(to))   throw new BadRequestException('to must be YYYY-MM-DD')
     if (from && to && from > to)       throw new BadRequestException('from must be <= to')
 
-    const filter = { city: city?.trim() || undefined, from, to };
+    const filter: VehicleFilter = {
+      city: city?.trim() || undefined,
+      from,
+      to,
+      brand: brand?.trim() || undefined,
+      model: model?.trim() || undefined,
+      year: year ? parseInt(year, 10) : undefined,
+      maxPriceCents: maxPrice ? parseInt(maxPrice, 10) : undefined,
+      transmission: transmission?.trim() || undefined,
+    };
     const unique = Array.from(new Set(parsedList));
     if (locationCode?.trim()) {
       const conductorId = await this.tryGetConductorId(authHeader);

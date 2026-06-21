@@ -29,6 +29,7 @@ describe('VehicleService — bulk price operations', () => {
       delete: jest.fn().mockResolvedValue(undefined),
       bulkUpdatePrices: jest.fn(),
       countActiveReservationsByVehicleIds: jest.fn(),
+      findEnabledVehicles: jest.fn().mockResolvedValue([]),
     };
 
     userRepoMock = {

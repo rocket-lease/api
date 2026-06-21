@@ -207,6 +207,29 @@ export class PostgresVehicleRepository implements VehicleRepository {
       and.push({ city: { equals: filter.city, mode: 'insensitive' } });
     }
 
+    if (filter?.brand) {
+      and.push({ brand: { contains: filter.brand, mode: 'insensitive' } });
+    }
+
+    if (filter?.model) {
+      and.push({ model: { contains: filter.model, mode: 'insensitive' } });
+    }
+
+    if (filter?.year) {
+      and.push({ year: filter.year });
+    }
+
+    if (filter?.maxPriceCents) {
+      and.push({ basePriceCents: { lte: filter.maxPriceCents } });
+    }
+
+    if (filter?.transmission) {
+      const valid = ['Manual', 'Automatico', 'Semiautomatico'] as const;
+      if (valid.includes(filter.transmission as any)) {
+        and.push({ transmission: filter.transmission as any });
+      }
+    }
+
     if (filter?.from && filter?.to) {
       and.push({
         NOT: {
@@ -286,6 +309,15 @@ export class PostgresVehicleRepository implements VehicleRepository {
     }
 
     return counts;
+  }
+
+  async findEnabledVehicles(): Promise<Vehicle[]> {
+    const raws = await this.prisma.vehicle.findMany({
+      where: { enabled: true },
+      include: VEHICLE_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+    });
+    return raws.map((raw) => this.mapToDomain(raw));
   }
 
   async delete(id: string): Promise<void> {

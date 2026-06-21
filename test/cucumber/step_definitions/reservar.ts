@@ -26,6 +26,7 @@ async function ensureVehiclePublished(
   if (world.world.vehicle_by_plate?.[plate]) {
     return world.world.vehicle_by_plate[plate];
   }
+  const previousToken = world.world.access_token;
   await registerAndLoginVerified(world, '__owner__');
   useAlias(world, '__owner__');
   const res = await api(world).post('/vehicle', {
@@ -69,7 +70,7 @@ async function ensureVehiclePublished(
   const processResponse = await api(world).post('/vehicle/documents/process');
   expect(processResponse.status).toBe(200);
 
-  world.world.access_token = undefined;
+  world.world.access_token = previousToken;
   return res.body.id;
 }
 
