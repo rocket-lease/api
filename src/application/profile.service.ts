@@ -28,13 +28,15 @@ export class ProfileService {
   ) {}
 
   public async getMyProfile(userId: string): Promise<GetMyProfileResponse> {
-    const profile = await this.userRepository.getProfileById(userId);
+    const [profile, identityVerification, driverLicenseVerification] = await Promise.all([
+      this.userRepository.getProfileById(userId),
+      this.identityService.getSummaryByUserId(userId),
+      this.driverLicenseService.getSummaryByUserId(userId),
+    ]);
     if (!profile) {
       throw new InvalidEntityDataException('User not found');
     }
 
-    const identityVerification = await this.identityService.getSummaryByUserId(userId);
-    const driverLicenseVerification = await this.driverLicenseService.getSummaryByUserId(userId);
     return GetMyProfileResponseSchema.parse({
       ...profile,
       verificationStatus: identityVerification.status,

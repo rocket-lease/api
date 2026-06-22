@@ -69,6 +69,14 @@ export class PostgresVehicleDocumentRepository implements VehicleDocumentReposit
     return row ? this.mapRow(row) : null;
   }
 
+  async findByVehicleIds(vehicleIds: string[]): Promise<VehicleDocumentVerification[]> {
+    if (vehicleIds.length === 0) return [];
+    const rows = await this.prisma.vehicleDocumentVerification.findMany({
+      where: { vehicleId: { in: vehicleIds } },
+    });
+    return rows.map((row) => this.mapRow(row));
+  }
+
   async findPending(): Promise<VehicleDocumentVerification[]> {
     const rows = await this.prisma.vehicleDocumentVerification.findMany({
       where: { status: 'pending' },
