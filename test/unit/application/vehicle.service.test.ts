@@ -131,7 +131,7 @@ describe('VehicleService', () => {
 
     const clockMock = { now: jest.fn().mockReturnValue(new Date()) };
 
-    const vehicleDocumentRepoMock = { save: jest.fn(), findByVehicleId: jest.fn() };
+    const vehicleDocumentRepoMock = { save: jest.fn(), findByVehicleId: jest.fn(), findByVehicleIds: jest.fn().mockResolvedValue([]) };
     const favoriteRepoMock = {
       save: jest.fn(),
       delete: jest.fn(),

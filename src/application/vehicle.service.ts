@@ -288,12 +288,20 @@ export class VehicleService {
     const ownerIds = Array.from(new Set(vehicles.map((v) => v.getOwnerId())));
     const profiles = await this.userRepository.findProfilesByIds(ownerIds);
     const verifications = await this.identityService.getSummariesByUserIds(ownerIds);
+    const docStatuses = await this.documentStatusesByVehicle(vehicles.map((v) => v.getId()));
     const owners = new Map<string, VehicleOwner>(
       profiles.map((p) => [p.id, this.profileToOwner(p, 0, verifications.get(p.id))]),
     );
     return Promise.all(vehicles.map((v) => {
       const owner = owners.get(v.getOwnerId());
-      return this.toDTO(v, owner ? { ...owner, reputationScore: v.getOwnerReputationScore() } : undefined);
+      return this.toDTO(
+        v,
+        owner ? { ...owner, reputationScore: v.getOwnerReputationScore() } : undefined,
+        false,
+        false,
+        DYNAMIC_PRICING_NEUTRAL,
+        docStatuses.get(v.getId()) ?? 'none',
+      );
     }));
   }
 
@@ -305,6 +313,7 @@ export class VehicleService {
     const ownerIds = Array.from(new Set(vehicles.map((v) => v.getOwnerId())));
     const profiles = await this.userRepository.findProfilesByIds(ownerIds);
     const verifications = await this.identityService.getSummariesByUserIds(ownerIds);
+    const docStatuses = await this.documentStatusesByVehicle(vehicles.map((v) => v.getId()));
     const owners = new Map<string, VehicleOwner>(
       profiles.map((p) => [p.id, this.profileToOwner(p, 0, verifications.get(p.id))]),
     );
@@ -330,6 +339,7 @@ export class VehicleService {
           false,
           promotedIds.has(v.getId()),
           demand.get(v.getId()) ?? DYNAMIC_PRICING_NEUTRAL,
+          docStatuses.get(v.getId()) ?? 'none',
         );
       }),
     );
@@ -360,12 +370,28 @@ export class VehicleService {
     return verification.getStatus();
   }
 
+  /**
+   * Estado de documentación de un conjunto de vehículos en una sola query.
+   * Evita el N+1 de `getDocumentStatus` por vehículo al armar listas.
+   */
+  private async documentStatusesByVehicle(
+    vehicleIds: string[],
+  ): Promise<Map<string, 'none' | 'pending' | 'verified' | 'rejected'>> {
+    const verifications = await this.vehicleDocumentRepository.findByVehicleIds(vehicleIds);
+    const map = new Map<string, 'none' | 'pending' | 'verified' | 'rejected'>();
+    for (const verification of verifications) {
+      map.set(verification.getVehicleId(), verification.getStatus());
+    }
+    return map;
+  }
+
   private async toDTO(
     vehicle: Vehicle,
     owner?: VehicleOwner,
     includeReservationRuleSet = false,
     isPromoted = false,
     demandMultiplier = DYNAMIC_PRICING_NEUTRAL,
+    precomputedDocumentStatus?: 'none' | 'pending' | 'verified' | 'rejected',
   ): Promise<GetVehicleResponse> {
     const reservationRuleSet = includeReservationRuleSet
       ? await this.loadReservationRuleSet(
@@ -373,7 +399,8 @@ export class VehicleService {
           vehicle.getReservationRuleSetId(),
         )
       : undefined;
-    const documentStatus = await this.getDocumentStatus(vehicle.getId());
+    const documentStatus =
+      precomputedDocumentStatus ?? (await this.getDocumentStatus(vehicle.getId()));
     return GetVehicleResponseSchema.parse({
       id: vehicle.getId(),
       ownerId: vehicle.getOwnerId(),
