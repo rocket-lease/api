@@ -86,6 +86,7 @@ describe('VehicleDocumentService', () => {
     vehicleDocumentRepoMock = {
       save: jest.fn(),
       findByVehicleId: jest.fn(),
+      findByVehicleIds: jest.fn().mockResolvedValue([]),
       findPending: jest.fn(),
     };
 

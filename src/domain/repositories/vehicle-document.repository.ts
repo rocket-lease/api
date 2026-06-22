@@ -7,6 +7,9 @@ export interface VehicleDocumentRepository {
   findByVehicleId(
     vehicleId: string,
   ): Promise<VehicleDocumentVerification | null>;
+  findByVehicleIds(
+    vehicleIds: string[],
+  ): Promise<VehicleDocumentVerification[]>;
   findPending(): Promise<VehicleDocumentVerification[]>;
 }
 
