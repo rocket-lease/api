@@ -286,9 +286,11 @@ export class VehicleService {
 
   private async toListDTO(vehicles: Vehicle[]): Promise<GetVehicleResponse[]> {
     const ownerIds = Array.from(new Set(vehicles.map((v) => v.getOwnerId())));
-    const profiles = await this.userRepository.findProfilesByIds(ownerIds);
-    const verifications = await this.identityService.getSummariesByUserIds(ownerIds);
-    const docStatuses = await this.documentStatusesByVehicle(vehicles.map((v) => v.getId()));
+    const [profiles, verifications, docStatuses] = await Promise.all([
+      this.userRepository.findProfilesByIds(ownerIds),
+      this.identityService.getSummariesByUserIds(ownerIds),
+      this.documentStatusesByVehicle(vehicles.map((v) => v.getId())),
+    ]);
     const owners = new Map<string, VehicleOwner>(
       profiles.map((p) => [p.id, this.profileToOwner(p, 0, verifications.get(p.id))]),
     );
@@ -307,17 +309,23 @@ export class VehicleService {
 
   private async toListDTOWithPromotion(vehicles: Vehicle[]): Promise<GetVehicleResponse[]> {
     const now = this.clock.now();
-    const active = await this.promotionRepository.findAllActive();
-    const promotedIds = new Set(active.filter((p) => !p.isExpired(now)).map((p) => p.vehicleId));
-
     const ownerIds = Array.from(new Set(vehicles.map((v) => v.getOwnerId())));
-    const profiles = await this.userRepository.findProfilesByIds(ownerIds);
-    const verifications = await this.identityService.getSummariesByUserIds(ownerIds);
-    const docStatuses = await this.documentStatusesByVehicle(vehicles.map((v) => v.getId()));
+    const vehicleIds = vehicles.map((v) => v.getId());
+
+    // Queries independientes entre sí — una sola tanda en paralelo en vez de
+    // encadenar round-trips secuenciales a la DB.
+    const [active, profiles, verifications, docStatuses, demand] = await Promise.all([
+      this.promotionRepository.findAllActive(),
+      this.userRepository.findProfilesByIds(ownerIds),
+      this.identityService.getSummariesByUserIds(ownerIds),
+      this.documentStatusesByVehicle(vehicleIds),
+      this.demandMultipliersByVehicle(vehicles),
+    ]);
+
+    const promotedIds = new Set(active.filter((p) => !p.isExpired(now)).map((p) => p.vehicleId));
     const owners = new Map<string, VehicleOwner>(
       profiles.map((p) => [p.id, this.profileToOwner(p, 0, verifications.get(p.id))]),
     );
-    const demand = await this.demandMultipliersByVehicle(vehicles);
 
     const sorted = [...vehicles].sort((a, b) => {
       const aPromoted = promotedIds.has(a.getId()) ? 1 : 0;
